@@ -30,7 +30,7 @@ module hvsync(
 //
 //6*10**6 /390 => 15384 
 parameter HBLANK_START  = 256;
-parameter HBLANK_END 	  = 0;   
+parameter HBLANK_END 	  = 0;  //390?  
 parameter HSYNC_START 	= HBLANK_START + 44; //le +94 ?? 
 parameter HSYNC_END 		= HBLANK_START + 44 + 11; //38.4  pourquoi pas un nombre pile pour avoir 64 us ?  
 parameter H_TOTAL			  = 390;

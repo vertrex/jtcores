@@ -226,6 +226,7 @@ reg [7:0] line_number;
 always @(posedge ~hblank) begin
   //if (vpos + 1 > 15  && vpos + 1 < 241) //16
  if (display_on)
+   //XXX 1 st pixel is down on y axis but only 1 one ????
     line_number <= vpos[7:0]; //fetch line advance ? don't seem needed any more @pixel clcok
 end
 

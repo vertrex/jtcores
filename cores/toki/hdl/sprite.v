@@ -97,7 +97,7 @@ reg is_used;
 
 jtframe_obj_buffer #(.DW(8),.AW(9), .ALPHAW(4), .BLANK_DLY(1)) obj_buffer(
   .clk(clk),
-  .LHBL(hblank), //swap buffer at each line (horizontal blank)
+  .LHBL(~hblank), //swap buffer at each line (horizontal blank)
   .flip(1'b0), //use flipx directly and replace line buffer index by x ? 
   
   .wr_data({color[3:0], plane_color[3:0]}), //in new data writes 
