@@ -20,17 +20,43 @@ module hvsync(
   output reg [8:0] vpos
 );
 
+//each line 
+//HSync - 15.31996kHz rapide 
+//Measured on DAC UEC-51 pin 13 
+//width 42.4us
+//period 64 us 
+//frequency 15.62khz 
+//duty cycle 66.25 
+//
+//6*10**6 /390 => 15384 
 parameter HBLANK_START  = 256;
 parameter HBLANK_END 	  = 0;   
-parameter HSYNC_START 	= HBLANK_START + 44;
-parameter HSYNC_END 		= HBLANK_START + 76;
+parameter HSYNC_START 	= HBLANK_START + 44; //le +94 ?? 
+parameter HSYNC_END 		= HBLANK_START + 44 + 11; //38.4  pourquoi pas un nombre pile pour avoir 64 us ?  
 parameter H_TOTAL			  = 390;
 
+//each frame
+//VSync - 59.6094Hz lent, devrait etre toute les 3 lignes et on a choisis
+//toute les 6 lignes 
+//6*10**6/(390*258) => 58.63 
+//MEASURE on board
+
+ //1/16.77 => 0.05963029218843172
+//16.77ms => 59.6302 
+//
+//(6*10**6)/(390*258)
+//59.630292188431724 (donc mame est ok sur 390*258)
+//
+//
+//59.61hz on SN74LS244N
+//width 683us
+//period 16.7753 
+//
 parameter VBLANK_START  = 240;
 parameter VBLANK_END		= 16;
-parameter VSYNC_START	  = VBLANK_START + 10;
+parameter VSYNC_START	  = VBLANK_START + 10; //il faut troyver le delta est le start
 parameter VSYNC_END		  = VBLANK_START + 13;
-parameter V_TOTAL			  = 258;
+parameter V_TOTAL			  = 258; //25]8
 
 initial begin
 	hpos = 9'b0;

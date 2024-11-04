@@ -99,7 +99,7 @@ parameter VRAM_PALETTE_OFFSET = 10'h100;
 
 wire       vram_used;
 wire [7:0] vram_line_buffer_out;
-reg  [7:0] vram_line_buffer_addr;
+reg  [7:0] vram_line_buffer_addr = 0;
 
 scan_char_ram vram_scan_char_ram_u(
   .clk(clk),
@@ -127,7 +127,7 @@ parameter BG1_PALETTE_OFFSET = 10'h200;
 
 wire       bg1_used;
 wire [7:0] bg1_line_buffer_out;
-reg  [7:0] bg1_line_buffer_addr = 0;
+reg  [7:0] bg1_line_buffer_addr;
 
 scan_tile_ram bg1_scan_tile_ram_u(
   .clk(clk),
@@ -158,7 +158,7 @@ parameter BG2_PALETTE_OFFSET = 10'h300;
 
 wire        bg2_used;
 wire [7:0]  bg2_line_buffer_out;
-reg  [7:0]  bg2_line_buffer_addr = 0;
+reg  [7:0]  bg2_line_buffer_addr;
 
 scan_tile_ram bg2_scan_tile_ram_u(
   .clk(clk),
@@ -187,13 +187,16 @@ scan_tile_ram bg2_scan_tile_ram_u(
 //
 wire        sprite_used;
 wire  [7:0] sprite_line_buffer_out;
-reg   [7:0] sprite_line_buffer_addr = 0;
+reg   [8:0] sprite_line_buffer_addr;
 
 scan_sprite_ram scan_sprite_ram_u(
   .clk(clk),
   .rst(rst),
 
-  .line_number(line_number),
+  .pxl_cen(pxl_cen),
+  .hblank(hblank),
+
+  .line_number(line_number + 1), //we calculate 1 line head because of buffering
 
   .ram_addr(sprite_addr),
   .ram_out(sprite_out),
@@ -204,8 +207,7 @@ scan_sprite_ram scan_sprite_ram_u(
   .gfx_rom_cs(gfx2_rom_cs),
 
   .line_buffer_addr(sprite_line_buffer_addr),
-  .line_buffer_out(sprite_line_buffer_out),
-  .used_out(sprite_used)
+  .line_buffer_out(sprite_line_buffer_out)
 );
 
 ///////// COLOR MIX & OUTPUT ////////////////////////////
@@ -220,25 +222,27 @@ scan_sprite_ram scan_sprite_ram_u(
 //
 reg [7:0] line_number;
 
-always @(posedge hblank) begin
-  if (vpos + 1 > 15  && vpos + 1 < 240)
-    line_number <= vpos[7:0] + 8'd1;
+//always @(posedge hblank) begin
+always @(posedge ~hblank) begin
+  //if (vpos + 1 > 15  && vpos + 1 < 241) //16
+ if (display_on)
+    line_number <= vpos[7:0]; //fetch line advance ? don't seem needed any more @pixel clcok
 end
 
 assign r = palette_out[3:0];
 assign g = palette_out[7:4];
 assign b = palette_out[11:8];
 
+//XXX always @(posedge pxl_cen) begin +1 ?
 always @(posedge clk) begin
   vram_line_buffer_addr <= hpos[7:0] - 8'b1;
   bg1_line_buffer_addr <= hpos[7:0] - 8'b1;
   bg2_line_buffer_addr <= hpos[7:0] - 8'b1;
-  sprite_line_buffer_addr <= hpos[7:0] - 8'b1;
-
-  if (display_on) begin
+  sprite_line_buffer_addr <= hpos; // 8'b1;
+  if (display_on) begin //-1 ?
     if (vram_line_buffer_out[3:0] != 'hf)
       palette_addr[10:1] <= {2'd0, vram_line_buffer_out} + VRAM_PALETTE_OFFSET;
-    else if (sprite_used == 1'b1)
+    else if (sprite_line_buffer_out[3:0] != 'hf) 
       palette_addr[10:1] <= {2'd0, sprite_line_buffer_out}; 
     else begin
       if (bg_order == 1'b0) begin

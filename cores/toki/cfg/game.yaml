@@ -18,6 +18,7 @@ jtframe:
     get:
       - jtframe_ram.v
       - jtframe_ram16.v
+      - jtframe_obj_buffer.v
   - from: sdram
     get:
       - jtframe_dwnld.v
@@ -32,6 +33,7 @@ jtframe:
       - jtframe_frac_cen.v
   - from: video
     get:
+      - jtframe_linebuf.v
       - jtframe_credits.v
   - from: sound
     get:

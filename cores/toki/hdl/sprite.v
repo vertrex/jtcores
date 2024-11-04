@@ -7,6 +7,9 @@ module scan_sprite_ram(
   input                 clk,
   input                 rst,
 
+  input                 pxl_cen,
+  input                 hblank,
+
   input           [7:0] line_number,
   
   output reg     [10:1] ram_addr,
@@ -17,17 +20,9 @@ module scan_sprite_ram(
   output reg     [19:1] gfx_rom_addr,
   output reg            gfx_rom_cs,
 
-  input           [7:0] line_buffer_addr,
-  output          [7:0] line_buffer_out,
- 
-  output                used_out
+  input           [8:0] line_buffer_addr,
+  output          [7:0] line_buffer_out
 );
-
-(* ramstyle = "no_rw_check" *)reg  [255:0] used = 256'b0;
-assign used_out = used[line_buffer_addr];
-
-(* ramstyle = "no_rw_check" *)reg [7:0] line_buffer [255:0];
-assign line_buffer_out = line_buffer[line_buffer_addr];
 
 /// STATE MACHINE
 reg [3:0]  state = 0;
@@ -40,6 +35,9 @@ parameter STATE_FETCH_ROM_WORDS = 4'd5;
 parameter STATE_COPY_ROM_WORDS = 4'd6;
 parameter STATE_COPY_PIXEL = 4'd7;
 parameter STATE_FINISHED = 4'd8;
+parameter STATE_LINE_BUFFER_INDEX = 4'd9;
+parameter STATE_PLANE_COLOR = 4'd10;
+parameter STATE_INC_PIXEL = 4'd13;
 
 reg  [7:0]  previous_line_number;
 
@@ -56,19 +54,61 @@ reg  [1:0] ram_words_index;
 reg [15:0] rom_words [3:0];
 reg  [1:0] rom_words_index;
 
-wire [15:0] plane1, plane2, plane3, plane4;
+reg [15:0] plane1, plane2, plane3, plane4;
 
-assign plane1[15:0] = {rom_words[3][15:12], rom_words[2][15:12], rom_words[1][15:12],  rom_words[0][15:12]};
-assign plane2[15:0] = { rom_words[3][11:8],  rom_words[2][11:8],  rom_words[1][11:8],   rom_words[0][11:8]};
-assign plane3[15:0] = {  rom_words[3][7:4],   rom_words[2][7:4],   rom_words[1][7:4],    rom_words[0][7:4]};
-assign plane4[15:0] = {  rom_words[3][3:0],   rom_words[2][3:0],   rom_words[1][3:0],    rom_words[0][3:0]};
+//assign plane1[15:0] = {rom_words[3][15:12], rom_words[2][15:12], rom_words[1][15:12],  rom_words[0][15:12]};
+//assign plane2[15:0] = { rom_words[3][11:8],  rom_words[2][11:8],  rom_words[1][11:8],   rom_words[0][11:8]};
+//assign plane3[15:0] = {  rom_words[3][7:4],   rom_words[2][7:4],   rom_words[1][7:4],    rom_words[0][7:4]};
+//assign plane4[15:0] = {  rom_words[3][3:0],   rom_words[2][3:0],   rom_words[1][3:0],    rom_words[0][3:0]};
 
-wire [8:0]  line_buffer_index;
-assign line_buffer_index[8:0] = flip_x ?  x[8:0] + 8'd15 - {5'b0, pix_index} : 
-                                          x[8:0] + {5'b0, pix_index};
+//wire [8:0]  line_buffer_index;
+//assign line_buffer_index[8:0] = flip_x ?  x[8:0] + 8'd15 - {5'b0, pix_index} : 
+                                          //x[8:0] + {5'b0, pix_index};
+reg [8:0] line_buffer_index;
+//wire [3:0]  plane_color;
+reg [3:0]  plane_color;
+//assign plane_color[3:0] = {plane1[pix_index], plane2[pix_index], plane3[pix_index], plane4[pix_index]};
 
-wire [3:0]  plane_color;
-assign plane_color[3:0] = {plane1[pix_index], plane2[pix_index], plane3[pix_index], plane4[pix_index]};
+//always @(posedge clk) begin
+  //line_buffer_index[8:0] <= flip_x ?  x[8:0] + 8'd15 - {5'b0, pix_index} : 
+                                          //x[8:0] + {5'b0, pix_index};
+//plane1[15:0] <= {rom_words[3][15:12], rom_words[2][15:12], rom_words[1][15:12],  rom_words[0][15:12]};
+//plane2[15:0] <= { rom_words[3][11:8],  rom_words[2][11:8],  rom_words[1][11:8],   rom_words[0][11:8]};
+//plane3[15:0] <= {  rom_words[3][7:4],   rom_words[2][7:4],   rom_words[1][7:4],    rom_words[0][7:4]};
+//plane4[15:0] <= {  rom_words[3][3:0],   rom_words[2][3:0],   rom_words[1][3:0],    rom_words[0][3:0]};
+//plane_color <= {plane1[pix_index], plane2[pix_index], plane3[pix_index], plane4[pix_index]};
+//end 
+
+//optmize  of pix_index_ index < 4 
+//rom_words[3][12 + pix_index], rom_words[3][8 + pix_index], rom_words[3][4+ pix_index], rom_words[3][pix_index]
+//if pix_index > 4 < 8 
+//rom_words rom_words[2] 
+//..
+//rom_words[1]
+//
+//rom_words[0]
+//
+//
+
+(* ramstyle = "no_rw_check" *)reg  [255:0] used = 256'b0;
+
+reg write_pixel;
+reg is_used;
+
+jtframe_obj_buffer #(.DW(8),.AW(9), .ALPHAW(4), .BLANK_DLY(1)) obj_buffer(
+  .clk(clk),
+  .LHBL(hblank), //swap buffer at each line (horizontal blank)
+  .flip(1'b0), //use flipx directly and replace line buffer index by x ? 
+  
+  .wr_data({color[3:0], plane_color[3:0]}), //in new data writes 
+  .wr_addr(line_buffer_index), //in new data addr
+  .we(write_pixel), //write_pixel),      //in new data enable
+
+  .rd_addr(line_buffer_addr),  //in read addr
+  .rd(pxl_cen),  //pxl cen  //~hblank ?or for each rd ?   //data will be erased after the rd event ! ??
+  .rd_data(line_buffer_out)  //output read data
+);
+
 
 always @(posedge clk, posedge rst) begin
     if (rst) begin
@@ -80,6 +120,7 @@ always @(posedge clk, posedge rst) begin
       rom_words_index <= 2'd0;
       ram_words_index <= 2'b0;
       ram_addr <= 10'h0;
+      write_pixel <= 1'b0; 
       state <= STATE_START;
       end
     else begin
@@ -87,6 +128,7 @@ always @(posedge clk, posedge rst) begin
       STATE_START : begin
         previous_line_number <= line_number;
         used[255:0] <= 256'b0;
+        write_pixel <= 1'b0; 
         pix_index <= 4'd0;
         rom_index <= 13'd0;
         rom_words_index <= 2'd0;
@@ -96,6 +138,7 @@ always @(posedge clk, posedge rst) begin
       end      
 
       STATE_FETCH_RAM_WORDS : begin
+         write_pixel <= 1'b0;
          ram_words[ram_words_index] <= ram_out[15:0];
          ram_addr <= ram_addr + 10'd1;
          state <= STATE_COPY_RAM_WORDS;
@@ -158,20 +201,52 @@ always @(posedge clk, posedge rst) begin
           else begin
             rom_words_index <= 0;
             pix_index <= 0;
-            state <= STATE_COPY_PIXEL;
+            state <= STATE_PLANE_COLOR;
             end
         end
       end
 
+      STATE_PLANE_COLOR:begin 
+        plane1[15:0] <= {rom_words[3][15:12], rom_words[2][15:12], rom_words[1][15:12],  rom_words[0][15:12]};
+        plane2[15:0] <= { rom_words[3][11:8],  rom_words[2][11:8],  rom_words[1][11:8],   rom_words[0][11:8]};
+        plane3[15:0] <= {  rom_words[3][7:4],   rom_words[2][7:4],   rom_words[1][7:4],    rom_words[0][7:4]};
+        plane4[15:0] <= {  rom_words[3][3:0],   rom_words[2][3:0],   rom_words[1][3:0],    rom_words[0][3:0]};
+        //plane_color <= {plane1[pix_index], plane2[pix_index], plane3[pix_index], plane4[pix_index]};
+        line_buffer_index <= flip_x ?  x[8:0] + 8'd15 - {5'b0, pix_index} :
+                                             x[8:0] + {5'b0, pix_index};
+        state <= STATE_LINE_BUFFER_INDEX;
+      end 
+
+      STATE_LINE_BUFFER_INDEX: begin
+        write_pixel <= 1'b0;
+        is_used <= used[line_buffer_index[7:0]]; 
+        plane_color <= {plane1[pix_index], plane2[pix_index], plane3[pix_index], plane4[pix_index]};
+        state <= STATE_COPY_PIXEL;
+      end
+    
+      //optimize copy only 1 rom words e
+      //very 4 pixel ... 
+      //:ather than copying the 4 rom words and the itterating over the 16
+      //pixel ?  
       STATE_COPY_PIXEL: begin
-        if ((line_buffer_index < 9'd256) && (plane_color != 15) && (used[line_buffer_index[7:0]] == 1'b0)) begin   
-          line_buffer[line_buffer_index[7:0]] <= {color[3:0], plane_color};
+      //< 256 we use a 8:) anyway now 
+        if (line_buffer_index < 9'd256 && plane_color != 4'hf &&  is_used == 1'b0) begin
+          // needed when two pixel on each other or scan ram from end ?
+          write_pixel <= 1'b1;
           used[line_buffer_index[7:0]] <= 1'b1;
           end
+        else
+          write_pixel <= 1'b0; 
+        state <= STATE_INC_PIXEL;
+        end 
 
+      STATE_INC_PIXEL: begin 
+        write_pixel <= 1'b0;
         if (pix_index < 15) begin
+          line_buffer_index <= flip_x ?  x[8:0] + 8'd15 - {5'b0, pix_index + 4'd1} :
+                                              x[8:0] + {5'b0, pix_index + 4'd1};
           pix_index <= pix_index + 4'd1;
-          state <= STATE_COPY_PIXEL; 
+          state <= STATE_LINE_BUFFER_INDEX; 
           end              
         else if (ram_addr == 'h3ff) 
           state <= STATE_FINISHED; 
@@ -180,6 +255,7 @@ always @(posedge clk, posedge rst) begin
       end
 
       STATE_FINISHED: begin
+        write_pixel <= 1'b0; 
         ram_addr <= 10'h0;
         if (previous_line_number != line_number)
           state <= STATE_START;
