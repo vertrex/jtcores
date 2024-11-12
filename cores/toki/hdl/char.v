@@ -58,13 +58,6 @@ reg  [7:0] previous_line_number;
 reg  [3:0] color;
 reg [11:0] rom_index; //4096 tiles 
 
-wire [7:0] plane1, plane2, plane3, plane4;
-
-assign plane1 = {first_rom_word[11:8],   first_rom_word[3:0]};  // low nibbles
-assign plane2 = {first_rom_word[15:12],  first_rom_word[7:4]};  // high nibbles
-assign plane3 = {second_rom_word[11:8],  second_rom_word[3:0]}; // low nibbles
-assign plane4 = {second_rom_word[15:12], second_rom_word[7:4]}; // high nibbles
-
 always @(posedge clk, posedge rst) begin
   if (rst) begin 
       tile_index <= 0;
@@ -84,7 +77,7 @@ always @(posedge clk, posedge rst) begin
         state <= STATE_WAIT_RAM; 
       end
 
-      STATE_WAIT_RAM: begin
+      STATE_WAIT_RAM: begin //if not there is a 8 pix shift ... XXX
         state <= STATE_FETCH_ROM; 
       end  
 
@@ -113,13 +106,30 @@ always @(posedge clk, posedge rst) begin
            state <= STATE_FETCH_PIXEL;
            end
       end
-      
+     
       STATE_FETCH_PIXEL:  begin
-        //8 bits : color 4 bits, 4 bits index 
-        if ({plane4[pix_index],plane3[pix_index],plane2[pix_index],plane1[pix_index]} != 'hf)
-          line_buffer[tile_index*8 + {2'b0, pix_index}] <= {color[3:0],{plane4[pix_index],plane3[pix_index],plane2[pix_index],plane1[pix_index]}};
-        else
-          line_buffer[tile_index*8 + {2'b0, pix_index}] <= 'hf;
+        //8 bits : color 4 bits, 4 bits index
+        //pix index         
+        //0 {second_rom_word[4], second_rom_word[0], first_rom_word[4], first_rom_word[0]}
+        //1 {second_rom_word[5], second_rom_word[1], first_rom_word[5], first_rom_word[1]}
+        //2 {second_rom_word[6], second_rom_word[2], first_rom_word[6], first_rom_word[2]}
+        //3 {second_rom_word[7], second_rom_word[3], first_rom_word[7], first_rom_word[3]}
+       
+        // 
+        //4 {second_rom_word[12], second_rom_word[8], first_rom_word[12], first_rom_word[8]}
+        //5 {second_rom_word[13], second_rom_word[9], first_rom_word[13], first_rom_word[9]}
+        //6 {second_rom_word[14], second_rom_word[10], first_rom_word[14], first_rom_word[10]}
+        //7 {second_rom_word[15], second_rom_word[11], first_rom_word[15], first_rom_word[11]}
+        
+        
+        if (pix_index < 4)
+          line_buffer[tile_index*8 + {2'b0, pix_index}] <= {color[3:0], {second_rom_word[pix_index + 4], second_rom_word[pix_index + 4'd0], first_rom_word[pix_index + 4], first_rom_word[pix_index + 4'd0]} };
+        else 
+          //XXX use 8 bits rom and do +1 rather than fetching two 16 bits 
+          line_buffer[tile_index*8 + {2'b0, pix_index}] <= {color[3:0], {second_rom_word[pix_index + 8], second_rom_word[pix_index + 4], first_rom_word[pix_index + 8], first_rom_word[pix_index + 4]} };
+
+        //if ({plane4[pix_index],plane3[pix_index],plane2[pix_index],plane1[pix_index]} == 'hf)
+          //line_buffer[tile_index*8 + {2'b0, pix_index}] <= 'hf;
         state <= STATE_NEXT_PIXEL;
       end
 
