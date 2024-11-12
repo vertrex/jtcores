@@ -11,7 +11,6 @@ module toki_main(
 
   // Clock
   input             clk,
-  input             clk48,
   input             pxl_cen,
   input             pxl2_cen,
 
@@ -114,7 +113,7 @@ wire dtack_n;
 wire int1;
 
 fx68k fx68k (
-    .clk(clk48),    // Input clock
+    .clk(clk),    // Input clock
     .enPhi1(cen10), // cpu clock 
     .enPhi2(cen10b), 
 
@@ -175,7 +174,7 @@ assign inta_n = ~&{cpu_fc[2], cpu_fc[1], cpu_fc[0], ~cpu_as_n};
 
 jtframe_virq u_virq(
     .rst        (rst),
-    .clk        (clk48),
+    .clk        (clk),
     .LVBL       (vblank),
     .dip_pause  (dip_pause), //handle cpu pause
     .skip_en    (),
@@ -203,7 +202,7 @@ wire bus_busy = |{cpu_rom_cs & ~cpu_rom_ok};
 
 jtframe_68kdtack_cen  u_dtack(
     .rst        (rst),
-    .clk        (clk48),
+    .clk        (clk),
     .cpu_cen    (cen10),
     .cpu_cenb   (cen10b),
     .bus_cs     (bus_cs),
@@ -222,7 +221,7 @@ jtframe_68kdtack_cen  u_dtack(
 );
 
 jtframe_68kdma #(.BW(1)) u_arbitration(
-    .clk        (clk48),
+    .clk        (clk),
     .cen        (cen10b),
     .rst        (rst),
     .cpu_BRn    (br_n),

@@ -11,7 +11,8 @@ module scan_sprite_ram(
   input                 hblank,
 
   input           [7:0] line_number,
-  
+ 
+  //XXX two ram chips to copy two words will be faster?
   output reg     [10:1] ram_addr,
   input          [15:0] ram_out,
 
@@ -33,11 +34,9 @@ parameter STATE_START_DECODING = 4'd3;
 parameter STATE_DECODING_CHECK = 4;
 parameter STATE_FETCH_ROM_WORDS = 4'd5;
 parameter STATE_COPY_ROM_WORDS = 4'd6;
+parameter STATE_PLANE_COLOR = 4'd10;
 parameter STATE_COPY_PIXEL = 4'd7;
 parameter STATE_FINISHED = 4'd8;
-parameter STATE_LINE_BUFFER_INDEX = 4'd9;
-parameter STATE_PLANE_COLOR = 4'd10;
-parameter STATE_INC_PIXEL = 4'd13;
 
 reg  [7:0]  previous_line_number;
 
@@ -48,57 +47,23 @@ reg  [8:0]  y;
 
 reg [12:0] rom_index; //0xFFF / 4096 tiles 
 
-reg  [3:0] pix_index;
+reg  [3:0] pix_index; //4*4 pix => 16 pix 
 reg [15:0] ram_words [3:0];
 reg  [1:0] ram_words_index;
-reg [15:0] rom_words [3:0];
+reg [15:0] rom_words;
 reg  [1:0] rom_words_index;
 
 reg [15:0] plane1, plane2, plane3, plane4;
 
-//assign plane1[15:0] = {rom_words[3][15:12], rom_words[2][15:12], rom_words[1][15:12],  rom_words[0][15:12]};
-//assign plane2[15:0] = { rom_words[3][11:8],  rom_words[2][11:8],  rom_words[1][11:8],   rom_words[0][11:8]};
-//assign plane3[15:0] = {  rom_words[3][7:4],   rom_words[2][7:4],   rom_words[1][7:4],    rom_words[0][7:4]};
-//assign plane4[15:0] = {  rom_words[3][3:0],   rom_words[2][3:0],   rom_words[1][3:0],    rom_words[0][3:0]};
-
-//wire [8:0]  line_buffer_index;
-//assign line_buffer_index[8:0] = flip_x ?  x[8:0] + 8'd15 - {5'b0, pix_index} : 
-                                          //x[8:0] + {5'b0, pix_index};
 reg [8:0] line_buffer_index;
-//wire [3:0]  plane_color;
 reg [3:0]  plane_color;
-//assign plane_color[3:0] = {plane1[pix_index], plane2[pix_index], plane3[pix_index], plane4[pix_index]};
-
-//always @(posedge clk) begin
-  //line_buffer_index[8:0] <= flip_x ?  x[8:0] + 8'd15 - {5'b0, pix_index} : 
-                                          //x[8:0] + {5'b0, pix_index};
-//plane1[15:0] <= {rom_words[3][15:12], rom_words[2][15:12], rom_words[1][15:12],  rom_words[0][15:12]};
-//plane2[15:0] <= { rom_words[3][11:8],  rom_words[2][11:8],  rom_words[1][11:8],   rom_words[0][11:8]};
-//plane3[15:0] <= {  rom_words[3][7:4],   rom_words[2][7:4],   rom_words[1][7:4],    rom_words[0][7:4]};
-//plane4[15:0] <= {  rom_words[3][3:0],   rom_words[2][3:0],   rom_words[1][3:0],    rom_words[0][3:0]};
-//plane_color <= {plane1[pix_index], plane2[pix_index], plane3[pix_index], plane4[pix_index]};
-//end 
-
-//optmize  of pix_index_ index < 4 
-//rom_words[3][12 + pix_index], rom_words[3][8 + pix_index], rom_words[3][4+ pix_index], rom_words[3][pix_index]
-//if pix_index > 4 < 8 
-//rom_words rom_words[2] 
-//..
-//rom_words[1]
-//
-//rom_words[0]
-//
-//
-
-(* ramstyle = "no_rw_check" *)reg  [255:0] used = 256'b0;
 
 reg write_pixel;
-reg is_used;
 
-jtframe_obj_buffer #(.DW(8),.AW(9), .ALPHAW(4), .BLANK_DLY(1)) obj_buffer(
+jtframe_obj_buffer #(.DW(8),.AW(9), .ALPHAW(4), .BLANK_DLY(1), .KEEP_OLD(1), .FLIP_OFFSET(4)) obj_buffer(
   .clk(clk),
   .LHBL(~hblank), //swap buffer at each line (horizontal blank)
-  .flip(1'b0), //use flipx directly and replace line buffer index by x ? 
+  .flip(1'b0), //flip whole screen ?
   
   .wr_data({color[3:0], plane_color[3:0]}), //in new data writes 
   .wr_addr(line_buffer_index), //in new data addr
@@ -109,11 +74,9 @@ jtframe_obj_buffer #(.DW(8),.AW(9), .ALPHAW(4), .BLANK_DLY(1)) obj_buffer(
   .rd_data(line_buffer_out)  //output read data
 );
 
-
 always @(posedge clk, posedge rst) begin
     if (rst) begin
       previous_line_number <= 8'd0;
-      used  <= 256'b0;
       flip_x <= 1'd0;
       pix_index <= 4'd0;
       rom_index <= 13'd0;
@@ -127,7 +90,6 @@ always @(posedge clk, posedge rst) begin
     case (state)
       STATE_START : begin
         previous_line_number <= line_number;
-        used[255:0] <= 256'b0;
         write_pixel <= 1'b0; 
         pix_index <= 4'd0;
         rom_index <= 13'd0;
@@ -149,25 +111,31 @@ always @(posedge clk, posedge rst) begin
            state <= STATE_FINISHED;
            end
         else begin
-          if (ram_words_index == 2'd3) begin
-           state <= STATE_START_DECODING;
-           ram_words_index <= 2'd0;
-           end
+          if (ram_words_index == 2'd0 && ram_words[0] == 'hf000)
+            state <= STATE_FINISHED;
+          else if (ram_words_index  == 2'd2 && ram_words[2] == 'hf000)
+            state <= STATE_FINISHED;
+          else if (ram_words_index == 2'd3) begin
+            state <= STATE_START_DECODING;
+            ram_words_index <= 2'd0;
+            end
           else begin
-           ram_words_index <= ram_words_index + 2'd1; 
-           state <= STATE_FETCH_RAM_WORDS;
+            ram_words_index <= ram_words_index + 2'd1; 
+            state <= STATE_FETCH_RAM_WORDS;
           end
         end
       end
 
       STATE_START_DECODING : begin
-         if ((ram_words[2] != 'hf000) && (ram_words[0] != 'hffff) && ({ram_words[2][15], ram_words[1][11:0]} != 13'b0)) begin
+         if (({ram_words[2][15], ram_words[1][11:0]} != 13'b0)) begin
            flip_x <= ram_words[0][8];
            color <= ram_words[1][15:12];
            rom_index[12:0] <= {ram_words[2][15], ram_words[1][11:0]};
            x[8:0] <= ram_words[2][8:0] + (ram_words[0][7:4] * 8'd16); 
            y[8:0] <= ram_words[3][8:0] + (ram_words[0][3:0] * 8'd16);
            rom_words_index <= 2'd0;
+           pix_index <= 0;
+           // check  here ? 
            state <= STATE_DECODING_CHECK;
            end
          else
@@ -175,13 +143,15 @@ always @(posedge clk, posedge rst) begin
       end
 
       STATE_DECODING_CHECK: begin
-         if (({1'b0, line_number} >= y && {1'b0, line_number} <= y + 15) && (x < 256 || x[8:0] > 9'd497)) 
+        if (({1'b0, line_number} >= y && {1'b0, line_number} <= y + 15) && (x < 256 || x[8:0] > 9'd497)) begin
            state <= STATE_FETCH_ROM_WORDS;
+           end 
          else 
            state <= STATE_FETCH_RAM_WORDS;
       end
 
       STATE_FETCH_ROM_WORDS : begin
+        write_pixel <= 1'b0;
         if (rom_words_index <= 1)
           gfx_rom_addr[19:1] <= rom_index[12:0]*19'd64 + (({11'b0, line_number} - {10'b0, y})*19'd2) + ({17'b0, rom_words_index});
         else
@@ -192,61 +162,39 @@ always @(posedge clk, posedge rst) begin
 
       STATE_COPY_ROM_WORDS : begin 
         if (gfx_rom_ok)  begin
-          rom_words[rom_words_index] <= gfx_rom_data[15:0];
+          rom_words <= gfx_rom_data[15:0];
           gfx_rom_cs <= 1'b0;
-          if (rom_words_index < 3) begin
-            rom_words_index <= rom_words_index + 2'd1; 
-            state <= STATE_FETCH_ROM_WORDS;
-            end
-          else begin
-            rom_words_index <= 0;
-            pix_index <= 0;
-            state <= STATE_PLANE_COLOR;
-            end
-        end
+          //prefetch next rom addr so it won't ait to much time ? 
+          state <= STATE_PLANE_COLOR;
+          end
       end
 
-      STATE_PLANE_COLOR:begin 
-        plane1[15:0] <= {rom_words[3][15:12], rom_words[2][15:12], rom_words[1][15:12],  rom_words[0][15:12]};
-        plane2[15:0] <= { rom_words[3][11:8],  rom_words[2][11:8],  rom_words[1][11:8],   rom_words[0][11:8]};
-        plane3[15:0] <= {  rom_words[3][7:4],   rom_words[2][7:4],   rom_words[1][7:4],    rom_words[0][7:4]};
-        plane4[15:0] <= {  rom_words[3][3:0],   rom_words[2][3:0],   rom_words[1][3:0],    rom_words[0][3:0]};
-        //plane_color <= {plane1[pix_index], plane2[pix_index], plane3[pix_index], plane4[pix_index]};
+      STATE_PLANE_COLOR:begin
+        //use rom_words index to know which rom words to know which offset
+        //from current pixel ? 
+        //read directly the 4 pixel so it goes in 1 cycle ?
+        //rather than 4 ? 
+        //pixel 1 2,3,4 
+        //pix_index - (rom_words_index * 4)
+        // write directly 32 bits 4 pixel in obj_buffer ? 
+        // XXX 
+        plane_color <= {rom_words[pix_index - (rom_words_index*4)+ 12], rom_words[pix_index - (rom_words_index*4) + 8], rom_words[pix_index - (rom_words_index*4) + 4], rom_words[pix_index - (rom_words_index*4)]};
+        write_pixel <= 1'b0;
         line_buffer_index <= flip_x ?  x[8:0] + 8'd15 - {5'b0, pix_index} :
                                              x[8:0] + {5'b0, pix_index};
-        state <= STATE_LINE_BUFFER_INDEX;
+        state <= STATE_COPY_PIXEL;
       end 
 
-      STATE_LINE_BUFFER_INDEX: begin
-        write_pixel <= 1'b0;
-        is_used <= used[line_buffer_index[7:0]]; 
-        plane_color <= {plane1[pix_index], plane2[pix_index], plane3[pix_index], plane4[pix_index]};
-        state <= STATE_COPY_PIXEL;
-      end
-    
-      //optimize copy only 1 rom words e
-      //very 4 pixel ... 
-      //:ather than copying the 4 rom words and the itterating over the 16
-      //pixel ?  
-      STATE_COPY_PIXEL: begin
-      //< 256 we use a 8:) anyway now 
-        if (line_buffer_index < 9'd256 && plane_color != 4'hf &&  is_used == 1'b0) begin
-          // needed when two pixel on each other or scan ram from end ?
-          write_pixel <= 1'b1;
-          used[line_buffer_index[7:0]] <= 1'b1;
-          end
-        else
-          write_pixel <= 1'b0; 
-        state <= STATE_INC_PIXEL;
-        end 
-
-      STATE_INC_PIXEL: begin 
-        write_pixel <= 1'b0;
+      STATE_COPY_PIXEL: begin 
+        write_pixel <= 1'b1;
         if (pix_index < 15) begin
-          line_buffer_index <= flip_x ?  x[8:0] + 8'd15 - {5'b0, pix_index + 4'd1} :
-                                              x[8:0] + {5'b0, pix_index + 4'd1};
           pix_index <= pix_index + 4'd1;
-          state <= STATE_LINE_BUFFER_INDEX; 
+          if (pix_index + 1 == 4 || pix_index + 1 == 8 || pix_index + 1 == 12) begin
+            rom_words_index <= rom_words_index + 1;
+            state <= STATE_FETCH_ROM_WORDS;
+          end 
+          else 
+            state <= STATE_PLANE_COLOR; 
           end              
         else if (ram_addr == 'h3ff) 
           state <= STATE_FINISHED; 

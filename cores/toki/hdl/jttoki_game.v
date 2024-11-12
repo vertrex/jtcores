@@ -84,7 +84,6 @@ toki_main  u_main(
 
   // Clock
   .clk(clk),
-  .clk48(clk48),
   .pxl_cen(pxl_cen),
   .pxl2_cen(pxl2_cen),
 
@@ -231,7 +230,6 @@ toki_video u_video(
 toki_sound u_sound(
   .rst(rst),
   .clk(clk),
-  .clk48(clk48),
 
   .oki_cen(oki_cen),
 

@@ -39,7 +39,6 @@
 module toki_sound(
   input             rst,
   input             clk,
-  input             clk48,
 
   input             oki_cen,
 
@@ -127,7 +126,7 @@ wire       z80_mreq_n;
 wire       z80_wait_n;
 
 sei80bu u_sei80bu(
-  .clk(clk48),
+  .clk(clk),
   .z80_rom_addr({3'd0, z80_rom_addr}),
   .z80_rom_data(z80_rom_data),
   .z80_rom_ok(z80_rom_ok), 
@@ -144,7 +143,7 @@ sei80bu u_sei80bu(
 wire cen_fm, cen_fm2;
 
 jtframe_cen3p57 u_fmcen(
-    .clk(clk48),      // 48 MHz
+    .clk(clk),      // 48 MHz
     .cen_3p57(cen_fm),
     .cen_1p78(cen_fm2)
 );
@@ -201,7 +200,7 @@ wire ym3812_irq_n;
 
 jtframe_z80 u_z80(
     .rst_n(~rst),
-    .clk(clk48),
+    .clk(clk),
     .cen(cen_fm),
 
     .wait_n(wait_n),
@@ -231,7 +230,7 @@ jtframe_z80 u_z80(
 reg oki6295_irq_n;
 reg sub2main_pending;
 
-always @(posedge clk, posedge rst) begin //XXX speed must be same than 68k din ?
+always @(posedge clk, posedge rst) begin
   if (rst) begin
     z80_sound_latch_0 <= 16'b0;
     z80_sound_latch_1 <= 16'b0;
@@ -293,26 +292,29 @@ always @(posedge clk, posedge rst) begin
     end
   else begin
     if (clk) begin
-      if (~irq_ack & stop_irq_10) begin
+      if (irq_ack & irq_rst10)
+        stop_irq_10 <= 1'b1;
+      else if (~irq_ack & stop_irq_10) begin
         irq_rst10 <= 1'b0;
         stop_irq_10 <= 1'b0;
         end
+      else if (ym3812_irq_n == 1'b0)
+        irq_rst10 <= 1'b1;
+
+
+      if (irq_ack & irq_rst18)
+        stop_irq_18 <= 1'b1;
       else if (~irq_ack & stop_irq_18) begin
         stop_irq_18 <= 1'b0;
         irq_rst18 <= 1'b0;
         end
-      else if (ym3812_irq_n == 1'b0)
-        irq_rst10 <= 1'b1;
       else if (oki6295_irq_n == 1'b0) //~m68k_sound_cs_4
         irq_rst18 <= 1'b1;
-          
-      if (irq_ack & irq_rst10)
-        stop_irq_10 <= 1'b1;
-      else if (irq_ack & irq_rst18)
-        stop_irq_18 <= 1'b1;
 
-      z80_din <= irq_ack & irq_rst10                      ? 8'hd7 : 
-                 irq_ack & irq_rst18                      ? 8'hdf :
+
+
+      z80_din <= irq_ack & irq_rst10                      ? 8'hd7 : //music  
+                 irq_ack & irq_rst18                      ? 8'hdf : //pcm 
                  main_data_pending_cs &  sub2main_pending ? 8'b1  :
                  main_data_pending_cs & ~sub2main_pending ? 8'b0 :
                  ym_cs_0 & ~z80_rd_n                      ? ym3812_dout :
@@ -359,7 +361,7 @@ assign pcm_rom_addr = { adpcm_rom_addr[16], adpcm_rom_addr[13], adpcm_rom_addr[1
 
 jt6295 #(.INTERPOL(1))  u_adpcm(
     .rst(rst),
-    .clk(clk48),
+    .clk(clk),
     .cen(oki_cen),
     .ss(1'b1), // pin7 high, select low sample rate
      //CPU interface
@@ -385,7 +387,7 @@ wire opl_sample;
 
 jtopl2   u_YM3812(
     .rst(rst),
-    .clk(clk48),
+    .clk(clk),
     .cen(cen_fm),
     .din(z80_dout),
     .addr(ym_cs_1), // cmd addr 
@@ -410,8 +412,8 @@ jtopl2   u_YM3812(
 reg [7:0] fx_volume;
 reg [7:0] fm_volume;
 
-always @(posedge clk48)  begin //posedge clk ?
-  if (clk48) begin
+always @(posedge clk)  begin //posedge clk ?
+  if (clk) begin
    fm_volume <=  ~enable_fm ? 8'h00 : 8'h10; 
    fx_volume <=  ~enable_psg ? 8'h00 : 
                         (fxlevel == 2'h0) ? 8'h08 : 
@@ -423,7 +425,7 @@ end
 
 jtframe_mixer #(.W1(14)) u_mixer(
     .rst(rst),
-    .clk(clk48),
+    .clk(clk),
     .cen(1'b1),
     // input signals
     .ch0(opl_snd[15:0]), // fm 
