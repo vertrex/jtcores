@@ -44,10 +44,20 @@ module toki_video(
   input      [15:0] sprite_out,
 
   // ROM data
-  input      [15:0] gfx1_rom_data,
-  input             gfx1_rom_ok,
-  output     [16:1] gfx1_rom_addr,
-  output            gfx1_rom_cs,
+  //input      [15:0] gfx1_rom_data,
+  //input             gfx1_rom_ok,
+  //output     [16:1] gfx1_rom_addr,
+  //output            gfx1_rom_cs,
+  //
+  input       [15:0] char_rom_1_data,
+  input             char_rom_1_ok,
+  output     [15:1] char_rom_1_addr,
+  output            char_rom_1_cs,
+
+  input       [15:0] char_rom_2_data,
+  input             char_rom_2_ok,
+  output     [15:1] char_rom_2_addr,
+  output            char_rom_2_cs,
 
   input      [15:0] gfx2_rom_data,
   input             gfx2_rom_ok,
@@ -91,6 +101,8 @@ hvsync u_hvsync(
   .vpos(vpos)
 );
 
+reg [7:0] line_number;
+
 ///////// CHAR DRAWING //////////
 //
 // char : 8x8 tile 
@@ -110,10 +122,19 @@ scan_char_ram vram_scan_char_ram_u(
   .ram_addr(vram_addr),
   .ram_out(vram_out),
 
-  .gfx_rom_data(gfx1_rom_data),
-  .gfx_rom_ok(gfx1_rom_ok),
-  .gfx_rom_addr(gfx1_rom_addr),
-  .gfx_rom_cs(gfx1_rom_cs),
+  //.gfx_rom_data(gfx1_rom_data),
+  //.gfx_rom_ok(gfx1_rom_ok),
+  //.gfx_rom_addr(gfx1_rom_addr),
+  //.gfx_rom_cs(gfx1_rom_cs),
+  .char_rom_1_data(char_rom_1_data),
+  .char_rom_1_ok(char_rom_1_ok),
+  .char_rom_1_addr(char_rom_1_addr),
+  .char_rom_1_cs(char_rom_1_cs),
+
+  .char_rom_2_data(char_rom_2_data),
+  .char_rom_2_ok(char_rom_2_ok),
+  .char_rom_2_addr(char_rom_2_addr),
+  .char_rom_2_cs(char_rom_2_cs),
 
   .line_buffer_addr(vram_line_buffer_addr),
   .line_buffer_out(vram_line_buffer_out)
@@ -220,7 +241,6 @@ scan_sprite_ram scan_sprite_ram_u(
 // get pixel final color from the palette
 // output the pixel to the screen
 //
-reg [7:0] line_number;
 
 //always @(posedge hblank) begin
 always @(posedge hblank) begin

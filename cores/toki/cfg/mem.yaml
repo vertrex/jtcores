@@ -1,11 +1,16 @@
 params:
   # gfx bank 1
   - { name: GFX_1_OFFSET,     value:  "22'h30000" } #divide by 2 for 16 bits ram 
-  - { name: CHAR_1_OFFSET,     value:  "22'h30000" } #divide by 2 for 16 bits ram 
-  - { name: CHAR_2_OFFSET,     value:  "22'h35000" } #divide by 2 for 16 bits ram 
+  #- { name: CHAR_1_OFFSET,     value: "22'h30000" } #divide by 2 for 16 bits ram 
+  #- { name: CHAR_1_OFFSET,     value: "22'h8000" } #divide by 2 for 16 bits ram 
+  #- { name: CHAR_2_OFFSET,     value:  "22'h38000" } #divide by 2 for 16 bits ram 
+  - { name: CHAR_2_OFFSET,     value:  "22'h8000" } #divide by 2 for 16 bits ram 
   - { name: GFX_2_OFFSET,     value:  "22'h40000" }
-  - { name: GFX_3_OFFSET,     value:  "22'hc0000" }
-  - { name: GFX_4_OFFSET,     value:  "22'h100000"}
+  - { name: GFX_3_OFFSET,     value : "22'h80000"}
+  - { name: GFX_4_OFFSET,     value: "22'hc0000"}
+
+  #- { name: GFX_3_OFFSET,     value:  "22'hc0000" }
+  #- { name: GFX_4_OFFSET,     value:  "22'h100000"}
   #audio bank 1
   - { name: BANK_OFFSET,      value: "22'h1000" } # start after 8.m3 (2nd bank start at + BA1_START )
   - { name: OKI_OFFSET,       value: "22'h9000" } # start at 8.m3 + 7.m7 / 2 
@@ -68,23 +73,24 @@ sdram:
         - name: cpu_rom 
           addr_width: 19
           data_width: 16
-        - name: gfx1_rom
-          addr_width: 17
-          data_width: 16
-          offset : GFX_1_OFFSET
-        #- name: char_rom_1 
+        #- name: gfx1_rom
           #addr_width: 17
-          #data_width: 8 # 8 bits 
+          #data_width: 16
+          #offset : GFX_1_OFFSET
+    - buses: 
+        - name: char_rom_1 
+          addr_width: 16
+          data_width: 16 # 8 bits 
           #offset : CHAR_1_OFFSET
-        #- name: char_rom_2 
-          #addr_width: 17
-          #data_width: 8 
-          #offset : CHAR_2_OFFSET
-
+        - name: char_rom_2 
+          addr_width: 16
+          data_width: 16 
+          offset : CHAR_2_OFFSET
+    - buses: 
         - name: gfx2_rom
           addr_width: 20
           data_width: 16
-          offset : GFX_2_OFFSET
+          #offset : GFX_2_OFFSET
         - name: gfx3_rom
           addr_width: 19
           data_width: 16
