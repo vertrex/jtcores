@@ -30,14 +30,14 @@ module scan_char_ram(
   //output reg     [16:1] gfx_rom_addr,
   //output reg            gfx_rom_cs,
 
-  input           [15:0] char_rom_1_data,
+  input           [7:0] char_rom_1_data,
   input                 char_rom_1_ok,
-  output reg     [15:1] char_rom_1_addr,
+  output reg     [15:0] char_rom_1_addr,
   output reg            char_rom_1_cs,
 
-  input           [15:0] char_rom_2_data,
+  input           [7:0] char_rom_2_data,
   input                 char_rom_2_ok,
-  output reg     [15:1] char_rom_2_addr,
+  output reg     [15:0] char_rom_2_addr,
   output reg            char_rom_2_cs,
 
 
@@ -53,27 +53,24 @@ reg [3:0]  state = 4'd0;
 
 parameter STATE_START = 4'd0;
 parameter STATE_FETCH_RAM  = 4'd1;
-parameter STATE_COPY_ROM_WORDS = 4'd2;
-//parameter STATE_COPY_SECOND_ROM_WORD = 4'd3;
+parameter STATE_FETCH_ROM = 4'd2;
+parameter STATE_FETCH_NEXT_ROM = 4'd3;
 parameter STATE_FETCH_PIXEL = 4'd4;
 parameter STATE_FINISHED = 4'd5;
 parameter STATE_NEXT_PIXEL = 4'd6;
 parameter STATE_WAIT_RAM = 4'd7;
-parameter STATE_FETCH_ROM = 4'd8;
 
 reg  [4:0] tile_index;
-reg [15:0] first_rom_word;
-reg [15:0] second_rom_word;
 reg  [2:0] pix_index;
 reg  [7:0] previous_line_number;
 
 reg  [3:0] color;
-reg [11:0] rom_index; //4096 tiles 
 
 always @(posedge clk, posedge rst) begin
   if (rst) begin 
       tile_index <= 0;
       pix_index <= 0;
+      ram_addr <= 0;
       state <= STATE_START;
       end
   else begin  
@@ -94,56 +91,39 @@ always @(posedge clk, posedge rst) begin
       end  
 
       STATE_FETCH_ROM: begin
-        rom_index[11:0] <= ram_out[11:0];
         color[3:0] <= ram_out[15:12];
-        char_rom_1_addr[15:1] <= (ram_out[11:0]*15'd8) + ({7'h0, line_number}%15'd8);
-        char_rom_2_addr[15:1] <= (ram_out[11:0]*15'd8) + ({7'h0, line_number}%15'd8);
+        char_rom_1_addr[15:0] <= (ram_out[11:0]*16'd8)*2 + (({8'h0, line_number}%16'd8) *2);
+        char_rom_2_addr[15:0] <= (ram_out[11:0]*16'd8)*2 + (({8'h0, line_number}%16'd8) *2);
         char_rom_1_cs <= 1'b1;
         char_rom_2_cs <= 1'b1;
-        state <= STATE_COPY_ROM_WORDS;
+        pix_index <= 3'b0;
+        state <= STATE_FETCH_PIXEL;
       end  
 
-      STATE_COPY_ROM_WORDS: begin 
-       if (char_rom_1_ok & char_rom_2_ok) begin 
-          char_rom_1_cs <= 1'b0;
-          char_rom_2_cs <= 1'b0;
-          ///XXX no need to copy ... ?
-          first_rom_word[15:0] <= char_rom_1_data[15:0];
-          second_rom_word[15:0] <= char_rom_2_data[15:0]; 
-          pix_index <= 3'b0;
-          state <= STATE_FETCH_PIXEL;
-          end
-      end
+      STATE_FETCH_NEXT_ROM: begin
+        char_rom_1_cs <= 1'b1;
+        char_rom_2_cs <= 1'b1;
+        char_rom_1_addr[15:0] <= char_rom_1_addr + 1;
+        char_rom_2_addr[15:0] <= char_rom_2_addr + 1;
+        state <= STATE_FETCH_PIXEL;
+      end  
 
       STATE_FETCH_PIXEL:  begin
-        //8 bits : color 4 bits, 4 bits index
-        //pix index         
-        //0 {second_rom_word[4], second_rom_word[0], first_rom_word[4], first_rom_word[0]}
-        //1 {second_rom_word[5], second_rom_word[1], first_rom_word[5], first_rom_word[1]}
-        //2 {second_rom_word[6], second_rom_word[2], first_rom_word[6], first_rom_word[2]}
-        //3 {second_rom_word[7], second_rom_word[3], first_rom_word[7], first_rom_word[3]}
-       
-        // 
-        //4 {second_rom_word[12], second_rom_word[8], first_rom_word[12], first_rom_word[8]}
-        //5 {second_rom_word[13], second_rom_word[9], first_rom_word[13], first_rom_word[9]}
-        //6 {second_rom_word[14], second_rom_word[10], first_rom_word[14], first_rom_word[10]}
-        //7 {second_rom_word[15], second_rom_word[11], first_rom_word[15], first_rom_word[11]}
-        
-        if (pix_index < 4)
-          line_buffer[tile_index*8 + {2'b0, pix_index}] <= {color[3:0], {second_rom_word[pix_index + 4], second_rom_word[pix_index + 4'd0], first_rom_word[pix_index + 4], first_rom_word[pix_index + 4'd0]} };
-        else 
-          //XXX use 8 bits rom and do +1 rather than fetching two 16 bits 
-          line_buffer[tile_index*8 + {2'b0, pix_index}] <= {color[3:0], {second_rom_word[pix_index + 8], second_rom_word[pix_index + 4], first_rom_word[pix_index + 8], first_rom_word[pix_index + 4]} };
-
-        //if ({plane4[pix_index],plane3[pix_index],plane2[pix_index],plane1[pix_index]} == 'hf)
-          //line_buffer[tile_index*8 + {2'b0, pix_index}] <= 'hf;
-        state <= STATE_NEXT_PIXEL;
+       if (char_rom_1_ok & char_rom_2_ok) begin 
+          //char_rom_1_cs <= 1'b0; //must be held high during read or need to
+          //char_rom_2_cs <= 1'b0;
+        line_buffer[tile_index*8 + {2'b0, pix_index}] <= {color[3:0], {char_rom_2_data[pix_index%4 + 4], char_rom_2_data[pix_index%4], char_rom_1_data[pix_index%4 + 4], char_rom_1_data[pix_index%4]} };
+          state <= STATE_NEXT_PIXEL;
+        end
       end
 
       STATE_NEXT_PIXEL: begin
         if (pix_index < 3'd7) begin
-          pix_index <= pix_index + 2'd1;
-          state <= STATE_FETCH_PIXEL;
+          pix_index <= pix_index + 3'd1;
+          if (pix_index + 3'd1 == 4)
+            state <= STATE_FETCH_NEXT_ROM;
+          else  
+            state <= STATE_FETCH_PIXEL;
           end
         else if (pix_index == 7) begin
           if (tile_index == 31)

@@ -80,11 +80,11 @@ sdram:
     - buses: 
         - name: char_rom_1 
           addr_width: 16
-          data_width: 16 # 8 bits 
+          data_width: 8 # 8 bits 
           #offset : CHAR_1_OFFSET
         - name: char_rom_2 
           addr_width: 16
-          data_width: 16 
+          data_width: 8 
           offset : CHAR_2_OFFSET
     - buses: 
         - name: gfx2_rom

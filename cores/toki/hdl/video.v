@@ -49,14 +49,14 @@ module toki_video(
   //output     [16:1] gfx1_rom_addr,
   //output            gfx1_rom_cs,
   //
-  input       [15:0] char_rom_1_data,
+  input       [7:0] char_rom_1_data,
   input             char_rom_1_ok,
-  output     [15:1] char_rom_1_addr,
+  output     [15:0] char_rom_1_addr,
   output            char_rom_1_cs,
 
-  input       [15:0] char_rom_2_data,
+  input       [7:0] char_rom_2_data,
   input             char_rom_2_ok,
-  output     [15:1] char_rom_2_addr,
+  output     [15:0] char_rom_2_addr,
   output            char_rom_2_cs,
 
   input      [15:0] gfx2_rom_data,
