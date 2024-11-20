@@ -18,137 +18,62 @@
 //
 module scan_char_ram(
   input                 clk,
+  input                 pxl_cen,
   input                 rst,
 
-  input           [7:0] line_number,
+  input           [8:0] line_number,
+  input           [8:0] pos, 
 
   output reg     [10:1] ram_addr,
   input          [15:0] ram_out,
 
-  //input          [15:0] gfx_rom_data,
-  //input                 gfx_rom_ok,
-  //output reg     [16:1] gfx_rom_addr,
-  //output reg            gfx_rom_cs,
+  input          [15:0] char_rom_data,
+  input                 char_rom_ok,
+  output reg     [16:1] char_rom_addr,
 
-  input           [7:0] char_rom_1_data,
-  input                 char_rom_1_ok,
-  output reg     [15:0] char_rom_1_addr,
-  output reg            char_rom_1_cs,
-
-  input           [7:0] char_rom_2_data,
-  input                 char_rom_2_ok,
-  output reg     [15:0] char_rom_2_addr,
-  output reg            char_rom_2_cs,
-
-
-
-  input           [7:0] line_buffer_addr,
-  output          [7:0] line_buffer_out
+  output reg      [7:0] pixel
 );
 
-(* ramstyle = "no_rw_check" *)reg [7:0] line_buffer [255:0];
-assign line_buffer_out = line_buffer[line_buffer_addr];
+reg [1:0]  pix_index;
+reg [3:0]  color;
+reg [15:0] rom;
 
-reg [3:0]  state = 4'd0;
+always @(posedge pxl_cen) begin 
+  if (~pos[8]) begin
+    pixel <= {color[3:0], {rom[{2'b11, pix_index}], rom[{2'b10, pix_index}], rom[{2'b01, pix_index}], rom[{2'b0, pix_index}] }};
+  end 
+end 
 
-parameter STATE_START = 4'd0;
-parameter STATE_FETCH_RAM  = 4'd1;
-parameter STATE_FETCH_ROM = 4'd2;
-parameter STATE_FETCH_NEXT_ROM = 4'd3;
-parameter STATE_FETCH_PIXEL = 4'd4;
-parameter STATE_FINISHED = 4'd5;
-parameter STATE_NEXT_PIXEL = 4'd6;
-parameter STATE_WAIT_RAM = 4'd7;
+wire [8:0] hpos;
+assign hpos = pos[8:0] + 8'd4; //we start 4 pix before to prefetch char rom
 
-reg  [4:0] tile_index;
-reg  [2:0] pix_index;
-reg  [7:0] previous_line_number;
+always @(posedge clk,  posedge rst) begin 
+  if (rst) begin
+    pix_index <= 0; 
+    color[3:0] <= 4'd0;
+    rom <= 16'd0;
+    end 
+  else if (clk) begin 
+    if (~pos[8]) begin 
+      pix_index <= hpos[1:0]; 
 
-reg  [3:0] color;
+      if (hpos[2:0] == 3'd0 || hpos[2:0] == 3'd4) begin 
+        if (char_rom_ok) begin 
+          color[3:0] <= ram_out[15:12];
+          rom[15:0] <= char_rom_data[15:0]; 
+          end 
+      end 
 
-always @(posedge clk, posedge rst) begin
-  if (rst) begin 
-      tile_index <= 0;
-      pix_index <= 0;
-      ram_addr <= 0;
-      state <= STATE_START;
-      end
-  else begin  
-    case (state)
-      STATE_START : begin
-        tile_index <= 0;
-        pix_index <= 0;
-        state <= STATE_FETCH_RAM;
-      end
-
-      STATE_FETCH_RAM: begin
-        ram_addr[10:1] <= (({2'b0, line_number}/10'd8)*10'd32) + {5'b0, tile_index[4:0]};
-        state <= STATE_WAIT_RAM; 
-      end
-
-      STATE_WAIT_RAM: begin //if not there is a 8 pix shift ... XXX
-        state <= STATE_FETCH_ROM; 
-      end  
-
-      STATE_FETCH_ROM: begin
-        color[3:0] <= ram_out[15:12];
-        char_rom_1_addr[15:0] <= (ram_out[11:0]*16'd8)*2 + (({8'h0, line_number}%16'd8) *2);
-        char_rom_2_addr[15:0] <= (ram_out[11:0]*16'd8)*2 + (({8'h0, line_number}%16'd8) *2);
-        char_rom_1_cs <= 1'b1;
-        char_rom_2_cs <= 1'b1;
-        pix_index <= 3'b0;
-        state <= STATE_FETCH_PIXEL;
-      end  
-
-      STATE_FETCH_NEXT_ROM: begin
-        char_rom_1_cs <= 1'b1;
-        char_rom_2_cs <= 1'b1;
-        char_rom_1_addr[15:0] <= char_rom_1_addr + 1;
-        char_rom_2_addr[15:0] <= char_rom_2_addr + 1;
-        state <= STATE_FETCH_PIXEL;
-      end  
-
-      STATE_FETCH_PIXEL:  begin
-       if (char_rom_1_ok & char_rom_2_ok) begin 
-          //char_rom_1_cs <= 1'b0; //must be held high during read or need to
-          //char_rom_2_cs <= 1'b0;
-        line_buffer[tile_index*8 + {2'b0, pix_index}] <= {color[3:0], {char_rom_2_data[pix_index%4 + 4], char_rom_2_data[pix_index%4], char_rom_1_data[pix_index%4 + 4], char_rom_1_data[pix_index%4]} };
-          state <= STATE_NEXT_PIXEL;
+      if (hpos[2:0] > 0 && hpos[2:0]  <= 3'd3) begin
+        ram_addr[10:1] <= {line_number[7:3], hpos[7:3]};
+        char_rom_addr[16:1] <= {ram_out[11:0], line_number[2:0], 1'd0};
         end
-      end
-
-      STATE_NEXT_PIXEL: begin
-        if (pix_index < 3'd7) begin
-          pix_index <= pix_index + 3'd1;
-          if (pix_index + 3'd1 == 4)
-            state <= STATE_FETCH_NEXT_ROM;
-          else  
-            state <= STATE_FETCH_PIXEL;
-          end
-        else if (pix_index == 7) begin
-          if (tile_index == 31)
-            state <= STATE_FINISHED;
-          else begin
-            tile_index <= tile_index + 1'b1; 
-            state <= STATE_FETCH_RAM;
-            end
-          end
-      end
-
-      STATE_FINISHED: begin
-        if (previous_line_number != line_number) begin
-          tile_index <= 0;
-          pix_index <= 0;
-          state <= STATE_START;
-          end
-        previous_line_number <= line_number;
-      end
-    
-     default : 
-       state <= STATE_FINISHED;
-
-    endcase 
+      else if (hpos[2:0] >= 3'd5) begin 
+        ram_addr[10:1] <= {line_number[7:3], hpos[7:3]};
+        char_rom_addr[16:1] <= {ram_out[11:0], line_number[2:0], 1'd1};
+        end 
     end
-end
+  end
+end 
 
 endmodule

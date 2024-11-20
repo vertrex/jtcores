@@ -48,16 +48,20 @@ module toki_video(
   //input             gfx1_rom_ok,
   //output     [16:1] gfx1_rom_addr,
   //output            gfx1_rom_cs,
-  //
-  input       [7:0] char_rom_1_data,
-  input             char_rom_1_ok,
-  output     [15:0] char_rom_1_addr,
-  output            char_rom_1_cs,
 
-  input       [7:0] char_rom_2_data,
-  input             char_rom_2_ok,
-  output     [15:0] char_rom_2_addr,
-  output            char_rom_2_cs,
+  input      [15:0] char_rom_data,
+  input             char_rom_ok,
+  output     [16:1] char_rom_addr,
+  
+  //input       [7:0] char_rom_1_data,
+  //input             char_rom_1_ok,
+  //output     [1:0] char_rom_1_addr,
+  //output            char_rom_1_cs,
+
+  //input       [7:0] char_rom_2_data,
+  //input             char_rom_2_ok,
+  //output     [15:0] char_rom_2_addr,
+  //output            char_rom_2_cs,
 
   input      [15:0] gfx2_rom_data,
   input             gfx2_rom_ok,
@@ -109,35 +113,24 @@ reg [7:0] line_number;
 //
 parameter VRAM_PALETTE_OFFSET = 10'h100;
 
-wire       vram_used;
-wire [7:0] vram_line_buffer_out;
-reg  [7:0] vram_line_buffer_addr = 0;
+wire [7:0] char_pixel;
 
 scan_char_ram vram_scan_char_ram_u(
   .clk(clk),
+  .pxl_cen(pxl_cen),
   .rst(rst),
 
-  .line_number(line_number),
-
+  .line_number(vpos),
+  .pos(hpos),
+  
   .ram_addr(vram_addr),
   .ram_out(vram_out),
 
-  //.gfx_rom_data(gfx1_rom_data),
-  //.gfx_rom_ok(gfx1_rom_ok),
-  //.gfx_rom_addr(gfx1_rom_addr),
-  //.gfx_rom_cs(gfx1_rom_cs),
-  .char_rom_1_data(char_rom_1_data),
-  .char_rom_1_ok(char_rom_1_ok),
-  .char_rom_1_addr(char_rom_1_addr),
-  .char_rom_1_cs(char_rom_1_cs),
-
-  .char_rom_2_data(char_rom_2_data),
-  .char_rom_2_ok(char_rom_2_ok),
-  .char_rom_2_addr(char_rom_2_addr),
-  .char_rom_2_cs(char_rom_2_cs),
-
-  .line_buffer_addr(vram_line_buffer_addr),
-  .line_buffer_out(vram_line_buffer_out)
+  .char_rom_data(char_rom_data),
+  .char_rom_ok(char_rom_ok),
+  .char_rom_addr(char_rom_addr),
+  
+  .pixel(char_pixel)
 );
 
 ///////// BG1 DRAWING /////////////////
@@ -212,12 +205,13 @@ reg   [8:0] sprite_line_buffer_addr;
 
 scan_sprite_ram scan_sprite_ram_u(
   .clk(clk),
+  .pxl_cen(pxl_cen),
+  
   .rst(rst),
 
-  .pxl_cen(pxl_cen),
   .hblank(hblank),
 
-  .line_number(line_number + 1), //we calculate 1 line head because of buffering
+  .line_number(line_number + 1), //we calculate 1 line head because of buffering , hpos + 2??
 
   .ram_addr(sprite_addr),
   .ram_out(sprite_out),
@@ -247,7 +241,7 @@ always @(posedge hblank) begin
   //if (vpos + 1 > 15  && vpos + 1 < 241) //16
  //if (display_on)
    //XXX 1 st pixel is down on y axis but only 1 one ????
-    line_number <= vpos[7:0] +  1; //fetch line advance ? don't seem needed any more @pixel clcok
+    line_number[7:0] <= vpos[7:0] +  8'd1; //fetch line advance ? don't seem needed any more @pixel clcok
 end
 
 assign r = palette_out[3:0];
@@ -256,13 +250,13 @@ assign b = palette_out[11:8];
 
 //XXX always @(posedge pxl_cen) begin +1 ?
 always @(posedge clk) begin
-  vram_line_buffer_addr <= hpos[7:0] - 8'b1;
+  //vram_line_buffer_addr <= hpos[7:0] - 8'b1;
   bg1_line_buffer_addr <= hpos[7:0] - 8'b1;
   bg2_line_buffer_addr <= hpos[7:0] - 8'b1;
   sprite_line_buffer_addr <= hpos; // 8'b1;
   if (display_on) begin //-1 ?
-    if (vram_line_buffer_out[3:0] != 'hf)
-      palette_addr[10:1] <= {2'd0, vram_line_buffer_out} + VRAM_PALETTE_OFFSET;
+    if (char_pixel[3:0] != 'hf)
+      palette_addr[10:1] <= {2'd0, char_pixel} + VRAM_PALETTE_OFFSET;
     else if (sprite_line_buffer_out[3:0] != 'hf) 
       palette_addr[10:1] <= {2'd0, sprite_line_buffer_out}; 
     else begin

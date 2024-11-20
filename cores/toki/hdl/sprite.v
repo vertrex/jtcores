@@ -107,6 +107,7 @@ always @(posedge clk, posedge rst) begin
       end
 
       STATE_COPY_RAM_WORDS: begin
+        //XXX SKIP UNUSED there is glitch after the big machine in level 1 
         if (ram_addr == 'h3ff) begin
            state <= STATE_FINISHED;
            end
