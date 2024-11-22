@@ -230,7 +230,7 @@ jtframe_z80 u_z80(
 reg oki6295_irq_n;
 reg sub2main_pending;
 
-always @(posedge clk, posedge rst) begin
+always @(posedge clk, posedge rst) begin //XXX speed must be same than 68k din ?
   if (rst) begin
     z80_sound_latch_0 <= 16'b0;
     z80_sound_latch_1 <= 16'b0;
@@ -292,29 +292,26 @@ always @(posedge clk, posedge rst) begin
     end
   else begin
     if (clk) begin
-      if (irq_ack & irq_rst10)
-        stop_irq_10 <= 1'b1;
-      else if (~irq_ack & stop_irq_10) begin
+      if (~irq_ack & stop_irq_10) begin
         irq_rst10 <= 1'b0;
         stop_irq_10 <= 1'b0;
         end
-      else if (ym3812_irq_n == 1'b0)
-        irq_rst10 <= 1'b1;
-
-
-      if (irq_ack & irq_rst18)
-        stop_irq_18 <= 1'b1;
       else if (~irq_ack & stop_irq_18) begin
         stop_irq_18 <= 1'b0;
         irq_rst18 <= 1'b0;
         end
+      else if (ym3812_irq_n == 1'b0)
+        irq_rst10 <= 1'b1;
       else if (oki6295_irq_n == 1'b0) //~m68k_sound_cs_4
         irq_rst18 <= 1'b1;
+          
+      if (irq_ack & irq_rst10)
+        stop_irq_10 <= 1'b1;
+      else if (irq_ack & irq_rst18)
+        stop_irq_18 <= 1'b1;
 
-
-
-      z80_din <= irq_ack & irq_rst10                      ? 8'hd7 : //music  
-                 irq_ack & irq_rst18                      ? 8'hdf : //pcm 
+      z80_din <= irq_ack & irq_rst10                      ? 8'hd7 : 
+                 irq_ack & irq_rst18                      ? 8'hdf :
                  main_data_pending_cs &  sub2main_pending ? 8'b1  :
                  main_data_pending_cs & ~sub2main_pending ? 8'b0 :
                  ym_cs_0 & ~z80_rd_n                      ? ym3812_dout :

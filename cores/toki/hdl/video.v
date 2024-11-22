@@ -71,12 +71,12 @@ module toki_video(
   input      [15:0] gfx3_rom_data,
   input             gfx3_rom_ok,
   output     [18:1] gfx3_rom_addr,
-  output            gfx3_rom_cs,
+  //output            gfx3_rom_cs,
 
   input      [15:0] gfx4_rom_data,
   input             gfx4_rom_ok,
   output     [18:1] gfx4_rom_addr,
-  output            gfx4_rom_cs,
+  //output            gfx4_rom_cs,
 
   // Scroll latch
   input      [8:0]  bg1_scroll_x,
@@ -120,8 +120,8 @@ scan_char_ram vram_scan_char_ram_u(
   .pxl_cen(pxl_cen),
   .rst(rst),
 
-  .line_number(vpos),
-  .pos(hpos),
+  .hpos(hpos),
+  .vpos(vpos),
   
   .ram_addr(vram_addr),
   .ram_out(vram_out),
@@ -139,15 +139,15 @@ scan_char_ram vram_scan_char_ram_u(
 //
 parameter BG1_PALETTE_OFFSET = 10'h200;
 
-wire       bg1_used;
-wire [7:0] bg1_line_buffer_out;
-reg  [7:0] bg1_line_buffer_addr;
+wire  [7:0] bg1_pixel;
 
 scan_tile_ram bg1_scan_tile_ram_u(
   .clk(clk),
+  .pxl_cen(pxl_cen),
   .rst(rst),
 
-  .line_number(line_number),
+  .hpos(hpos),
+  .vpos(vpos),
 
   .ram_addr(bg1_addr),
   .ram_out(bg1_out),
@@ -155,13 +155,12 @@ scan_tile_ram bg1_scan_tile_ram_u(
   .gfx_rom_data(gfx3_rom_data),
   .gfx_rom_ok(gfx3_rom_ok),
   .gfx_rom_addr(gfx3_rom_addr),
-  .gfx_rom_cs(gfx3_rom_cs),
-
-  .line_buffer_addr(bg1_line_buffer_addr),
-  .line_buffer_out(bg1_line_buffer_out),
+  //.gfx_rom_cs(gfx3_rom_cs),
 
   .scroll_x(bg1_scroll_x),
-  .scroll_y(bg1_scroll_y)
+  .scroll_y(bg1_scroll_y),
+
+  .pixel(bg1_pixel)
 );
 
 ///////// BG2 DRAWING /////////////////
@@ -170,15 +169,15 @@ scan_tile_ram bg1_scan_tile_ram_u(
 //
 parameter BG2_PALETTE_OFFSET = 10'h300;
 
-wire        bg2_used;
-wire [7:0]  bg2_line_buffer_out;
-reg  [7:0]  bg2_line_buffer_addr;
+wire    [7:0] bg2_pixel;
 
 scan_tile_ram bg2_scan_tile_ram_u(
   .clk(clk),
+  .pxl_cen(pxl_cen),
   .rst(rst),
 
-  .line_number(line_number),
+  .hpos(hpos),
+  .vpos(vpos),
 
   .ram_addr(bg2_addr),
   .ram_out(bg2_out),
@@ -186,13 +185,12 @@ scan_tile_ram bg2_scan_tile_ram_u(
   .gfx_rom_data(gfx4_rom_data),
   .gfx_rom_ok(gfx4_rom_ok),
   .gfx_rom_addr(gfx4_rom_addr),
-  .gfx_rom_cs(gfx4_rom_cs),
-
-  .line_buffer_addr(bg2_line_buffer_addr),
-  .line_buffer_out(bg2_line_buffer_out),
+  //.gfx_rom_cs(gfx4_rom_cs),
 
   .scroll_x(bg2_scroll_x),
-  .scroll_y(bg2_scroll_y)
+  .scroll_y(bg2_scroll_y),
+
+  .pixel(bg2_pixel)
 );
 
 ///////// SPRITE DRAWING /////////////////
@@ -251,28 +249,26 @@ assign b = palette_out[11:8];
 //XXX always @(posedge pxl_cen) begin +1 ?
 always @(posedge clk) begin
   //vram_line_buffer_addr <= hpos[7:0] - 8'b1;
-  bg1_line_buffer_addr <= hpos[7:0] - 8'b1;
-  bg2_line_buffer_addr <= hpos[7:0] - 8'b1;
   sprite_line_buffer_addr <= hpos; // 8'b1;
   if (display_on) begin //-1 ?
     if (char_pixel[3:0] != 'hf)
       palette_addr[10:1] <= {2'd0, char_pixel} + VRAM_PALETTE_OFFSET;
-    else if (sprite_line_buffer_out[3:0] != 'hf) 
-      palette_addr[10:1] <= {2'd0, sprite_line_buffer_out}; 
+    else if (sprite_line_buffer_out[3:0] != 'hf)
+      palette_addr[10:1] <= {2'd0, sprite_line_buffer_out};
     else begin
       if (bg_order == 1'b0) begin
-        if (bg1_line_buffer_out[3:0] != 'hf) 
-          palette_addr[10:1] <= {2'd0, bg1_line_buffer_out} + BG1_PALETTE_OFFSET;
-        else if (bg2_line_buffer_out[3:0] != 'hf) 
-          palette_addr[10:1] <= {2'd0, bg2_line_buffer_out} + BG2_PALETTE_OFFSET;
+        if (bg1_pixel[3:0] != 'hf)
+          palette_addr[10:1] <= {2'd0, bg1_pixel} + BG1_PALETTE_OFFSET;
+        else if (bg2_pixel[3:0] != 'hf)
+          palette_addr[10:1] <= {2'd0, bg2_pixel} + BG2_PALETTE_OFFSET;
         else
           palette_addr[10:1] <= 'h3ff;
         end
       else begin
-        if (bg2_line_buffer_out[3:0] != 'hf) 
-          palette_addr[10:1] <= {2'd0, bg2_line_buffer_out} + BG2_PALETTE_OFFSET;
-        else if (bg1_line_buffer_out[3:0] != 'hf)
-          palette_addr[10:1] <= {2'd0, bg1_line_buffer_out} + BG1_PALETTE_OFFSET;
+        if (bg2_pixel[3:0] != 'hf)
+          palette_addr[10:1] <= {2'd0, bg2_pixel} + BG2_PALETTE_OFFSET;
+        else if (bg1_pixel[3:0] != 'hf)
+          palette_addr[10:1] <= {2'd0, bg1_pixel} + BG1_PALETTE_OFFSET;
         else
           palette_addr[10:1] <= 'h3ff;
         end

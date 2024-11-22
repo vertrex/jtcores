@@ -21,8 +21,8 @@ module scan_char_ram(
   input                 pxl_cen,
   input                 rst,
 
-  input           [8:0] line_number,
-  input           [8:0] pos, 
+  input           [8:0] hpos,
+  input           [8:0] vpos, 
 
   output reg     [10:1] ram_addr,
   input          [15:0] ram_out,
@@ -39,13 +39,13 @@ reg [3:0]  color;
 reg [15:0] rom;
 
 always @(posedge pxl_cen) begin 
-  if (~pos[8]) begin
+  if (~hpos[8]) begin
     pixel <= {color[3:0], {rom[{2'b11, pix_index}], rom[{2'b10, pix_index}], rom[{2'b01, pix_index}], rom[{2'b0, pix_index}] }};
   end 
 end 
 
-wire [8:0] hpos;
-assign hpos = pos[8:0] + 8'd4; //we start 4 pix before to prefetch char rom
+wire [8:0] hpos_shift;
+assign hpos_shift = hpos[8:0] + 8'd4; //we start 4 pix before to prefetch char rom
 
 always @(posedge clk,  posedge rst) begin 
   if (rst) begin
@@ -54,23 +54,26 @@ always @(posedge clk,  posedge rst) begin
     rom <= 16'd0;
     end 
   else if (clk) begin 
-    if (~pos[8]) begin 
+    if (~hpos[8]) begin 
       pix_index <= hpos[1:0]; 
 
-      if (hpos[2:0] == 3'd0 || hpos[2:0] == 3'd4) begin 
+      if (hpos_shift[2:0] == 3'd0 || hpos_shift[2:0] == 3'd4) begin 
         if (char_rom_ok) begin 
           color[3:0] <= ram_out[15:12];
           rom[15:0] <= char_rom_data[15:0]; 
           end 
       end 
 
-      if (hpos[2:0] > 0 && hpos[2:0]  <= 3'd3) begin
-        ram_addr[10:1] <= {line_number[7:3], hpos[7:3]};
-        char_rom_addr[16:1] <= {ram_out[11:0], line_number[2:0], 1'd0};
+      if (hpos_shift[2:0] > 0 && hpos_shift[2:0]  <= 3'd3) begin
+        //do we need to change ram addr ? it's the same tile XXX
+        //we may need to tile 0 
+        ram_addr[10:1] <= {vpos[7:3], hpos_shift[7:3]};
+        char_rom_addr[16:1] <= {ram_out[11:0], vpos[2:0], 1'd0};
         end
-      else if (hpos[2:0] >= 3'd5) begin 
-        ram_addr[10:1] <= {line_number[7:3], hpos[7:3]};
-        char_rom_addr[16:1] <= {ram_out[11:0], line_number[2:0], 1'd1};
+      else if (hpos_shift[2:0] >= 3'd5) begin 
+        //do we need to change ram addr ? it's the same tile XXX
+        ram_addr[10:1] <= {vpos[7:3], hpos_shift[7:3]};
+        char_rom_addr[16:1] <= {ram_out[11:0], vpos[2:0], 1'd1};
         end 
     end
   end

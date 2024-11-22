@@ -216,12 +216,12 @@ toki_video u_video(
   .gfx3_rom_data(gfx3_rom_data),
   .gfx3_rom_ok(gfx3_rom_ok),
   .gfx3_rom_addr(gfx3_rom_addr),
-  .gfx3_rom_cs(gfx3_rom_cs),
+  //.gfx3_rom_cs(gfx3_rom_cs),
 
   .gfx4_rom_data(gfx4_rom_data),
   .gfx4_rom_ok(gfx4_rom_ok),
   .gfx4_rom_addr(gfx4_rom_addr),
-  .gfx4_rom_cs(gfx4_rom_cs),
+  //.gfx4_rom_cs(gfx4_rom_cs),
 
   // scroll latch
   .bg1_scroll_x(bg1_scroll_x),

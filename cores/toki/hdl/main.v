@@ -420,16 +420,18 @@ jtframe_ram16 #(.AW(15)) u_cpu_ram(
 //
 wire [15:0]  palette_do;
 
-dual_ram_buffer16 #(.W(10)) u_palette_ram(
-  .clk(clk),
-  .trigger(vblank),
-  .we({palette_cs && !cpu_wr && !cpu_uds_n, palette_cs && !cpu_wr && !cpu_lds_n}),
-  .addr_in(cpu_a[10:1]), 
-  .data(cpu_dout[15:0]),
-  .q_in(palette_do),
+jtframe_dual_ram16 #(.AW(10)) u_palette_ram(
+  .clk0(clk),
+  .we0({palette_cs && !cpu_wr && !cpu_uds_n, palette_cs && !cpu_wr && !cpu_lds_n}),
+  .addr0(cpu_a[10:1]), 
+  .data0(cpu_dout[15:0]),
+  .q0(palette_do),
 
-  .addr_out(palette_addr[10:1]),
-  .q(palette_out)
+  .clk1(clk),
+  .data1(),
+  .addr1(palette_addr[10:1]),
+  .we1(2'b0),
+  .q1(palette_out)
 ); 
 
 ///////// VIDEO RAM //////////
@@ -441,48 +443,54 @@ dual_ram_buffer16 #(.W(10)) u_palette_ram(
 //
 wire [15:0] vram_do;
 
-dual_ram_buffer16 #(.W(10)) u_vram_ram(
-  .clk(clk),
-  .trigger(vblank),
-  .we({vram_cs && !cpu_wr && !cpu_uds_n , vram_cs && !cpu_wr && !cpu_lds_n }),
-  .addr_in(cpu_a[10:1]), 
-  .data(cpu_dout[15:0]),
-  .q_in(vram_do),
+jtframe_dual_ram16 #(.AW(10)) u_vram_ram(
+  .clk0(clk),
+  .we0({vram_cs && !cpu_wr && !cpu_uds_n , vram_cs && !cpu_wr && !cpu_lds_n }),
+  .addr0(cpu_a[10:1]), 
+  .data0(cpu_dout[15:0]),
+  .q0(vram_do),
 
-  .addr_out(vram_addr[10:1]),
-  .q(vram_out[15:0])
+  .clk1(clk),
+  .data1(),
+  .addr1(vram_addr[10:1]),
+  .we1(2'b0),
+  .q1(vram_out[15:0])
 ); 
 
 ///////// BG1 RAM //////////
 //
 // background 1 (2048)
 //
-dual_ram_buffer16 #(.W(10)) u_bg1_ram(
-  .clk(clk),
-  .trigger(vblank),
-  .we({bg1_cs && !cpu_wr && !cpu_uds_n, bg1_cs && !cpu_wr && !cpu_lds_n}),
-  .addr_in(cpu_a[10:1]), 
-  .data(cpu_dout[15:0]),
-  .q_in(),
+jtframe_dual_ram16 #(.AW(10)) u_bg1_ram(
+  .clk0(clk),
+  .we0({bg1_cs && !cpu_wr && !cpu_uds_n, bg1_cs && !cpu_wr && !cpu_lds_n}),
+  .addr0(cpu_a[10:1]), 
+  .data0(cpu_dout[15:0]),
+  .q0(),
 
-  .addr_out(bg1_addr[10:1]),
-  .q(bg1_out)
+  .clk1(clk),
+  .data1(),
+  .addr1(bg1_addr[10:1]),
+  .we1(2'b0),
+  .q1(bg1_out)
 ); 
 
 ///////// BG2 RAM //////////
 //
 // background 2 (2048)
 //
-dual_ram_buffer16 #(.W(10)) u_bg2_ram(
-  .clk(clk),
-  .trigger(vblank),
-  .we({bg2_cs && !cpu_wr && !cpu_uds_n, bg2_cs && !cpu_wr && !cpu_lds_n}),
-  .addr_in(cpu_a[10:1]), 
-  .data(cpu_dout[15:0]),
-  .q_in(),
+jtframe_dual_ram16 #(.AW(10)) u_bg2_ram(
+  .clk0(clk),
+  .we0({bg2_cs && !cpu_wr && !cpu_uds_n, bg2_cs && !cpu_wr && !cpu_lds_n}),
+  .addr0(cpu_a[10:1]), 
+  .data0(cpu_dout[15:0]),
+  .q0(),
 
-  .addr_out(bg2_addr[10:1]),
-  .q(bg2_out)
+  .clk1(clk),
+  .data1(),
+  .addr1(bg2_addr[10:1]),
+  .we1(2'b0),
+  .q1(bg2_out)
 ); 
 
 ///////// SPRITE RAM //////////
@@ -494,16 +502,18 @@ dual_ram_buffer16 #(.W(10)) u_bg2_ram(
 //
 wire [15:0] sprite_do;
 
-dual_ram_buffer16 #(.W(10)) u_sprite_ram(
-  .clk(clk),
-  .trigger(vblank),
-  .we({sprite_cs && !cpu_wr && !cpu_uds_n, sprite_cs && !cpu_wr && !cpu_lds_n}),
-  .addr_in(cpu_a[10:1]), 
-  .data(cpu_dout[15:0]),
-  .q_in(sprite_do),
+jtframe_dual_ram16 #(.AW(10)) u_sprite_ram(
+  .clk0(clk),
+  .we0({sprite_cs && !cpu_wr && !cpu_uds_n, sprite_cs && !cpu_wr && !cpu_lds_n}),
+  .addr0(cpu_a[10:1]), 
+  .data0(cpu_dout[15:0]),
+  .q0(sprite_do),
 
-  .addr_out(sprite_addr[10:1]),
-  .q(sprite_out)
+  .clk1(clk),
+  .data1(),
+  .addr1(sprite_addr[10:1]),
+  .we1(2'b0),
+  .q1(sprite_out)
 );
 
 endmodule

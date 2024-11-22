@@ -1,5 +1,4 @@
 params:
-  #- { name: GFX_2_OFFSET,     value:  "22'h40000" }
   - { name: GFX_3_OFFSET,     value:  "22'h80000" }
   - { name: GFX_4_OFFSET,     value:  "22'hc0000" }
   #audio bank 1
@@ -17,39 +16,62 @@ clocks:
         #- cen_fm
         #- cen_fm2
 
+# 4e.k10 (128k), 6e.m10 (128k) interleaved  
+# 3.k# 384k 0x60_000 12 (64k), 5.m12 (64k) interleaved 
+# 384k 0x60_000
+# 1.c5 (64k), 2.c3 (64k) interleaved
+# 128k 0x20_000 
+# 8,8 interleaved 
+# obj1.c20 (512k) obj2.c22 (512k)
+# 1024k 0x100_000
+# bg 1 bk1.cd8 (512k)
+# 512k 0x80_000
+# bg 1 bk1.cd8 (512k)
+# 512k 0x80_000
+# bg 2 bk2.ef8
+# 512k 0x80_000
+# 8.m3 (8k)
+# 0x2_000
+# 7.m7 (64k)
+# 0x10_000 
+# 9.m1 (128k)
+# 0x20_000 
+# prom unused 26.b3, 27.j3
+
 sdram:
   banks:
     - buses:
-        - name: cpu_rom 
+        - name: cpu_rom
           addr_width: 19
           data_width: 16
-    - buses: 
+    - buses:
         - name: char_rom
-          addr_width: 17
-          data_width: 16 # 8,8 interleaved 
+          addr_width: 17  
+          data_width: 16
           cs: LVBL
     - buses: 
-        - name: gfx2_rom
+        - name: gfx2_rom  
           addr_width: 20
           data_width: 16
-          #offset : GFX_2_OFFSET
         - name: gfx3_rom
           addr_width: 19
           data_width: 16
           offset : GFX_3_OFFSET
+          cs: LVBL
         - name: gfx4_rom
           addr_width: 19
           data_width: 16
           offset : GFX_4_OFFSET
+          cs: LVBL
     - buses:
         - name: z80_rom
-          addr_width: 13 # 8.m3
-          data_width: 8 
-        - name: bank_rom 
-          addr_width: 16 # 7.m7  
-          data_width: 8 
-          offset: BANK_OFFSET 
-        - name: pcm_rom 
-          addr_width: 17 # 9.m1 
-          data_width: 8 
-          offset: OKI_OFFSET 
+          addr_width: 13
+          data_width: 8
+        - name: bank_rom
+          addr_width: 16
+          data_width: 8
+          offset: BANK_OFFSET
+        - name: pcm_rom
+          addr_width: 17
+          data_width: 8
+          offset: OKI_OFFSET
