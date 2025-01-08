@@ -95,7 +95,23 @@ end
 assign vflip_g   = (flip & XOR_VFLIP[0])^vflip;
 
 assign vram_addr[VA-1-:MAP_VW-VW]=veff[MAP_VW-1:VW];
-assign vram_addr[   0+:MAP_HW-VW]=heff[MAP_HW-1:VW];
+//8x8 tile 
+//[10-1-:8-3] = vpos[8-1:3]
+//[9-:5] = vpos[7:3]
+//16x16 tile 
+//[10-1-:8-4] = vpos[8-1:4]
+//[9-:3] = vpos[7:4]
+
+assign vram_addr[   0+:MAP_HW-VW]=heff[MAP_HW-1:VW];  
+//8x8 tile 
+//vram[0+:8-3] = hpos[8-1:3]
+//vram[0+:8-3] = hpos[7:3]
+//vram[5:0] = hpos[7:3]
+//16x16 tile 
+//vram[0+:8-4] = hpos[8-1:4] (16bits)
+//vram[0+:8-4] = hpos[7:4] (16bits)
+//vram[4:0] = hpos[7:4]
+//
 assign xhflip = (flip & XOR_HFLIP[0])^hflip;
 
 always @* begin

@@ -1,14 +1,15 @@
-////////// dual ram buffer 16 /////////////////////
+////////// sis6091 /////////////////////
 //
 // 16-bits dual ram that use two 8-bits ram module
 // it copy it's content to a seconday ram @posedge  
 // of trigger
+// there was no reverse of the sis6091 it's only guessing 
+// and certainly totally wrong
 //
-//
-module dual_ram_buffer16 #(parameter W=10) 
+module sis6091 #(parameter W=10) 
 (
 	input         clk,
-  input         trigger, // trigger high to copy ram content 
+  input         trigger_n, // trigger high to copy ram content 
 
   input  [1:0]  we,      // 1st ram write enable
   input  [W:1]  addr_in, // 1st ram address
@@ -23,7 +24,7 @@ module dual_ram_buffer16 #(parameter W=10)
 dual_ram_buffer #(.W(W)) u_low 
 (
   .clk(clk),
-  .trigger(trigger),
+  .trigger_n(trigger_n),
   .we(we[0]),
   .addr_in(addr_in),
   .data(data[7:0]),
@@ -36,7 +37,7 @@ dual_ram_buffer #(.W(W)) u_low
 dual_ram_buffer #(.W(W)) u_high
 (
   .clk(clk),
-  .trigger(trigger),
+  .trigger_n(trigger_n),
   .we(we[1]),
   .addr_in(addr_in),
   .data(data[15:8]),

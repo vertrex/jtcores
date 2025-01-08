@@ -25,24 +25,24 @@ module jttoki_game(
     `include "jtframe_game_ports.inc" // see $JTFRAME/hdl/inc/jtframe_game_ports.inc
   );
 
-wire hblank;
-wire vblank;
+//wire hblank;
+//wire vblank;
 
-assign LHBL = ~hblank;
-assign LVBL = ~vblank;
+//assign LHBL = ~hblank;
+//assign LVBL = ~vblank;
 
 wire  [8:0] hpos;
 wire  [8:0] vpos;
 wire [10:1] palette_addr;
 wire [15:0] palette_out;
 
-wire [10:1] vram_addr;
+//wire [10:1] vram_addr;
 wire [15:0] vram_out;
 
-wire [10:1] bg1_addr;
+//wire [10:1] bg1_addr;
 wire [15:0] bg1_out;
 
-wire [10:1] bg2_addr;
+//wire [10:1] bg2_addr;
 wire [15:0] bg2_out;
 
 wire [10:1] sprite_addr;
@@ -71,6 +71,19 @@ assign debug_view = 0;
 assign sample     = 0;
 assign dip_flip   = 0;
 
+wire char_cen;
+
+reg  div = 1'b0;
+
+// don't work with jtframe_obj_buffer because of rd 
+//assign pxl2_cen = pixel_cen;
+//assign pxl_cen = div;
+
+//always @(posedge pixel_cen)
+  //div <= ~div;
+
+//assign pxl_cen = pixel_cen;
+
 //////// MAIN ////////////
 //
 // main module 
@@ -86,11 +99,10 @@ toki_main  u_main(
   .clk(clk),
   .pxl_cen(pxl_cen),
   .pxl2_cen(pxl2_cen),
+  .char_cen(char_cen),
 
   // Video 
-  .hsync(HS),
-  .vsync(VS),
-  .vblank(vblank),
+  .LVBL(LVBL),
   .hpos(hpos),
   .vpos(vpos),
 
@@ -114,13 +126,13 @@ toki_main  u_main(
   .palette_addr(palette_addr),
   .palette_out(palette_out),
 
-  .vram_addr(vram_addr),
+  //.vram_addr(vram_addr),
   .vram_out(vram_out),
 
-  .bg1_addr(bg1_addr),
+  //.bg1_addr(bg1_addr),
   .bg1_out(bg1_out),
 
-  .bg2_addr(bg2_addr),
+  //.bg2_addr(bg2_addr),
   .bg2_out(bg2_out),
 
   .sprite_addr(sprite_addr),
@@ -160,10 +172,10 @@ toki_video u_video(
   .pxl2_cen(pxl2_cen),
 
   // Video signal
-  .hsync(HS),
-  .vsync(VS),
-  .hblank(hblank),
-  .vblank(vblank),
+  .HS(HS),
+  .VS(VS),
+  .LHBL(LHBL),
+  .LVBL(LVBL),
   .hpos(hpos),
   .vpos(vpos),
   .gfx_en(gfx_en),
@@ -176,13 +188,13 @@ toki_video u_video(
   .palette_addr(palette_addr),
   .palette_out(palette_out),
 
-  .vram_addr(vram_addr),
+  //.vram_addr(vram_addr),
   .vram_out(vram_out),
 
-  .bg1_addr(bg1_addr),
+  //.bg1_addr(bg1_addr),
   .bg1_out(bg1_out),
 
-  .bg2_addr(bg2_addr),
+  //.bg2_addr(bg2_addr),
   .bg2_out(bg2_out),
 
   .sprite_addr(sprite_addr),
@@ -197,6 +209,7 @@ toki_video u_video(
   .char_rom_data(char_rom_data),
   .char_rom_ok(char_rom_ok),
   .char_rom_addr(char_rom_addr),
+  .char_rom_cs(char_rom_cs),
   
   //.char_rom_1_data(char_rom_1_data),
   //.char_rom_1_ok(char_rom_1_ok),
@@ -216,19 +229,31 @@ toki_video u_video(
   .gfx3_rom_data(gfx3_rom_data),
   .gfx3_rom_ok(gfx3_rom_ok),
   .gfx3_rom_addr(gfx3_rom_addr),
-  //.gfx3_rom_cs(gfx3_rom_cs),
+  .gfx3_rom_cs(gfx3_rom_cs),
 
   .gfx4_rom_data(gfx4_rom_data),
   .gfx4_rom_ok(gfx4_rom_ok),
   .gfx4_rom_addr(gfx4_rom_addr),
-  //.gfx4_rom_cs(gfx4_rom_cs),
+  .gfx4_rom_cs(gfx4_rom_cs),
 
   // scroll latch
   .bg1_scroll_x(bg1_scroll_x),
   .bg1_scroll_y(bg1_scroll_y),
   .bg2_scroll_x(bg2_scroll_x),
   .bg2_scroll_y(bg2_scroll_y),
-  .bg_order(bg_order)
+  .bg_order(bg_order),
+
+  .char_cen(char_cen),
+
+  .prom_26_data(prom_26_data),
+  .prom_26_ok(prom_26_ok),
+  .prom_26_cs(prom_26_cs),
+  .prom_26_addr(prom_26_addr),
+
+  .prom_27_data(prom_27_data),
+  .prom_27_ok(prom_27_ok),
+  .prom_27_cs(prom_27_cs),
+  .prom_27_addr(prom_27_addr)
 );
 
 //////// SOUND ////////////

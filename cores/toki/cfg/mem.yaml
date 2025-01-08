@@ -4,13 +4,17 @@ params:
   #audio bank 1
   - { name: BANK_OFFSET,      value: "22'h1000" } # start after 8.m3 (2nd bank start at + BA1_START )
   - { name: OKI_OFFSET,       value: "22'h9000" } # start at 8.m3 + 7.m7 / 2 
+  - { name: PROM26_OFFSET,    value: "22'h19000" }     # 131072/2 0x10_000
+  - { name: PROM27_OFFSET,    value: "22'h19080" }     # 131072/2 0x10_000
     
 clocks:
   clk:
     - freq:  1000000
       outputs:
         - oki
-    #- freq: 1056000
+    - freq: 12000000
+      outputs:
+        - pixel
     #- freq: 3579545
       #outputs:
         #- cen_fm
@@ -48,7 +52,7 @@ sdram:
         - name: char_rom
           addr_width: 17  
           data_width: 16
-          cs: LVBL
+          #cs: LVBL
     - buses: 
         - name: gfx2_rom  
           addr_width: 20
@@ -57,12 +61,12 @@ sdram:
           addr_width: 19
           data_width: 16
           offset : GFX_3_OFFSET
-          cs: LVBL
+          #cs: LVBL
         - name: gfx4_rom
           addr_width: 19
           data_width: 16
           offset : GFX_4_OFFSET
-          cs: LVBL
+          #cs: LVBL
     - buses:
         - name: z80_rom
           addr_width: 13
@@ -75,3 +79,12 @@ sdram:
           addr_width: 17
           data_width: 8
           offset: OKI_OFFSET
+        - name: prom_26
+          addr_width: 8
+          data_width: 8
+          offset: PROM26_OFFSET
+        - name: prom_27
+          addr_width: 8
+          data_width: 8
+          offset: PROM27_OFFSET
+        #prom 26, 27 ..

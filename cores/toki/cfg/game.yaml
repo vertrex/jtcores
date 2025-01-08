@@ -4,15 +4,16 @@ game:
       - jttoki_game.v
       - main.v
       - video.v
-      - hvsync.v
       - char.v
       - tile.v
       - sprite.v
       - sound.v
+      - sei0050bu.v
+      - sei0010bu.v
       - sei80bu.v
       - z80_cs.v
       - dual_ram_buffer.v
-      - dual_ram_buffer16.v
+      - sis6091.v
 jtframe:
   - from: ram
     get:
@@ -35,6 +36,8 @@ jtframe:
     get:
       - jtframe_linebuf.v
       - jtframe_credits.v
+      #- jtframe_vtimer.v
+      - jtframe_tilemap.v
   - from: sound
     get:
       - jtframe_mixer.v

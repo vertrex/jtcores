@@ -15,10 +15,10 @@ module toki_video(
   // Video out
   input       [3:0] gfx_en, // debug : graphical layer enable
 
-  output            hsync,
-  output            vsync, 
-  output            hblank, 
-  output            vblank,
+  output            HS,
+  output            VS, 
+  output            LHBL, 
+  output            LVBL,
   output      [8:0] hpos,
   output      [8:0] vpos, 
 
@@ -31,13 +31,13 @@ module toki_video(
   output reg [10:1] palette_addr,
   input      [15:0] palette_out,
 
-  output     [10:1] vram_addr,
+  //output     [10:1] vram_addr,
   input      [15:0] vram_out,
 
-  output     [10:1] bg1_addr,
+  //output     [10:1] bg1_addr,
   input      [15:0] bg1_out,
 
-  output     [10:1] bg2_addr,
+  //output     [10:1] bg2_addr,
   input      [15:0] bg2_out,
 
   output     [10:1] sprite_addr,
@@ -52,6 +52,7 @@ module toki_video(
   input      [15:0] char_rom_data,
   input             char_rom_ok,
   output     [16:1] char_rom_addr,
+  output            char_rom_cs,
   
   //input       [7:0] char_rom_1_data,
   //input             char_rom_1_ok,
@@ -71,41 +72,100 @@ module toki_video(
   input      [15:0] gfx3_rom_data,
   input             gfx3_rom_ok,
   output     [18:1] gfx3_rom_addr,
-  //output            gfx3_rom_cs,
+  output            gfx3_rom_cs,
 
   input      [15:0] gfx4_rom_data,
   input             gfx4_rom_ok,
   output     [18:1] gfx4_rom_addr,
-  //output            gfx4_rom_cs,
+  output            gfx4_rom_cs,
 
   // Scroll latch
   input      [8:0]  bg1_scroll_x,
   input      [8:0]  bg1_scroll_y,
   input      [8:0]  bg2_scroll_x,
   input      [8:0]  bg2_scroll_y,
-  input             bg_order
+  input             bg_order,
+
+  output            char_cen,
+
+  input      [7:0]  prom_26_data,
+  input             prom_26_ok,
+  output     [7:0]  prom_26_addr,
+  output            prom_26_cs,
+
+  input      [7:0]  prom_27_data,
+  input             prom_27_ok,
+  output     [7:0]  prom_27_addr,
+  output            prom_27_cs
+
 );
 
 ////////// VIDEO SYNC /////////////
 //
 wire display_on;
+assign display_on = (LHBL & LVBL);
 
-hvsync u_hvsync(
+wire char_rom_cen;
+
+assign prom_26_cs = 1'b1;
+assign prom_27_cs = 1'b1;
+
+assign prom_26_addr[7:0] = vpos[7:0]; // generate VBLANK 
+assign prom_27_addr[7:0] = vpos[7:0]; // ??? 
+
+SEI0050BU sei0050bu_u(
   .clk(clk),
   .pxl_cen(pxl_cen),
+  .rst(rst),
 
-  .hsync(hsync),
-  .vsync(vsync),
-  .hblank(hblank),
-  .vblank(vblank),
-
-  .display_on(display_on),
+  .HS(HS),
+  .VS(VS),
+  .LHBL(LHBL),
+  .LVBL(LVBL),
 
   .hpos(hpos),
-  .vpos(vpos)
+  .vpos(vpos),
+  .char_cen(char_cen),
+  .char_rom_cen(char_rom_cen)
 );
 
-reg [7:0] line_number;
+
+/*
+wire [9:0] vrender, vrender1;
+wire vinit, hinit;
+
+// work on sim not on analogue 
+wire lhblank, lvblank;
+assign hblank = ~lhblank;
+assign vblank = ~lvblank;
+	//m_screen->set_raw(XTAL(12'000'000)/2, 390, 0, 256      , 258, 16, 240);
+jtframe_vtimer #(
+                 .VB_START(240), 
+                 .VB_END(16), 
+                 .VCNT_END(258),
+                 .VS_START(250),
+                 .HS_START(300),
+
+                 .HB_START(256), 
+                 .HB_END(0), 
+                 .HINIT(390)
+) hvsync
+(
+  .clk(clk),
+  .pxl_cen(pxl_cen),
+  .vdump(vpos),
+  .vrender(vrender),
+  .vrender1(vrender1),
+  .H(hpos),
+  .Hinit(hinit),
+  .Vinit(vinit),
+  .LHBL(lhblank),
+  .LVBL(lvblank),
+  .HS(hsync),
+  .VS(vsync)
+);
+
+*/
 
 ///////// CHAR DRAWING //////////
 //
@@ -115,23 +175,30 @@ parameter VRAM_PALETTE_OFFSET = 10'h100;
 
 wire [7:0] char_pixel;
 
-scan_char_ram vram_scan_char_ram_u(
+char_ram char_ram_u(
   .clk(clk),
   .pxl_cen(pxl_cen),
+  .char_cen(char_cen),
+  .char_rom_cen(char_rom_cen),
+
   .rst(rst),
 
-  .hpos(hpos),
-  .vpos(vpos),
+  .LHBL(LHBL), //XXX
+
+  .hpos(hpos[7:0]),
+  .vpos(vpos[7:0]),
   
-  .ram_addr(vram_addr),
+  //.ram_addr(vram_addr),
   .ram_out(vram_out),
 
   .char_rom_data(char_rom_data),
   .char_rom_ok(char_rom_ok),
   .char_rom_addr(char_rom_addr),
-  
+  .char_rom_cs(char_rom_cs),
+ 
   .pixel(char_pixel)
 );
+
 
 ///////// BG1 DRAWING /////////////////
 //
@@ -146,16 +213,17 @@ scan_tile_ram bg1_scan_tile_ram_u(
   .pxl_cen(pxl_cen),
   .rst(rst),
 
-  .hpos(hpos),
-  .vpos(vpos),
+  .LHBL(LHBL), //XXX
+  .hpos(hpos[7:0]),
+  .vpos(vpos[7:0]),
 
-  .ram_addr(bg1_addr),
+  //.ram_addr(bg1_addr),
   .ram_out(bg1_out),
 
   .gfx_rom_data(gfx3_rom_data),
   .gfx_rom_ok(gfx3_rom_ok),
   .gfx_rom_addr(gfx3_rom_addr),
-  //.gfx_rom_cs(gfx3_rom_cs),
+  .gfx_rom_cs(gfx3_rom_cs),
 
   .scroll_x(bg1_scroll_x),
   .scroll_y(bg1_scroll_y),
@@ -176,16 +244,17 @@ scan_tile_ram bg2_scan_tile_ram_u(
   .pxl_cen(pxl_cen),
   .rst(rst),
 
-  .hpos(hpos),
-  .vpos(vpos),
+  .LHBL(LHBL), //XXX
+  .hpos(hpos[7:0]),
+  .vpos(vpos[7:0]),
 
-  .ram_addr(bg2_addr),
+  //.ram_addr(bg2_addr),
   .ram_out(bg2_out),
 
   .gfx_rom_data(gfx4_rom_data),
   .gfx_rom_ok(gfx4_rom_ok),
   .gfx_rom_addr(gfx4_rom_addr),
-  //.gfx_rom_cs(gfx4_rom_cs),
+  .gfx_rom_cs(gfx4_rom_cs),
 
   .scroll_x(bg2_scroll_x),
   .scroll_y(bg2_scroll_y),
@@ -197,7 +266,7 @@ scan_tile_ram bg2_scan_tile_ram_u(
 //
 // sprite : 16x16 tile 
 //
-wire        sprite_used;
+//wire        sprite_used;
 wire  [7:0] sprite_line_buffer_out;
 reg   [8:0] sprite_line_buffer_addr;
 
@@ -207,9 +276,9 @@ scan_sprite_ram scan_sprite_ram_u(
   
   .rst(rst),
 
-  .hblank(hblank),
+  .LHBL(LHBL), //XXX
 
-  .line_number(line_number + 1), //we calculate 1 line head because of buffering , hpos + 2??
+  .vpos(vpos), //we calculate 1 line head because of buffering , hpos + 2??
 
   .ram_addr(sprite_addr),
   .ram_out(sprite_out),
@@ -234,20 +303,16 @@ scan_sprite_ram scan_sprite_ram_u(
 // output the pixel to the screen
 //
 
-//always @(posedge hblank) begin
-always @(posedge hblank) begin
-  //if (vpos + 1 > 15  && vpos + 1 < 241) //16
- //if (display_on)
-   //XXX 1 st pixel is down on y axis but only 1 one ????
-    line_number[7:0] <= vpos[7:0] +  8'd1; //fetch line advance ? don't seem needed any more @pixel clcok
-end
+
 
 assign r = palette_out[3:0];
 assign g = palette_out[7:4];
 assign b = palette_out[11:8];
 
 //XXX always @(posedge pxl_cen) begin +1 ?
-always @(posedge clk) begin
+//always @(posedge clk) begin
+////shift for 1 pix as we latch
+always @(posedge pxl_cen) begin
   //vram_line_buffer_addr <= hpos[7:0] - 8'b1;
   sprite_line_buffer_addr <= hpos; // 8'b1;
   if (display_on) begin //-1 ?

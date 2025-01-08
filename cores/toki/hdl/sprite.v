@@ -8,9 +8,9 @@ module scan_sprite_ram(
   input                 rst,
 
   input                 pxl_cen,
-  input                 hblank,
+  input                 LHBL,
 
-  input           [7:0] line_number,
+  input           [8:0] vpos,
  
   //XXX two ram chips to copy two words will be faster?
   output reg     [10:1] ram_addr,
@@ -21,24 +21,24 @@ module scan_sprite_ram(
   output reg     [19:1] gfx_rom_addr,
   output reg            gfx_rom_cs,
 
-  input           [8:0] line_buffer_addr,
+  input           [8:0] line_buffer_addr, //8:0 ??
   output          [7:0] line_buffer_out
 );
 
 /// STATE MACHINE
-reg [3:0]  state = 0;
-parameter STATE_START = 4'd0;
+reg [3:0] state = 4'd0;
+parameter STATE_START =           4'd0;
 parameter STATE_FETCH_RAM_WORDS = 4'd1;
-parameter STATE_COPY_RAM_WORDS = 4'd2;
-parameter STATE_START_DECODING = 4'd3;
-parameter STATE_DECODING_CHECK = 4;
+parameter STATE_COPY_RAM_WORDS  = 4'd2;
+parameter STATE_START_DECODING  = 4'd3;
+parameter STATE_DECODING_CHECK  = 4'd4;
 parameter STATE_FETCH_ROM_WORDS = 4'd5;
-parameter STATE_COPY_ROM_WORDS = 4'd6;
-parameter STATE_PLANE_COLOR = 4'd10;
-parameter STATE_COPY_PIXEL = 4'd7;
-parameter STATE_FINISHED = 4'd8;
+parameter STATE_COPY_ROM_WORDS  = 4'd6;
+parameter STATE_PLANE_COLOR     = 4'd7;
+parameter STATE_COPY_PIXEL      = 4'd8;
+parameter STATE_FINISHED        = 4'd9;
 
-reg  [7:0]  previous_line_number;
+reg  [8:0]  previous_vpos;
 
 reg         flip_x;
 reg  [3:0]  color;
@@ -62,7 +62,7 @@ reg write_pixel;
 
 jtframe_obj_buffer #(.DW(8),.AW(9), .ALPHAW(4), .BLANK_DLY(1), .KEEP_OLD(1), .FLIP_OFFSET(4)) obj_buffer(
   .clk(clk),
-  .LHBL(~hblank), //swap buffer at each line (horizontal blank)
+  .LHBL(LHBL), //swap buffer at each line (horizontal blank)
   .flip(1'b0), //flip whole screen ?
   
   .wr_data({color[3:0], plane_color[3:0]}), //in new data writes 
@@ -76,7 +76,7 @@ jtframe_obj_buffer #(.DW(8),.AW(9), .ALPHAW(4), .BLANK_DLY(1), .KEEP_OLD(1), .FL
 
 always @(posedge clk, posedge rst) begin
     if (rst) begin
-      previous_line_number <= 8'd0;
+      previous_vpos <= 9'd0;
       flip_x <= 1'd0;
       pix_index <= 4'd0;
       rom_index <= 13'd0;
@@ -89,7 +89,7 @@ always @(posedge clk, posedge rst) begin
     else begin
     case (state)
       STATE_START : begin
-        previous_line_number <= line_number;
+        previous_vpos <= vpos;
         write_pixel <= 1'b0; 
         pix_index <= 4'd0;
         rom_index <= 13'd0;
@@ -129,6 +129,7 @@ always @(posedge clk, posedge rst) begin
 
       STATE_START_DECODING : begin
          if (({ram_words[2][15], ram_words[1][11:0]} != 13'b0)) begin
+           //XXX MUST SKIP GLITCH
            flip_x <= ram_words[0][8];
            color <= ram_words[1][15:12];
            rom_index[12:0] <= {ram_words[2][15], ram_words[1][11:0]};
@@ -144,7 +145,7 @@ always @(posedge clk, posedge rst) begin
       end
 
       STATE_DECODING_CHECK: begin
-        if (({1'b0, line_number} >= y && {1'b0, line_number} <= y + 15) && (x < 256 || x[8:0] > 9'd497)) begin
+        if (({1'b0, vpos[7:0]} >= y && {1'b0, vpos[7:0]} <= y + 15) && (x < 256 || x[8:0] > 9'd497)) begin
            state <= STATE_FETCH_ROM_WORDS;
            end 
          else 
@@ -154,9 +155,10 @@ always @(posedge clk, posedge rst) begin
       STATE_FETCH_ROM_WORDS : begin
         write_pixel <= 1'b0;
         if (rom_words_index <= 1)
-          gfx_rom_addr[19:1] <= rom_index[12:0]*19'd64 + (({11'b0, line_number} - {10'b0, y})*19'd2) + ({17'b0, rom_words_index});
+          //XXX XXX look at sprite.v & char.v 
+          gfx_rom_addr[19:1] <= rom_index[12:0]*19'd64 + (({11'b0, vpos[7:0]} - {10'b0, y})*19'd2) + ({17'b0, rom_words_index});
         else
-          gfx_rom_addr[19:1] <= rom_index[12:0]*19'd64 + (({11'b0, line_number} - {10'b0, y})*19'd2) + ({17'b0, rom_words_index}%19'd2) + 19'd32;
+          gfx_rom_addr[19:1] <= rom_index[12:0]*19'd64 + (({11'b0, vpos[7:0]} - {10'b0, y})*19'd2) + ({17'b0, rom_words_index}%19'd2) + 19'd32;
         gfx_rom_cs <= 1'b1; 
         state <=  STATE_COPY_ROM_WORDS;
       end 
@@ -191,7 +193,7 @@ always @(posedge clk, posedge rst) begin
         if (pix_index < 15) begin
           pix_index <= pix_index + 4'd1;
           if (pix_index + 1 == 4 || pix_index + 1 == 8 || pix_index + 1 == 12) begin
-            rom_words_index <= rom_words_index + 1;
+            rom_words_index <= rom_words_index + 2'd1;
             state <= STATE_FETCH_ROM_WORDS;
           end 
           else 
@@ -206,11 +208,14 @@ always @(posedge clk, posedge rst) begin
       STATE_FINISHED: begin
         write_pixel <= 1'b0; 
         ram_addr <= 10'h0;
-        if (previous_line_number != line_number)
+        if (previous_vpos != vpos)
           state <= STATE_START;
-        previous_line_number <= line_number;
+        previous_vpos <= vpos;
       end
-      
+     
+      default:
+          $display("sprite state machine error !");
+
     endcase
   end
 end

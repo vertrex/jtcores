@@ -1,0 +1,167 @@
+module SEI0050BU(
+  input clk, //needed ???
+  input pxl_cen,
+  input rst,
+
+  // Video out 
+  output reg HS,
+  output reg VS,
+  output reg LHBL,
+  output reg LVBL,
+
+  output reg [8:0] hpos, //7:0 and other pin for 8 ? 
+  output reg [8:0] vpos,  // same ? 
+
+  //this is a ~750khz clk
+  //it's used to latch hpos,vpos 
+  //before they are inputed into the ROM address
+  output reg char_cen,
+  //every 4 pixel or 1.5mhz we must copy the pixel 
+  output reg char_rom_cen
+);
+
+// Retro tink : 
+// input lines 261p 
+// H-freg 15.56 khz  
+// V-freq 59.61 hz 
+// Samples/lines 1754
+// ADC Clock : 27.29Mhz 
+// buffer lag : 2.0ms (31)
+
+// mame source : 
+// VSync - 59.6094Hz
+// HSync - 15.31996kHz
+
+
+// CALC ON SEI0050BU 
+// hsync freq  : 15.61khz (period 64us) / 15.62khz ? 
+// vsync : 2.55khz (6 period of hsync)
+// vblank : 37 cycle de hsync ! 
+// vblank generated via PROM, 82S135 @ 59.61 hz 
+// PROM generate different 59.61hz 
+
+parameter HBLANK_START  = 256;
+parameter HBLANK_END 	  = 384; //
+parameter HSYNC_START 	= 263; //
+parameter HSYNC_END 		= 384; // 7 ? 
+parameter H_TOTAL			  = 384;
+
+//vblank is on pin 28 of sei50bu 
+//vpos pin [0:22][1:2]
+parameter VBLANK_START  = 240; //checked on board pin 28 SEI0050BU, 240 included in vblank
+parameter VBLANK_END		= 15;  //checked on board pin 28 SEI0050BU, 15 included in vblank, 16 not
+parameter VSYNC_START	  = 256; //pin3 ~vsync, 256 include, 
+parameter VSYNC_END		  = 261; //pin3 ~vsync, 261 include
+parameter V_TOTAL			  = 261; //checked on board pin 
+
+reg [8:0] hcnt, vcnt;
+
+reg pin4, pin5, pin6, pin7;
+
+initial begin
+	hcnt  = 9'b0;
+	vcnt  = 9'b0;
+  hpos  = 9'b0; //recalc size for 1st iteration H_TOTAL - 138 -1 ?
+  vpos  = 9'b0;
+  hcnt  = 9'b0;
+	LHBL  = 1'b1;
+	LVBL  = 1'b1;
+	HS    = 1'b0;
+	VS    = 1'b0;
+end	
+
+always @(negedge pxl_cen) begin 
+   if (hpos[1:0]   == 2'b11 || hcnt == HBLANK_END)
+   //if (hpos[1:0] + 1 == 2'b11 || hpos[2:0] == 3'b00 || hcnt == HBLANK_END)
+      char_rom_cen <= 1'b1;
+   else 
+      char_rom_cen <= 1'b0;
+end 
+
+
+always @(posedge pxl_cen) begin 
+  //if (pxl_cen) begin
+    if (hcnt  == H_TOTAL) begin
+      hcnt <= 0;
+      hpos <= 0;
+      //char_cen <= 1'b1 ? 
+      vpos <= vpos + 1'd1;
+      vcnt <= vcnt + 1'd1;
+
+      if (vcnt  == V_TOTAL) begin
+        vcnt <= 0;
+        vpos <= 0;
+        end
+      end 
+    else begin
+      hcnt <= hcnt + 1'd1;
+      hpos <= hpos + 1'd1;
+      end
+
+    //to check on SEI50BU original for same 
+    //ask sei010bu to latch every 4 pix 
+    //if (hpos[1:0] + 1'd1 == 2'b11 || hcnt == HBLANK_END)
+      //char_rom_cen <= 1'b1;
+    //else 
+      //char_rom_cen <= 1'b0;
+
+    if (hpos[2:0] + 1'd1 == 3'b000 || hcnt == HBLANK_END) //we nneed 0 too but 384 + 1 is not 0
+      char_cen <= 1'b1; 
+     else 
+      char_cen <= 1'b0;
+
+    case (hcnt)
+      HBLANK_START - 1 : begin
+        LHBL <= 0;
+        end 
+      HBLANK_END : begin
+        LHBL <= 1;
+      end
+      HSYNC_START-1  : HS <= 1;
+      HSYNC_END-1    : HS <= 0;
+      endcase 
+    
+    case (vcnt)
+      VBLANK_START - 1: 
+        if (hcnt == HBLANK_START)
+          LVBL <= 0;
+      VBLANK_END: 
+        if (hcnt == HBLANK_END)
+          LVBL <= 1;
+      VSYNC_START - 1: 
+        if (hcnt == HSYNC_START)
+          VS <= 1;
+      VSYNC_END: 
+        if (hcnt == HSYNC_START) 
+          VS <= 0;
+      endcase
+    //end	
+end 
+
+always @(posedge char_cen, posedge rst) begin
+   if (rst)
+     pin4 <= 1'b1;
+   else begin 
+     pin4 <= ~pin4; 
+   end 
+end 
+
+//always @(posedge pxl_cen, posedge rst) begin
+  //if (rst)
+    //char_cen <= 1'b0;
+  //else begin 
+    //original use 3'b100 with two 8 bits rom 
+    //we currently use one 16 bits rom 
+    //if (hpos[2:0] ==  3'b100)// + 1 ? 
+    //voir sur l original !
+    //half char cen 
+    //if (hpos[1:0] -1  ==  2'b10) //working like 2'd3  
+      //char_cen <= 1'b1;
+    //else 
+      //char_cen <= 1'b0;
+  //end 
+//end 
+
+//assign display_on = ~(vblank | hblank);
+  
+endmodule

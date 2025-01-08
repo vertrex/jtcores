@@ -16,67 +16,60 @@
 //  pixel are transparent if ROM data is 0xf
 //  pixel value is an index into the video palette 
 //
-module scan_char_ram(
+module char_ram(
   input                 clk,
   input                 pxl_cen,
+  input                 char_cen,
+  input                 char_rom_cen,
   input                 rst,
 
-  input           [8:0] hpos,
-  input           [8:0] vpos, 
+  input                 LHBL,
 
-  output reg     [10:1] ram_addr,
-  input          [15:0] ram_out,
+  input           [7:0] hpos, //8:0
+  input           [7:0] vpos, //8:0
+
+  //output reg     [10:1] ram_addr, //vram_addr 
+  input          [15:0] ram_out,  //code [11:0], pal 15:12
 
   input          [15:0] char_rom_data,
   input                 char_rom_ok,
-  output reg     [16:1] char_rom_addr,
+  output         [16:1] char_rom_addr,
+  output                char_rom_cs,
 
-  output reg      [7:0] pixel
+  output          [7:0] pixel
+);
+assign char_rom_cs = 1'b1;
+
+reg [3:0] palette;
+wire [3:0] color;
+
+sei0010bu sei0010bu_u(
+  .clk(pxl_cen),
+  .rst(rst),
+  .pos(hpos[1:0]),
+  .g(char_rom_cen),
+  .rom_data(char_rom_data[15:0]),
+  .color(color)
 );
 
-reg [1:0]  pix_index;
-reg [3:0]  color;
-reg [15:0] rom;
 
-always @(posedge pxl_cen) begin 
-  if (~hpos[8]) begin
-    pixel <= {color[3:0], {rom[{2'b11, pix_index}], rom[{2'b10, pix_index}], rom[{2'b01, pix_index}], rom[{2'b0, pix_index}] }};
-  end 
+//XXX still 9:14 shift (6 pix off) with latch
+//without latch there is also 6 ??? 
+//74LS174
+reg [2:0] vpos_latch;
+
+always @(posedge char_cen) begin
+  vpos_latch[2:0] <= vpos[2:0];
+  palette <= ram_out[15:12]; //not in original !!! XXX 
 end 
+//hpos[2] ?? seem always up on the mobo ... check it 
+//ram_out from 6091 what clocking ?
+//on board ~hpos[2] (vpos_latch seems equal to vpos ...)
+//maybe ram take one more cycle that's why we have ~hpos2
+//assign pixel = {ram_out[15:12], color};
+assign pixel = {palette, color};
+//assign char_rom_addr[16:1] = {ram_out[11:0], vpos_latch[2:0], ~hpos[2]}; //latch vpos/hpos ? because ram_out use vpos/hpos so it must way 
+assign char_rom_addr[16:1] = {ram_out[11:0], vpos_latch[2:0], hpos[2]}; //latch vpos/hpos ? because ram_out use vpos/hpos so it must way 
 
-wire [8:0] hpos_shift;
-assign hpos_shift = hpos[8:0] + 8'd4; //we start 4 pix before to prefetch char rom
-
-always @(posedge clk,  posedge rst) begin 
-  if (rst) begin
-    pix_index <= 0; 
-    color[3:0] <= 4'd0;
-    rom <= 16'd0;
-    end 
-  else if (clk) begin 
-    if (~hpos[8]) begin 
-      pix_index <= hpos[1:0]; 
-
-      if (hpos_shift[2:0] == 3'd0 || hpos_shift[2:0] == 3'd4) begin 
-        if (char_rom_ok) begin 
-          color[3:0] <= ram_out[15:12];
-          rom[15:0] <= char_rom_data[15:0]; 
-          end 
-      end 
-
-      if (hpos_shift[2:0] > 0 && hpos_shift[2:0]  <= 3'd3) begin
-        //do we need to change ram addr ? it's the same tile XXX
-        //we may need to tile 0 
-        ram_addr[10:1] <= {vpos[7:3], hpos_shift[7:3]};
-        char_rom_addr[16:1] <= {ram_out[11:0], vpos[2:0], 1'd0};
-        end
-      else if (hpos_shift[2:0] >= 3'd5) begin 
-        //do we need to change ram addr ? it's the same tile XXX
-        ram_addr[10:1] <= {vpos[7:3], hpos_shift[7:3]};
-        char_rom_addr[16:1] <= {ram_out[11:0], vpos[2:0], 1'd1};
-        end 
-    end
-  end
-end 
 
 endmodule

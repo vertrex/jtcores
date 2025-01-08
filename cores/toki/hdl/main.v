@@ -13,11 +13,10 @@ module toki_main(
   input             clk,
   input             pxl_cen,
   input             pxl2_cen,
+  input             char_cen,
 
   // Video
-  input             hsync, 
-  input             vsync,
-  input             vblank,
+  input             LVBL,
   input       [8:0] hpos,
   input       [8:0] vpos,
 
@@ -39,23 +38,23 @@ module toki_main(
   input      [10:1] palette_addr,
   output     [15:0] palette_out,
 
-  input      [10:1] vram_addr,
+  //input      [10:1] vram_addr,
   output     [15:0] vram_out,
 
 
-  input      [10:1] bg1_addr,
+  //input      [10:1] bg1_addr,
   output     [15:0] bg1_out,
 
-  input      [10:1] bg2_addr,
+  //input      [10:1] bg2_addr,
   output     [15:0] bg2_out,
 
   input      [10:1] sprite_addr,
   output     [15:0] sprite_out,
 
-  output  reg [8:0] bg1_scroll_x,
-  output  reg [8:0] bg1_scroll_y,
-  output  reg [8:0] bg2_scroll_x,
-  output  reg [8:0] bg2_scroll_y,
+  output  reg signed [8:0] bg1_scroll_x,
+  output  reg signed [8:0] bg1_scroll_y,
+  output  reg signed [8:0] bg2_scroll_x,
+  output  reg signed [8:0] bg2_scroll_y,
 
   output  reg       bg_order,
 
@@ -175,7 +174,7 @@ assign inta_n = ~&{cpu_fc[2], cpu_fc[1], cpu_fc[0], ~cpu_as_n};
 jtframe_virq u_virq(
     .rst        (rst),
     .clk        (clk),
-    .LVBL       (vblank),
+    .LVBL       (LVBL), //~LVBL ???
     .dip_pause  (dip_pause), //handle cpu pause
     .skip_en    (),
     .skip_but   (),
@@ -420,18 +419,16 @@ jtframe_ram16 #(.AW(15)) u_cpu_ram(
 //
 wire [15:0]  palette_do;
 
-jtframe_dual_ram16 #(.AW(10)) u_palette_ram(
-  .clk0(clk),
-  .we0({palette_cs && !cpu_wr && !cpu_uds_n, palette_cs && !cpu_wr && !cpu_lds_n}),
-  .addr0(cpu_a[10:1]), 
-  .data0(cpu_dout[15:0]),
-  .q0(palette_do),
+sis6091 #(.W(10)) u_palette_ram(
+  .clk(clk),
+  .trigger_n(LVBL),
+  .we({palette_cs && !cpu_wr && !cpu_uds_n, palette_cs && !cpu_wr && !cpu_lds_n}),
+  .addr_in(cpu_a[10:1]), 
+  .data(cpu_dout[15:0]),
+  .q_in(palette_do),
 
-  .clk1(clk),
-  .data1(),
-  .addr1(palette_addr[10:1]),
-  .we1(2'b0),
-  .q1(palette_out)
+  .addr_out(palette_addr[10:1]),
+  .q(palette_out)
 ); 
 
 ///////// VIDEO RAM //////////
@@ -443,55 +440,63 @@ jtframe_dual_ram16 #(.AW(10)) u_palette_ram(
 //
 wire [15:0] vram_do;
 
-jtframe_dual_ram16 #(.AW(10)) u_vram_ram(
-  .clk0(clk),
-  .we0({vram_cs && !cpu_wr && !cpu_uds_n , vram_cs && !cpu_wr && !cpu_lds_n }),
-  .addr0(cpu_a[10:1]), 
-  .data0(cpu_dout[15:0]),
-  .q0(vram_do),
+sis6091 #(.W(10)) u_vram_ram(
+  .clk(clk),
+  .trigger_n(LVBL),
+  .we({vram_cs && !cpu_wr && !cpu_uds_n , vram_cs && !cpu_wr && !cpu_lds_n}),
+  .addr_in(cpu_a[10:1]), 
+  .data(cpu_dout[15:0]),
+  .q_in(vram_do),
 
-  .clk1(clk),
-  .data1(),
-  .addr1(vram_addr[10:1]),
-  .we1(2'b0),
-  .q1(vram_out[15:0])
+  // WHICH CLOCK ???
+  //XXX latchc or enable for a certain time XXX must use char_addr_en to
+  //enable or latched pos  ...
+  //check what it get just after hblank 
+  //10 pin :( we have 8 pin capable 
+  //left 8 for hpos or vblank still can be usefull if 
+  //vpos 7 is low 
+  .addr_out({vpos[7:3], hpos[7:3]}),//+ 2'd2 ? hpos[4] ?  ^ every 32pix ? 
+  .q(vram_out[15:0])
 ); 
 
 ///////// BG1 RAM //////////
 //
 // background 1 (2048)
 //
-jtframe_dual_ram16 #(.AW(10)) u_bg1_ram(
-  .clk0(clk),
-  .we0({bg1_cs && !cpu_wr && !cpu_uds_n, bg1_cs && !cpu_wr && !cpu_lds_n}),
-  .addr0(cpu_a[10:1]), 
-  .data0(cpu_dout[15:0]),
-  .q0(),
+//
+wire signed [8:0] vpos_shift_1 = vpos[7:0] + bg1_scroll_y[8:0];
+wire signed [8:0] hpos_shift_1 = hpos[7:0] + bg1_scroll_x[8:0];
 
-  .clk1(clk),
-  .data1(),
-  .addr1(bg1_addr[10:1]),
-  .we1(2'b0),
-  .q1(bg1_out)
+sis6091 #(.W(10)) u_bg1_ram(
+  .clk(clk),
+  .trigger_n(LVBL),
+  .we({bg1_cs && !cpu_wr && !cpu_uds_n, bg1_cs && !cpu_wr && !cpu_lds_n}),
+  .addr_in(cpu_a[10:1]), 
+  .data(cpu_dout[15:0]),
+  .q_in(),
+  
+  .addr_out({vpos_shift_1[8:4], hpos_shift_1[8:4]}),
+  .q(bg1_out)
 ); 
 
 ///////// BG2 RAM //////////
 //
 // background 2 (2048)
 //
-jtframe_dual_ram16 #(.AW(10)) u_bg2_ram(
-  .clk0(clk),
-  .we0({bg2_cs && !cpu_wr && !cpu_uds_n, bg2_cs && !cpu_wr && !cpu_lds_n}),
-  .addr0(cpu_a[10:1]), 
-  .data0(cpu_dout[15:0]),
-  .q0(),
+wire signed [8:0] vpos_shift_2 = vpos[7:0] + bg2_scroll_y[8:0];
+wire signed [8:0] hpos_shift_2 = hpos[7:0] + bg2_scroll_x[8:0];
 
-  .clk1(clk),
-  .data1(),
-  .addr1(bg2_addr[10:1]),
-  .we1(2'b0),
-  .q1(bg2_out)
-); 
+sis6091 #(.W(10)) u_bg2_ram(
+  .clk(clk),
+  .trigger_n(LVBL),
+  .we({bg2_cs && !cpu_wr && !cpu_uds_n, bg2_cs && !cpu_wr && !cpu_lds_n}),
+  .addr_in(cpu_a[10:1]), 
+  .data(cpu_dout[15:0]),
+  .q_in(),
+  
+  .addr_out({vpos_shift_2[8:4], hpos_shift_2[8:4]}),
+  .q(bg2_out)
+);
 
 ///////// SPRITE RAM //////////
 //
@@ -502,18 +507,16 @@ jtframe_dual_ram16 #(.AW(10)) u_bg2_ram(
 //
 wire [15:0] sprite_do;
 
-jtframe_dual_ram16 #(.AW(10)) u_sprite_ram(
-  .clk0(clk),
-  .we0({sprite_cs && !cpu_wr && !cpu_uds_n, sprite_cs && !cpu_wr && !cpu_lds_n}),
-  .addr0(cpu_a[10:1]), 
-  .data0(cpu_dout[15:0]),
-  .q0(sprite_do),
+sis6091 #(.W(10)) u_sprite_ram(
+  .clk(clk),
+  .trigger_n(LVBL),
+  .we({sprite_cs && !cpu_wr && !cpu_uds_n, sprite_cs && !cpu_wr && !cpu_lds_n}),
+  .addr_in(cpu_a[10:1]), 
+  .data(cpu_dout[15:0]),
+  .q_in(sprite_do),
 
-  .clk1(clk),
-  .data1(),
-  .addr1(sprite_addr[10:1]),
-  .we1(2'b0),
-  .q1(sprite_out)
+  .addr_out(sprite_addr[10:1]),
+  .q(sprite_out)
 );
 
 endmodule

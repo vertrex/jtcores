@@ -7,7 +7,7 @@
 module dual_ram_buffer #(parameter W=10)
 (
 	input            clk,
-  input            trigger, // trigger high to copy ram content
+  input            trigger_n, // trigger high to copy ram content !!! must be low trigger_n ! because we LVBL ! must check on sis6091 if it really use lvbl !  
   
   input            we,      // 1st ram write
   input    [W-1:0] addr_in, // 1st ram address
@@ -25,11 +25,13 @@ reg [W:0] i = 0;
 
 always @(posedge clk) begin
   if (clk) begin
-    if (trigger && i <= (2**W)-1) begin
+    //this will go here lot of time because there is lot of clock 
+    //tick for lvbl ! it must do it only one time so @(trigger)
+    if (~trigger_n && i <= (2**W)-1) begin
       ram_out[i[W-1:0]] <= ram[i[W-1:0]];
       i <= i + 1'b1;
       end
-    else if (~trigger && i == (2**W))
+    else if (trigger_n && i == (2**W))
       i <= 0;
 
     if (we == 1'b1)
