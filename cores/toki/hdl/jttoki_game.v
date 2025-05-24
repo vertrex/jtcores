@@ -73,7 +73,7 @@ assign dip_flip   = 0;
 
 wire char_cen;
 
-reg  div = 1'b0;
+//reg  div = 1'b0;
 
 // don't work with jtframe_obj_buffer because of rd 
 //assign pxl2_cen = pixel_cen;
@@ -102,7 +102,7 @@ toki_main  u_main(
   .char_cen(char_cen),
 
   // Video 
-  .LVBL(LVBL),
+  .LVBL(prom_26_data[6]), //CPU VBLANK IS TRIGGERED BY 82S135 pin 11
   .hpos(hpos),
   .vpos(vpos),
 
@@ -168,6 +168,7 @@ toki_main  u_main(
 toki_video u_video(
   .rst(rst),
   .clk(clk),
+  .cpu_cen(cpu_cen),
   .pxl_cen(pxl_cen),
   .pxl2_cen(pxl2_cen),
 
@@ -206,20 +207,20 @@ toki_video u_video(
   //.gfx1_rom_addr(gfx1_rom_addr),
   //.gfx1_rom_cs(gfx1_rom_cs),
   //
-  .char_rom_data(char_rom_data),
-  .char_rom_ok(char_rom_ok),
-  .char_rom_addr(char_rom_addr),
-  .char_rom_cs(char_rom_cs),
+  //.char_rom_data(char_rom_data),
+  //.char_rom_ok(char_rom_ok),
+  //.char_rom_addr(char_rom_addr),
+  //.char_rom_cs(char_rom_cs),
   
-  //.char_rom_1_data(char_rom_1_data),
-  //.char_rom_1_ok(char_rom_1_ok),
-  //.char_rom_1_addr(char_rom_1_addr),
-  //.char_rom_1_cs(char_rom_1_cs),
+  .char_rom_1_data(char_rom_1_data),
+  .char_rom_1_ok(char_rom_1_ok),
+  .char_rom_1_addr(char_rom_1_addr),
+  .char_rom_1_cs(char_rom_1_cs),
 
-  //.char_rom_2_data(char_rom_2_data),
-  //.char_rom_2_ok(char_rom_2_ok),
-  //.char_rom_2_addr(char_rom_2_addr),
-  //.char_rom_2_cs(char_rom_2_cs),
+  .char_rom_2_data(char_rom_2_data),
+  .char_rom_2_ok(char_rom_2_ok),
+  .char_rom_2_addr(char_rom_2_addr),
+  .char_rom_2_cs(char_rom_2_cs),
 
   .gfx2_rom_data(gfx2_rom_data),
   .gfx2_rom_ok(gfx2_rom_ok),

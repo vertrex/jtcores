@@ -6,15 +6,19 @@ params:
   - { name: OKI_OFFSET,       value: "22'h9000" } # start at 8.m3 + 7.m7 / 2 
   - { name: PROM26_OFFSET,    value: "22'h19000" }     # 131072/2 0x10_000
   - { name: PROM27_OFFSET,    value: "22'h19080" }     # 131072/2 0x10_000
-    
+  - { name: CHAR_2_OFFSET,    value: "22'h8000"}
 clocks:
   clk:
     - freq:  1000000
       outputs:
         - oki
-    - freq: 12000000
+    #- freq: 12000000
+      #outputs:
+        #- pixel
+    - freq: 20000000
       outputs:
-        - pixel
+        - cpu
+
     #- freq: 3579545
       #outputs:
         #- cen_fm
@@ -49,9 +53,14 @@ sdram:
           addr_width: 19
           data_width: 16
     - buses:
-        - name: char_rom
-          addr_width: 17  
-          data_width: 16
+        - name: char_rom_1
+          addr_width: 16  
+          #data_width: 16
+          data_width: 8 
+        - name: char_rom_2 
+          addr_width: 16
+          data_width: 8
+          offset : CHAR_2_OFFSET 
           #cs: LVBL
     - buses: 
         - name: gfx2_rom  

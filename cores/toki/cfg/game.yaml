@@ -1,5 +1,5 @@
 game:
-  - from: toki 
+  - from: toki
     get:
       - jttoki_game.v
       - main.v
@@ -10,6 +10,7 @@ game:
       - sound.v
       - sei0050bu.v
       - sei0010bu.v
+      - sg0140.v
       - sei80bu.v
       - z80_cs.v
       - dual_ram_buffer.v
@@ -41,9 +42,9 @@ jtframe:
   - from: sound
     get:
       - jtframe_mixer.v
-modules:       
+modules:
   jt:
-    - name: jt6295        
+    - name: jt6295
   other:
     - get:
       - jtopl/hdl/jtopl2.yaml

@@ -9,6 +9,7 @@ module toki_video(
 
   // Clock
   input             clk,
+  input             cpu_cen,
   input             pxl_cen,
   input             pxl2_cen,
 
@@ -28,7 +29,7 @@ module toki_video(
   output [3:0]      b,
 
   // Shared video RAM
-  output reg [10:1] palette_addr,
+  output     [10:1] palette_addr,
   input      [15:0] palette_out,
 
   //output     [10:1] vram_addr,
@@ -49,20 +50,20 @@ module toki_video(
   //output     [16:1] gfx1_rom_addr,
   //output            gfx1_rom_cs,
 
-  input      [15:0] char_rom_data,
-  input             char_rom_ok,
-  output     [16:1] char_rom_addr,
-  output            char_rom_cs,
+  //input      [15:0] char_rom_data,
+  //input             char_rom_ok,
+  //output     [16:1] char_rom_addr,
+  //output            char_rom_cs,
   
-  //input       [7:0] char_rom_1_data,
-  //input             char_rom_1_ok,
-  //output     [1:0] char_rom_1_addr,
-  //output            char_rom_1_cs,
+  input       [7:0] char_rom_1_data,
+  input             char_rom_1_ok,
+  output     [15:0] char_rom_1_addr,
+  output            char_rom_1_cs,
 
-  //input       [7:0] char_rom_2_data,
-  //input             char_rom_2_ok,
-  //output     [15:0] char_rom_2_addr,
-  //output            char_rom_2_cs,
+  input       [7:0] char_rom_2_data,
+  input             char_rom_2_ok,
+  output     [15:0] char_rom_2_addr,
+  output            char_rom_2_cs,
 
   input      [15:0] gfx2_rom_data,
   input             gfx2_rom_ok,
@@ -102,17 +103,17 @@ module toki_video(
 
 ////////// VIDEO SYNC /////////////
 //
-wire display_on;
-assign display_on = (LHBL & LVBL);
-
 wire char_rom_cen;
 
 assign prom_26_cs = 1'b1;
 assign prom_27_cs = 1'b1;
 
-assign prom_26_addr[7:0] = vpos[7:0]; // generate VBLANK 
-assign prom_27_addr[7:0] = vpos[7:0]; // ??? 
+assign prom_26_addr[7:0] = vpos[7:0]; // generate CPU VBLANK on O5 (pin 6)  
+assign prom_27_addr[7:0] = vpos[7:0]; // ?? use for color mixing 
 
+//cpu_irq = prom_26_addr[6]; cpu lvbl irq
+
+// HV SYNC
 SEI0050BU sei0050bu_u(
   .clk(clk),
   .pxl_cen(pxl_cen),
@@ -129,44 +130,6 @@ SEI0050BU sei0050bu_u(
   .char_rom_cen(char_rom_cen)
 );
 
-
-/*
-wire [9:0] vrender, vrender1;
-wire vinit, hinit;
-
-// work on sim not on analogue 
-wire lhblank, lvblank;
-assign hblank = ~lhblank;
-assign vblank = ~lvblank;
-	//m_screen->set_raw(XTAL(12'000'000)/2, 390, 0, 256      , 258, 16, 240);
-jtframe_vtimer #(
-                 .VB_START(240), 
-                 .VB_END(16), 
-                 .VCNT_END(258),
-                 .VS_START(250),
-                 .HS_START(300),
-
-                 .HB_START(256), 
-                 .HB_END(0), 
-                 .HINIT(390)
-) hvsync
-(
-  .clk(clk),
-  .pxl_cen(pxl_cen),
-  .vdump(vpos),
-  .vrender(vrender),
-  .vrender1(vrender1),
-  .H(hpos),
-  .Hinit(hinit),
-  .Vinit(vinit),
-  .LHBL(lhblank),
-  .LVBL(lvblank),
-  .HS(hsync),
-  .VS(vsync)
-);
-
-*/
-
 ///////// CHAR DRAWING //////////
 //
 // char : 8x8 tile 
@@ -177,25 +140,35 @@ wire [7:0] char_pixel;
 
 char_ram char_ram_u(
   .clk(clk),
+  .cpu_cen(cpu_cen),
   .pxl_cen(pxl_cen),
   .char_cen(char_cen),
   .char_rom_cen(char_rom_cen),
 
   .rst(rst),
 
-  .LHBL(LHBL), //XXX
+  .LHBL(LHBL), //XXX is that this one ?
 
   .hpos(hpos[7:0]),
   .vpos(vpos[7:0]),
   
-  //.ram_addr(vram_addr),
   .ram_out(vram_out),
 
-  .char_rom_data(char_rom_data),
-  .char_rom_ok(char_rom_ok),
-  .char_rom_addr(char_rom_addr),
-  .char_rom_cs(char_rom_cs),
- 
+  //.char_rom_data(char_rom_data),
+  //.char_rom_ok(char_rom_ok),
+  //.char_rom_addr(char_rom_addr),
+  //.char_rom_cs(char_rom_cs),
+
+  .char_rom_1_data(char_rom_1_data),
+  .char_rom_1_ok(char_rom_1_ok),
+  .char_rom_1_addr(char_rom_1_addr),
+  .char_rom_1_cs(char_rom_1_cs),
+
+  .char_rom_2_data(char_rom_2_data),
+  .char_rom_2_ok(char_rom_2_ok),
+  .char_rom_2_addr(char_rom_2_addr),
+  .char_rom_2_cs(char_rom_2_cs),
+
   .pixel(char_pixel)
 );
 
@@ -288,7 +261,7 @@ scan_sprite_ram scan_sprite_ram_u(
   .gfx_rom_addr(gfx2_rom_addr),
   .gfx_rom_cs(gfx2_rom_cs),
 
-  .line_buffer_addr(sprite_line_buffer_addr),
+  .line_buffer_addr(hpos), //+ 1 ?
   .line_buffer_out(sprite_line_buffer_out)
 );
 
@@ -303,42 +276,29 @@ scan_sprite_ram scan_sprite_ram_u(
 // output the pixel to the screen
 //
 
+//
+// SG0140 out ? 
+//
+// MIX MUST ASSIGN ? 
+// there is no clcok
+// it only use rom27 for stuff ?? 
+// and simple chip select 
+// to assign to ram
 
+//color mix 
+//must use rom27
+assign palette_addr = 
+          char_pixel[3:0] != 'hf ? {2'd0, char_pixel} + VRAM_PALETTE_OFFSET :
+          sprite_line_buffer_out[3:0] != 'hf ? {2'd0, sprite_line_buffer_out} : 
+          bg_order == 1'b0 & bg1_pixel[3:0] != 'hf ? {2'd0, bg1_pixel} + BG1_PALETTE_OFFSET :
+          bg_order == 1'b0 & bg2_pixel[3:0] != 'hf ? {2'd0, bg2_pixel} + BG2_PALETTE_OFFSET :
+          bg_order == 1'b1 & bg2_pixel[3:0] != 'hf ? {2'd0, bg2_pixel} + BG2_PALETTE_OFFSET :
+          bg_order == 1'b1 & bg1_pixel[3:0] != 'hf ? {2'd0, bg1_pixel} + BG1_PALETTE_OFFSET :
+          'h3ff;
 
+// UEC-51 
 assign r = palette_out[3:0];
 assign g = palette_out[7:4];
 assign b = palette_out[11:8];
-
-//XXX always @(posedge pxl_cen) begin +1 ?
-//always @(posedge clk) begin
-////shift for 1 pix as we latch
-always @(posedge pxl_cen) begin
-  //vram_line_buffer_addr <= hpos[7:0] - 8'b1;
-  sprite_line_buffer_addr <= hpos; // 8'b1;
-  if (display_on) begin //-1 ?
-    if (char_pixel[3:0] != 'hf)
-      palette_addr[10:1] <= {2'd0, char_pixel} + VRAM_PALETTE_OFFSET;
-    else if (sprite_line_buffer_out[3:0] != 'hf)
-      palette_addr[10:1] <= {2'd0, sprite_line_buffer_out};
-    else begin
-      if (bg_order == 1'b0) begin
-        if (bg1_pixel[3:0] != 'hf)
-          palette_addr[10:1] <= {2'd0, bg1_pixel} + BG1_PALETTE_OFFSET;
-        else if (bg2_pixel[3:0] != 'hf)
-          palette_addr[10:1] <= {2'd0, bg2_pixel} + BG2_PALETTE_OFFSET;
-        else
-          palette_addr[10:1] <= 'h3ff;
-        end
-      else begin
-        if (bg2_pixel[3:0] != 'hf)
-          palette_addr[10:1] <= {2'd0, bg2_pixel} + BG2_PALETTE_OFFSET;
-        else if (bg1_pixel[3:0] != 'hf)
-          palette_addr[10:1] <= {2'd0, bg1_pixel} + BG1_PALETTE_OFFSET;
-        else
-          palette_addr[10:1] <= 'h3ff;
-        end
-     end
-  end
-end
 
 endmodule

@@ -16,7 +16,7 @@ module toki_main(
   input             char_cen,
 
   // Video
-  input             LVBL,
+  input             LVBL, //cpu IPL0n triggered by 82s135 pin 11 
   input       [8:0] hpos,
   input       [8:0] vpos,
 
@@ -344,6 +344,10 @@ reg [15:0] bg2_scroll_x_lo = 0;
 reg [15:0] bg1_scroll_y_lo = 0;
 reg [15:0] bg2_scroll_y_lo = 0;
 
+// use sei021bu for scrollng check if cpu_address can be high both at same time 
+// durring 1 6mhz clk cycle or how does that work ???
+// bg1_scroll_x[8:0] <= { cpu_dout[4], bg1_scroll_x_lo[6:0], bg1_scroll_x_lo[7] };
+
 always @(posedge clk, posedge rst) begin
   if (rst) begin
       bg_order <= 1'b0;
@@ -354,22 +358,27 @@ always @(posedge clk, posedge rst) begin
       end
   else if (clk) begin
     if (scroll_cs == 'b1) begin
-      if (cpu_a[6:1] == 'h6)
+
+      if      (cpu_a[6:1] == 'h6)
         bg1_scroll_x_lo[15:0] <= cpu_dout[15:0];
       else if (cpu_a[6:1] == 'h5)
         bg1_scroll_x[8:0] <= { cpu_dout[4], bg1_scroll_x_lo[6:0], bg1_scroll_x_lo[7] };
+
       else if (cpu_a[6:1] == 'he)
         bg1_scroll_y_lo[15:0] <= cpu_dout[15:0];
       else if (cpu_a[6:1] == 'hd) 
         bg1_scroll_y[8:0] <= { cpu_dout[4], bg1_scroll_y_lo[6:0], bg1_scroll_y_lo[7] };
+
       else if (cpu_a[6:1] == 'h16) 
         bg2_scroll_x_lo[15:0] <= cpu_dout[15:0];
       else if (cpu_a[6:1] == 'h15) 
         bg2_scroll_x[8:0] <= { cpu_dout[4], bg2_scroll_x_lo[6:0], bg2_scroll_x_lo[7] };
+
       else if (cpu_a[6:1] == 'h1e)
         bg2_scroll_y_lo[15:0] <= cpu_dout[15:0];
       else if (cpu_a[6:1] == 'h1d)
          bg2_scroll_y[8:0] <= { cpu_dout[4], bg2_scroll_y_lo[6:0], bg2_scroll_y_lo[7] };
+
       else if (cpu_a[6:1] == 'h28) begin
         if ((cpu_dout[15:0] & 16'h100) == 16'h0)
           bg_order <= 1'b0;
@@ -440,6 +449,23 @@ sis6091 #(.W(10)) u_palette_ram(
 //
 wire [15:0] vram_do;
 
+/*
+
+reg [7:0] hpos_shift_0 = 0;
+
+always @(pxl_cen) begin 
+   if (hpos[8:0] > 256) //or hblank simply ?
+   //if (LHBL == 1'b0)
+     hpos_shift_0 <= 8'd0;
+     //vpos_shift = vpos + 1; 
+   else
+     hpos_shift_0 <= hpos[7:0]; //better way to calculate ? << 2 ? 
+     //hpos_shift_0 <= hpos[7:0] + 8'd4; //better way to calculate ? << 2 ? 
+     //vpos_shift <= vpos 
+end 
+*/ 
+//replace by 4:0 ? directly in add_out ???
+
 sis6091 #(.W(10)) u_vram_ram(
   .clk(clk),
   .trigger_n(LVBL),
@@ -455,6 +481,11 @@ sis6091 #(.W(10)) u_vram_ram(
   //10 pin :( we have 8 pin capable 
   //left 8 for hpos or vblank still can be usefull if 
   //vpos 7 is low 
+  //        tile addr 256*256 / 32 
+  //        256 x/32
+  //        256 y/32
+  //
+  //.addr_out({vpos[7:3], hpos_shift_0[7:3]}),//+ 2'd2 ? hpos[4] ?  ^ every 32pix ? 
   .addr_out({vpos[7:3], hpos[7:3]}),//+ 2'd2 ? hpos[4] ?  ^ every 32pix ? 
   .q(vram_out[15:0])
 ); 
@@ -464,7 +495,10 @@ sis6091 #(.W(10)) u_vram_ram(
 // background 1 (2048)
 //
 //
+
+//sei021bu ? 
 wire signed [8:0] vpos_shift_1 = vpos[7:0] + bg1_scroll_y[8:0];
+//sei021bu ? 
 wire signed [8:0] hpos_shift_1 = hpos[7:0] + bg1_scroll_x[8:0];
 
 sis6091 #(.W(10)) u_bg1_ram(
@@ -483,7 +517,9 @@ sis6091 #(.W(10)) u_bg1_ram(
 //
 // background 2 (2048)
 //
+//sei021bu ? 
 wire signed [8:0] vpos_shift_2 = vpos[7:0] + bg2_scroll_y[8:0];
+//sei021bu ? 
 wire signed [8:0] hpos_shift_2 = hpos[7:0] + bg2_scroll_x[8:0];
 
 sis6091 #(.W(10)) u_bg2_ram(

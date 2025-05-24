@@ -3,13 +3,16 @@ module SEI0050BU(
   input pxl_cen,
   input rst,
 
-  // Video out 
+  // Video out
+  // THIS IS NOT WHAT IS REALLY OUTPUTED BYY THE SEI0050bu 
+  //
   output reg HS,
   output reg VS,
   output reg LHBL,
   output reg LVBL,
 
-  output reg [8:0] hpos, //7:0 and other pin for 8 ? 
+  output reg [8:0] hpos, //7:0 and ~hblank pin for 8 ? XXX it's not synced on clock but shift 1/2 clock
+
   output reg [8:0] vpos,  // same ? 
 
   //this is a ~750khz clk
@@ -40,19 +43,32 @@ module SEI0050BU(
 // vblank generated via PROM, 82S135 @ 59.61 hz 
 // PROM generate different 59.61hz 
 
-parameter HBLANK_START  = 256;
-parameter HBLANK_END 	  = 384; //
-parameter HSYNC_START 	= 263; //
-parameter HSYNC_END 		= 384; // 7 ? 
+
+// 256x224
+
+//XXX is hblank vpos pin8 ? 
+parameter HBLANK_START  = 256; //pin 40 on board, 256 include 
+parameter HBLANK_END 	  = 384; //pinb 40 on board, 256 + 128 include 
+
+parameter HSYNC_START 	= 263; //304 csync p33 
+parameter HSYNC_END 		= 336; //336 csync p33 (31/32? ticks)
+
 parameter H_TOTAL			  = 384;
 
 //vblank is on pin 28 of sei50bu 
 //vpos pin [0:22][1:2]
-parameter VBLANK_START  = 240; //checked on board pin 28 SEI0050BU, 240 included in vblank
-parameter VBLANK_END		= 15;  //checked on board pin 28 SEI0050BU, 15 included in vblank, 16 not
-parameter VSYNC_START	  = 256; //pin3 ~vsync, 256 include, 
-parameter VSYNC_END		  = 261; //pin3 ~vsync, 261 include
-parameter V_TOTAL			  = 261; //checked on board pin 
+//checked two times with and without merge
+//
+//
+// USE LVBL DIRECTLY AS IT'S LIKE THAT IN THE seibu50
+//parameter VBLANK_START  = 240; //checked on board pin 28 SEI0050BU, 240 included in ~vblank
+parameter LVBLANK_START  = 239; //checked on board pin 28 SEI0050BU, 240 included in ~vblank
+//parameter VBLANK_END		= 15;  //checked on board pin 28 SEI0050BU, 15 included in ~vblank, 16 not
+parameter LVBLANK_END		= 15;  //checked on board pin 28 SEI0050BU, 15 included in ~vblank, 16 not
+//cheked two times with and without merge 
+parameter VSYNC_START	  = 256; //pin3 ~vsync, 256 include,
+parameter VSYNC_END		  = 261; //pin3 ~vsync, 261 include (6 ticks)
+parameter V_TOTAL			  = 261; //checked on board pin3  
 
 reg [8:0] hcnt, vcnt;
 
@@ -70,7 +86,8 @@ initial begin
 	VS    = 1'b0;
 end	
 
-always @(negedge pxl_cen) begin 
+always @(negedge pxl_cen) begin
+  //
    if (hpos[1:0]   == 2'b11 || hcnt == HBLANK_END)
    //if (hpos[1:0] + 1 == 2'b11 || hpos[2:0] == 3'b00 || hcnt == HBLANK_END)
       char_rom_cen <= 1'b1;
@@ -81,17 +98,32 @@ end
 
 always @(posedge pxl_cen) begin 
   //if (pxl_cen) begin
-    if (hcnt  == H_TOTAL) begin
-      hcnt <= 0;
-      hpos <= 0;
-      //char_cen <= 1'b1 ? 
-      vpos <= vpos + 1'd1;
+  //
+    if (hcnt == 256) begin 
       vcnt <= vcnt + 1'd1;
+      vpos <= vpos + 1'd1;
 
       if (vcnt  == V_TOTAL) begin
         vcnt <= 0;
         vpos <= 0;
         end
+      end 
+
+    if (hcnt  == H_TOTAL) begin
+      hcnt <= 0;
+      hpos <= 0;
+      //char_cen <= 1'b1 ?
+      //vpos <= vpos + 1'd1;
+      //vcnt <= vcnt + 1'd1;
+
+      //VPOS start as 255+128 ? (or finish at 255+ 128-255)
+      //so start at 255 ?? 
+      //hpos is 0 128 tick avec vpos start ...
+
+      //if (vcnt  == V_TOTAL) begin
+        //vcnt <= 0;
+        //vpos <= 0;
+        //end
       end 
     else begin
       hcnt <= hcnt + 1'd1;
@@ -105,7 +137,13 @@ always @(posedge pxl_cen) begin
     //else 
       //char_rom_cen <= 1'b0;
 
-    if (hpos[2:0] + 1'd1 == 3'b000 || hcnt == HBLANK_END) //we nneed 0 too but 384 + 1 is not 0
+    //it's synced on clock but HPOS is NOT ! 
+    //so there is a shift of 180 degres 
+    //it's start every 8 (first start at end of 7) at clock tick
+    //
+    //+1 ? 
+    //if (hpos[2:0] + 1'd1 == 3'b000 || hcnt == HBLANK_END) //we nneed 0 too but 384 + 1 is not 0
+    if (hpos[2:0]  == 3'b000 || hcnt == HBLANK_END) //we nneed 0 too but 384 + 1 is not 0
       char_cen <= 1'b1; 
      else 
       char_cen <= 1'b0;
@@ -122,10 +160,10 @@ always @(posedge pxl_cen) begin
       endcase 
     
     case (vcnt)
-      VBLANK_START - 1: 
+      LVBLANK_START: 
         if (hcnt == HBLANK_START)
           LVBL <= 0;
-      VBLANK_END: 
+      LVBLANK_END: 
         if (hcnt == HBLANK_END)
           LVBL <= 1;
       VSYNC_START - 1: 
