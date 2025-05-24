@@ -2,7 +2,6 @@
 //take 8 or  16 bits ? 
 //and return 4 bits / 1 pixel ?? 
 //
-
 module sei0010bu(
   input  clk,
   input  rst,
@@ -37,6 +36,5 @@ always @(posedge clk, posedge rst) begin
 end 
 
 assign color = { pixel_3[0], pixel_2[0], pixel_1[0], pixel_0[0] };
-
 
 endmodule

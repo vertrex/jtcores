@@ -140,7 +140,6 @@ wire [7:0] char_pixel;
 
 char_ram char_ram_u(
   .clk(clk),
-  .cpu_cen(cpu_cen),
   .pxl_cen(pxl_cen),
   .char_cen(char_cen),
   .char_rom_cen(char_rom_cen),
@@ -184,6 +183,10 @@ wire  [7:0] bg1_pixel;
 scan_tile_ram bg1_scan_tile_ram_u(
   .clk(clk),
   .pxl_cen(pxl_cen),
+
+  .gfx_cen(char_cen),  // XXX check signal on board 
+  .gfx_rom_cen(char_rom_cen),  // XXX check signal on board 
+
   .rst(rst),
 
   .LHBL(LHBL), //XXX
@@ -215,6 +218,10 @@ wire    [7:0] bg2_pixel;
 scan_tile_ram bg2_scan_tile_ram_u(
   .clk(clk),
   .pxl_cen(pxl_cen),
+
+  .gfx_cen(char_cen), // XXX check signal on board 
+  .gfx_rom_cen(char_rom_cen), // XXX check signal on board
+
   .rst(rst),
 
   .LHBL(LHBL), //XXX

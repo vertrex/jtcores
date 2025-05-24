@@ -18,7 +18,6 @@
 //
 module char_ram(
   input                 clk,
-  input                 cpu_cen,
   input                 pxl_cen,
   input                 char_cen,
   input                 char_rom_cen,
@@ -37,13 +36,13 @@ module char_ram(
   //output         [16:1] char_rom_addr,
   //output                char_rom_cs,
 
-  input          [7:0] char_rom_1_data,
+  input          [7:0]  char_rom_1_data,
   input                 char_rom_1_ok,
   output         [15:0] char_rom_1_addr,
   output                char_rom_1_cs,
 
 
-  input          [7:0] char_rom_2_data,
+  input          [7:0]  char_rom_2_data,
   input                 char_rom_2_ok,
   output         [15:0] char_rom_2_addr,
   output                char_rom_2_cs,

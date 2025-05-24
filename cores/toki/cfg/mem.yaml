@@ -3,7 +3,7 @@ params:
   - { name: GFX_4_OFFSET,     value:  "22'hc0000" }
   #audio bank 1
   - { name: BANK_OFFSET,      value: "22'h1000" } # start after 8.m3 (2nd bank start at + BA1_START )
-  - { name: OKI_OFFSET,       value: "22'h9000" } # start at 8.m3 + 7.m7 / 2 
+  - { name: OKI_OFFSET,       value: "22'h9000" } # start at 8.m3 + 7.m7 / 2
   - { name: PROM26_OFFSET,    value: "22'h19000" }     # 131072/2 0x10_000
   - { name: PROM27_OFFSET,    value: "22'h19080" }     # 131072/2 0x10_000
   - { name: CHAR_2_OFFSET,    value: "22'h8000"}
@@ -15,7 +15,7 @@ clocks:
     #- freq: 12000000
       #outputs:
         #- pixel
-    - freq: 20000000
+    - freq: 10000000
       outputs:
         - cpu
 
@@ -24,12 +24,12 @@ clocks:
         #- cen_fm
         #- cen_fm2
 
-# 4e.k10 (128k), 6e.m10 (128k) interleaved  
-# 3.k# 384k 0x60_000 12 (64k), 5.m12 (64k) interleaved 
+# 4e.k10 (128k), 6e.m10 (128k) interleaved
+# 3.k# 384k 0x60_000 12 (64k), 5.m12 (64k) interleaved
 # 384k 0x60_000
 # 1.c5 (64k), 2.c3 (64k) interleaved
-# 128k 0x20_000 
-# 8,8 interleaved 
+# 128k 0x20_000
+# 8,8 interleaved
 # obj1.c20 (512k) obj2.c22 (512k)
 # 1024k 0x100_000
 # bg 1 bk1.cd8 (512k)
@@ -41,9 +41,9 @@ clocks:
 # 8.m3 (8k)
 # 0x2_000
 # 7.m7 (64k)
-# 0x10_000 
+# 0x10_000
 # 9.m1 (128k)
-# 0x20_000 
+# 0x20_000
 # prom unused 26.b3, 27.j3
 
 sdram:
@@ -54,16 +54,16 @@ sdram:
           data_width: 16
     - buses:
         - name: char_rom_1
-          addr_width: 16  
+          addr_width: 16
           #data_width: 16
-          data_width: 8 
-        - name: char_rom_2 
+          data_width: 8
+        - name: char_rom_2
           addr_width: 16
           data_width: 8
-          offset : CHAR_2_OFFSET 
+          offset : CHAR_2_OFFSET
           #cs: LVBL
-    - buses: 
-        - name: gfx2_rom  
+    - buses:
+        - name: gfx2_rom
           addr_width: 20
           data_width: 16
         - name: gfx3_rom
