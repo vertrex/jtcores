@@ -11,9 +11,9 @@ module SEI0050BU(
   output reg LHBL,
   output reg LVBL,
 
-  output reg [8:0] hpos, //7:0 and ~hblank pin for 8 ? XXX it's not synced on clock but shift 1/2 clock
-
-  output reg [8:0] vpos,  // same ? 
+  output reg [7:0] hpos, //7:0 and ~hblank pin for 8 ? XXX it's not synced on clock but shift 1/2 clock
+  output reg [8:0] hcnt,
+  output reg [7:0] vpos,  // same ? 
 
   //this is a ~750khz clk
   //it's used to latch hpos,vpos 
@@ -48,12 +48,12 @@ module SEI0050BU(
 
 //XXX is hblank vpos pin8 ? 
 parameter HBLANK_START  = 256; //pin 40 on board, 256 include 
-parameter HBLANK_END 	  = 384; //pinb 40 on board, 256 + 128 include 
+parameter HBLANK_END 	  = 383; //383 ? //pinb 40 on board, 256 + 128 include 
 
 parameter HSYNC_START 	= 263; //304 csync p33 
 parameter HSYNC_END 		= 336; //336 csync p33 (31/32? ticks)
 
-parameter H_TOTAL			  = 384;
+parameter H_TOTAL			  = 383; //384 ??
 
 //vblank is on pin 28 of sei50bu 
 //vpos pin [0:22][1:2]
@@ -70,15 +70,16 @@ parameter VSYNC_START	  = 256; //pin3 ~vsync, 256 include,
 parameter VSYNC_END		  = 261; //pin3 ~vsync, 261 include (6 ticks)
 parameter V_TOTAL			  = 261; //checked on board pin3  
 
-reg [8:0] hcnt, vcnt;
+//reg [8:0] hcnt, vcnt;
+reg [8:0] vcnt;
 
 reg pin4, pin5, pin6, pin7;
 
 initial begin
 	hcnt  = 9'b0;
 	vcnt  = 9'b0;
-  hpos  = 9'b0; //recalc size for 1st iteration H_TOTAL - 138 -1 ?
-  vpos  = 9'b0;
+  hpos  = 8'b0; //recalc size for 1st iteration H_TOTAL - 138 -1 ?
+  vpos  = 8'b0;
   hcnt  = 9'b0;
 	LHBL  = 1'b1;
 	LVBL  = 1'b1;
@@ -86,15 +87,14 @@ initial begin
 	VS    = 1'b0;
 end	
 
-always @(negedge pxl_cen) begin
-  //
-   if (hpos[1:0]   == 2'b11 || hcnt == HBLANK_END)
-   //if (hpos[1:0] + 1 == 2'b11 || hpos[2:0] == 3'b00 || hcnt == HBLANK_END)
+//always @(negedge pxl_cen) begin
+always @(posedge pxl_cen) begin
+  // + 1 ? otherwise it's the next pixel 
+   if (hpos[1:0] + 1  == 2'b11 || hcnt == HBLANK_END)
       char_rom_cen <= 1'b1;
    else 
       char_rom_cen <= 1'b0;
 end 
-
 
 always @(posedge pxl_cen) begin 
   //if (pxl_cen) begin
@@ -127,7 +127,13 @@ always @(posedge pxl_cen) begin
       end 
     else begin
       hcnt <= hcnt + 1'd1;
-      hpos <= hpos + 1'd1;
+      //on original hardware once hcnt > 127 hpos[7] stay high until HTOTAL
+      //??? XXX WHY ? it goes until 255 then stay high so counter 
+      //come back at 128 until next 255 (255+128 => 383 total lines)
+      //is there somewhere an other counter to know that we are > 255 
+      //and just after the screen so we must keep hpos[7] high ?
+      //hpos[7:0] <= hcnt[8:0] + 9'd1 > 9'd255 ? {1'b1, hcnt[6:0]}  + 8'b1 : hcnt[7:0] + 8'b1 ;
+      hpos[7:0] <= hcnt[8:0] + 9'd1 > 9'd255 ? {1'b1, hcnt[6:0]}  + 8'b1 : hcnt[7:0] + 8'b1 ;
       end
 
     //to check on SEI50BU original for same 

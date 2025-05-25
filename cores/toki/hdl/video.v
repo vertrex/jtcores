@@ -1,15 +1,14 @@
 ////////// VIDEO ////////////////////////////////////////////
 //
 // - video synchronization (hsync, vsync, vblank, hblank)
-// - char, bg1, bg2, sprite drawing  
-// - char, bg1, bg2, sprite mixing & output 
+// - char, bk1, bk2, sprite drawing  
+// - char, bk1, bk2, sprite mixing & output 
 //
 module toki_video(
   input             rst,
 
   // Clock
   input             clk,
-  input             cpu_cen,
   input             pxl_cen,
   input             pxl2_cen,
 
@@ -20,8 +19,8 @@ module toki_video(
   output            VS, 
   output            LHBL, 
   output            LVBL,
-  output      [8:0] hpos,
-  output      [8:0] vpos, 
+  output      [7:0] hpos,
+  output      [7:0] vpos, 
 
   // RGB out
   output [3:0]      r,
@@ -35,11 +34,11 @@ module toki_video(
   //output     [10:1] vram_addr,
   input      [15:0] vram_out,
 
-  //output     [10:1] bg1_addr,
-  input      [15:0] bg1_out,
+  //output     [10:1] bk1_addr,
+  input      [15:0] bk1_out,
 
-  //output     [10:1] bg2_addr,
-  input      [15:0] bg2_out,
+  //output     [10:1] bk2_addr,
+  input      [15:0] bk2_out,
 
   output     [10:1] sprite_addr,
   input      [15:0] sprite_out,
@@ -81,10 +80,10 @@ module toki_video(
   output            gfx4_rom_cs,
 
   // Scroll latch
-  input      [8:0]  bg1_scroll_x,
-  input      [8:0]  bg1_scroll_y,
-  input      [8:0]  bg2_scroll_x,
-  input      [8:0]  bg2_scroll_y,
+  input      [8:0]  bk1_hpos,
+  input      [8:0]  bk1_vpos,
+  input      [8:0]  bk2_hpos,
+  input      [8:0]  bk2_vpos,
   input             bg_order,
 
   output            char_cen,
@@ -111,6 +110,8 @@ assign prom_27_cs = 1'b1;
 assign prom_26_addr[7:0] = vpos[7:0]; // generate CPU VBLANK on O5 (pin 6)  
 assign prom_27_addr[7:0] = vpos[7:0]; // ?? use for color mixing 
 
+
+wire [8:0] hcnt;
 //cpu_irq = prom_26_addr[6]; cpu lvbl irq
 
 // HV SYNC
@@ -124,6 +125,7 @@ SEI0050BU sei0050bu_u(
   .LHBL(LHBL),
   .LVBL(LVBL),
 
+  .hcnt(hcnt),
   .hpos(hpos),
   .vpos(vpos),
   .char_cen(char_cen),
@@ -138,7 +140,7 @@ parameter VRAM_PALETTE_OFFSET = 10'h100;
 
 wire [7:0] char_pixel;
 
-char_ram char_ram_u(
+char char_u(
   .clk(clk),
   .pxl_cen(pxl_cen),
   .char_cen(char_cen),
@@ -178,9 +180,9 @@ char_ram char_ram_u(
 //
 parameter BG1_PALETTE_OFFSET = 10'h200;
 
-wire  [7:0] bg1_pixel;
+wire  [7:0] bk1_pixel;
 
-scan_tile_ram bg1_scan_tile_ram_u(
+bk bk1_u(
   .clk(clk),
   .pxl_cen(pxl_cen),
 
@@ -190,21 +192,18 @@ scan_tile_ram bg1_scan_tile_ram_u(
   .rst(rst),
 
   .LHBL(LHBL), //XXX
-  .hpos(hpos[7:0]),
-  .vpos(vpos[7:0]),
+  .hpos(bk1_hpos),
+  .vpos(bk2_vpos),
 
-  //.ram_addr(bg1_addr),
-  .ram_out(bg1_out),
+  //.ram_addr(bk1_addr),
+  .ram_out(bk1_out),
 
   .gfx_rom_data(gfx3_rom_data),
   .gfx_rom_ok(gfx3_rom_ok),
   .gfx_rom_addr(gfx3_rom_addr),
   .gfx_rom_cs(gfx3_rom_cs),
 
-  .scroll_x(bg1_scroll_x),
-  .scroll_y(bg1_scroll_y),
-
-  .pixel(bg1_pixel)
+  .pixel(bk1_pixel)
 );
 
 ///////// BG2 DRAWING /////////////////
@@ -213,9 +212,11 @@ scan_tile_ram bg1_scan_tile_ram_u(
 //
 parameter BG2_PALETTE_OFFSET = 10'h300;
 
-wire    [7:0] bg2_pixel;
+wire    [7:0] bk2_pixel;
 
-scan_tile_ram bg2_scan_tile_ram_u(
+
+
+bk bk2_u(
   .clk(clk),
   .pxl_cen(pxl_cen),
 
@@ -225,21 +226,18 @@ scan_tile_ram bg2_scan_tile_ram_u(
   .rst(rst),
 
   .LHBL(LHBL), //XXX
-  .hpos(hpos[7:0]),
-  .vpos(vpos[7:0]),
+  .hpos(bk2_hpos),
+  .vpos(bk2_vpos),
 
-  //.ram_addr(bg2_addr),
-  .ram_out(bg2_out),
+  //.ram_addr(bk2_addr),
+  .ram_out(bk2_out),
 
   .gfx_rom_data(gfx4_rom_data),
   .gfx_rom_ok(gfx4_rom_ok),
   .gfx_rom_addr(gfx4_rom_addr),
   .gfx_rom_cs(gfx4_rom_cs),
 
-  .scroll_x(bg2_scroll_x),
-  .scroll_y(bg2_scroll_y),
-
-  .pixel(bg2_pixel)
+  .pixel(bk2_pixel)
 );
 
 ///////// SPRITE DRAWING /////////////////
@@ -268,7 +266,7 @@ scan_sprite_ram scan_sprite_ram_u(
   .gfx_rom_addr(gfx2_rom_addr),
   .gfx_rom_cs(gfx2_rom_cs),
 
-  .line_buffer_addr(hpos), //+ 1 ?
+  .line_buffer_addr(hcnt), //+ 1 ?
   .line_buffer_out(sprite_line_buffer_out)
 );
 
@@ -294,14 +292,14 @@ scan_sprite_ram scan_sprite_ram_u(
 
 //color mix 
 //must use rom27
-assign palette_addr = 
+assign palette_addr[10:1] = 
           char_pixel[3:0] != 'hf ? {2'd0, char_pixel} + VRAM_PALETTE_OFFSET :
           sprite_line_buffer_out[3:0] != 'hf ? {2'd0, sprite_line_buffer_out} : 
-          bg_order == 1'b0 & bg1_pixel[3:0] != 'hf ? {2'd0, bg1_pixel} + BG1_PALETTE_OFFSET :
-          bg_order == 1'b0 & bg2_pixel[3:0] != 'hf ? {2'd0, bg2_pixel} + BG2_PALETTE_OFFSET :
-          bg_order == 1'b1 & bg2_pixel[3:0] != 'hf ? {2'd0, bg2_pixel} + BG2_PALETTE_OFFSET :
-          bg_order == 1'b1 & bg1_pixel[3:0] != 'hf ? {2'd0, bg1_pixel} + BG1_PALETTE_OFFSET :
-          'h3ff;
+          bg_order == 1'b0 & bk1_pixel[3:0] != 'hf ? {2'd0, bk1_pixel} + BG1_PALETTE_OFFSET :
+          bg_order == 1'b0 & bk2_pixel[3:0] != 'hf ? {2'd0, bk2_pixel} + BG2_PALETTE_OFFSET :
+          bg_order == 1'b1 & bk2_pixel[3:0] != 'hf ? {2'd0, bk2_pixel} + BG2_PALETTE_OFFSET :
+          bg_order == 1'b1 & bk1_pixel[3:0] != 'hf ? {2'd0, bk1_pixel} + BG1_PALETTE_OFFSET :
+          10'h3ff; //3ff 0x400 -1???
 
 // UEC-51 
 assign r = palette_out[3:0];

@@ -15,10 +15,9 @@ clocks:
     #- freq: 12000000
       #outputs:
         #- pixel
-    - freq: 10000000
-      outputs:
-        - cpu
-
+    #- freq: 10000000
+      #outputs:
+        #- cpu
     #- freq: 3579545
       #outputs:
         #- cen_fm

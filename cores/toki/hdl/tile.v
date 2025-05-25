@@ -5,7 +5,7 @@
 // current screen position is adjusted 
 // by scroll_x & scroll_y register
 //
-module scan_tile_ram(
+module bk(
   input                 clk,
   input                 pxl_cen,
 
@@ -17,8 +17,8 @@ module scan_tile_ram(
 
   input                 LHBL,
 
-  input           [7:0] vpos, //7:0 ? 
-  input           [7:0] hpos, //7:0 ?
+  input           [8:0] hpos, //scrolled pos 
+  input           [8:0] vpos, //scrolled pos 
 
   input          [15:0] ram_out,
 
@@ -26,9 +26,6 @@ module scan_tile_ram(
   input                 gfx_rom_ok,
   output         [18:1] gfx_rom_addr,
   output                gfx_rom_cs,
-
-  input           [8:0] scroll_x,
-  input           [8:0] scroll_y,
 
   output          [7:0] pixel
 );
@@ -43,15 +40,10 @@ wire [3:0] color;
 reg [3:0] palette;
 //SEI21BU ??? 
 //
-wire [8:0] scrolled_vpos;
-assign scrolled_vpos[8:0] = vpos[7:0] + scroll_y[8:0];
-
-wire [8:0] scrolled_hpos; 
-assign scrolled_hpos[8:0] = hpos[7:0] + scroll_x[8:0];//
-
 // 
 assign gfx_rom_cs = 1'b1;
-assign gfx_rom_addr[18:1] = LHBL ? {ram_out[11:0], scrolled_hpos[3], scrolled_vpos[3:0], scrolled_hpos[2]} : 18'hff;
+//assign gfx_rom_addr[18:1] = LHBL ? {ram_out[11:0], scrolled_hpos[3], scrolled_vpos[3:0], scrolled_hpos[2]} : 18'hff;
+assign gfx_rom_addr[18:1] = {ram_out[11:0], hpos[3], vpos[3:0], hpos[2]};
 
 sei0010bu sei0010bu_u(
   .clk(pxl_cen),

@@ -31,19 +31,19 @@ module jttoki_game(
 //assign LHBL = ~hblank;
 //assign LVBL = ~vblank;
 
-wire  [8:0] hpos;
-wire  [8:0] vpos;
+wire  [7:0] hpos;
+wire  [7:0] vpos;
 wire [10:1] palette_addr;
 wire [15:0] palette_out;
 
 //wire [10:1] vram_addr;
 wire [15:0] vram_out;
 
-//wire [10:1] bg1_addr;
-wire [15:0] bg1_out;
+//wire [10:1] bk1_addr;
+wire [15:0] bk1_out;
 
-//wire [10:1] bg2_addr;
-wire [15:0] bg2_out;
+//wire [10:1] bk2_addr;
+wire [15:0] bk2_out;
 
 wire [10:1] sprite_addr;
 wire [15:0] sprite_out;
@@ -51,10 +51,10 @@ wire [15:0] sprite_out;
 wire  [6:1] scroll_addr;
 wire [15:0] scroll_out;
 
-wire [8:0]  bg1_scroll_x;
-wire [8:0]  bg1_scroll_y;
-wire [8:0]  bg2_scroll_x;
-wire [8:0]  bg2_scroll_y;
+wire [8:0]  bk1_scroll_x;
+wire [8:0]  bk1_scroll_y;
+wire [8:0]  bk2_scroll_x;
+wire [8:0]  bk2_scroll_y;
 wire        bg_order;
 
 wire m68k_sound_cs_2;
@@ -72,6 +72,11 @@ assign sample     = 0;
 assign dip_flip   = 0;
 
 wire char_cen;
+
+wire [8:0] bk1_hpos;
+wire [8:0] bk1_vpos;
+wire [8:0] bk2_hpos;
+wire [8:0] bk2_vpos;
 
 //reg  div = 1'b0;
 
@@ -97,12 +102,13 @@ toki_main  u_main(
 
   // Clock
   .clk(clk),
-  .pxl_cen(pxl_cen),
-  .pxl2_cen(pxl2_cen),
-  .char_cen(char_cen),
+  //.pxl_cen(pxl_cen),
+  //.pxl2_cen(pxl2_cen),
+  //.char_cen(char_cen),
 
   // Video 
-  .LVBL(prom_26_data[6]), //CPU VBLANK IS TRIGGERED BY 82S135 pin 11
+  //.LVBL(prom_26_data[6]), //CPU VBLANK IS TRIGGERED BY 82S135 pin 11
+  .LVBL(LVBL), //CPU VBLANK IS TRIGGERED BY 82S135 pin 11
   .hpos(hpos),
   .vpos(vpos),
 
@@ -129,20 +135,20 @@ toki_main  u_main(
   //.vram_addr(vram_addr),
   .vram_out(vram_out),
 
-  //.bg1_addr(bg1_addr),
-  .bg1_out(bg1_out),
+  //.bk1_addr(bk1_addr),
+  .bk1_out(bk1_out),
 
-  //.bg2_addr(bg2_addr),
-  .bg2_out(bg2_out),
+  //.bk2_addr(bk2_addr),
+  .bk2_out(bk2_out),
 
   .sprite_addr(sprite_addr),
   .sprite_out(sprite_out),
 
   //Scroll latch
-  .bg1_scroll_x(bg1_scroll_x),
-  .bg1_scroll_y(bg1_scroll_y),
-  .bg2_scroll_x(bg2_scroll_x),
-  .bg2_scroll_y(bg2_scroll_y),
+  .bk1_scroll_x(bk1_scroll_x),
+  .bk1_scroll_y(bk1_scroll_y),
+  .bk2_scroll_x(bk2_scroll_x),
+  .bk2_scroll_y(bk2_scroll_y),
   .bg_order(bg_order),
 
   //Sound latch
@@ -156,7 +162,12 @@ toki_main  u_main(
   //Sound input from z80
   .z80_sound_latch_0(z80_sound_latch_0),
   .z80_sound_latch_1(z80_sound_latch_1),
-  .z80_sound_latch_2(z80_sound_latch_2)
+  .z80_sound_latch_2(z80_sound_latch_2),
+
+  .bk1_hpos(bk1_hpos),
+  .bk1_vpos(bk1_vpos),
+  .bk2_hpos(bk2_hpos),
+  .bk2_vpos(bk2_vpos)
 );
 
 //////// VIDEO ////////////
@@ -167,8 +178,8 @@ toki_main  u_main(
 //
 toki_video u_video(
   .rst(rst),
+
   .clk(clk),
-  .cpu_cen(cpu_cen),
   .pxl_cen(pxl_cen),
   .pxl2_cen(pxl2_cen),
 
@@ -192,11 +203,11 @@ toki_video u_video(
   //.vram_addr(vram_addr),
   .vram_out(vram_out),
 
-  //.bg1_addr(bg1_addr),
-  .bg1_out(bg1_out),
+  //.bk1_addr(bk1_addr),
+  .bk1_out(bk1_out),
 
-  //.bg2_addr(bg2_addr),
-  .bg2_out(bg2_out),
+  //.bk2_addr(bk2_addr),
+  .bk2_out(bk2_out),
 
   .sprite_addr(sprite_addr),
   .sprite_out(sprite_out),
@@ -238,10 +249,10 @@ toki_video u_video(
   .gfx4_rom_cs(gfx4_rom_cs),
 
   // scroll latch
-  .bg1_scroll_x(bg1_scroll_x),
-  .bg1_scroll_y(bg1_scroll_y),
-  .bg2_scroll_x(bg2_scroll_x),
-  .bg2_scroll_y(bg2_scroll_y),
+  .bk1_hpos(bk1_hpos),
+  .bk1_vpos(bk1_vpos),
+  .bk2_hpos(bk2_hpos),
+  .bk2_vpos(bk2_vpos),
   .bg_order(bg_order),
 
   .char_cen(char_cen),

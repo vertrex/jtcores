@@ -16,7 +16,7 @@
 //  pixel are transparent if ROM data is 0xf
 //  pixel value is an index into the video palette 
 //
-module char_ram(
+module char(
   input                 clk,
   input                 pxl_cen,
   input                 char_cen,
@@ -59,32 +59,19 @@ reg [2:0] vpos_latch;
 //latch line number, why ??? we would latch x the hpos but we latch of 4 
 //maybe to be on the right line2 when at the start or end of the screen
 //if yes it mean that hpos in ram is latched too
+// XXX CHECK RESET SIGNAL IT if signal is reset time to time 
+// vpos_latch (line is set to 0)
+// it may help going in the next line ? 
 always @(posedge char_cen) begin
   vpos_latch[2:0] <= vpos[2:0];
 end 
 
-//reg [7:0] hpos_shift_0 = 0;
-
-//shift by 2 ??
-//hpos_shift_0 = hpos[7:2] ?
-//always @(pxl_cen) begin 
-   //if (LHBL == 1'b0) //or hblank simply ?
-     //hpos_shift_0[7:0] <= 8'd0;
-     //vpos_shift = vpos + 1 ; ? 
-   //else
-     //hpos_shift_0[7:0] <= hpos[7:0] + 8'd4; //better way to calculate ? add 1 to rom addr ? <<2 ?  
-     //hpos_shift_0[7:0] <= hpos[7:0]; //better way to calculate ? add 1 to rom addr ? <<2 ?  
-     //vpos_shift <= vpos 
-//end 
-
-//
-
 //if tile number is late it mean ram_addr in main.v is late 
 //and should be populated before
 
-                             //tile number , line number (8), rom 1 or 2 every 8 pix
+ //tile number , line number (8), rom 1 or 2 every 8 pix
 //assign char_rom_addr[16:1] = {ram_out[11:0], vpos_latch[2:0], hpos_shift_0[2]}; //latch vpos/hpos ? because ram_out use vpos/hpos so it must way 
-//
+
 //after analyzing hpos[2]
 //it seem to start 50ns after ~hpos[2] and finish at the same time but not
 //every time ! so it may be clocked some where with the cpu clock 
@@ -97,10 +84,13 @@ assign char_rom_1_cs = 1'b1;
 assign char_rom_2_cs = 1'b1;
 //on mobo it's ~hpos[2] why ? maybe cpu write in memory in 16 bits in reverse
 //byte order ?
-//tile addr => tile_number + v line number + 16/2  bits ? 
-assign char_rom_1_addr[15:0] = LHBL ? {ram_out[11:0], vpos_latch[2:0], hpos[2]} : 16'hff; //latch vpos/hpos ? because ram_out use vpos/hpos so it must way 
-assign char_rom_2_addr[15:0] = LHBL ? {ram_out[11:0], vpos_latch[2:0], hpos[2]} : 16'hff; //latch vpos/hpos ? because ram_out use vpos/hpos so it must way 
+//tile addr => tile_number + v line number + 16/2  bits ?
+// XXX CHECK IF LHBL ON THE BOARD OR NOT ! 
+//assign char_rom_1_addr[15:0] = LHBL ? {ram_out[11:0], vpos_latch[2:0], hpos[2]} : 16'hff; //latch vpos/hpos ? because ram_out use vpos/hpos so it must way 
+//assign char_rom_2_addr[15:0] = LHBL ? {ram_out[11:0], vpos_latch[2:0], hpos[2]} : 16'hff; //latch vpos/hpos ? because ram_out use vpos/hpos so it must way 
 
+assign char_rom_1_addr[15:0] =  {ram_out[11:0], vpos_latch[2:0], hpos[2]} ; //latch vpos/hpos ? because ram_out use vpos/hpos so it must way 
+assign char_rom_2_addr[15:0] =  {ram_out[11:0], vpos_latch[2:0], hpos[2]} ; //latch vpos/hpos ? because ram_out use vpos/hpos so it must way
 
 // latch / serialize pixel
 sei0010bu sei0010bu_u(
@@ -120,17 +110,6 @@ sei0010bu sei0010bu_u(
 //ram_out from 6091 what clocking ?
 //on board ~hpos[2] (vpos_latch seems equal to vpos ...)
 //maybe ram take one more cycle that's why we have ~hpos2
-//assign pixel = {ram_out[15:12], color};
-
-//color mixer ? 
-//sg0140 ?  seems good sg0140 take color and output from ram 
-//and have different clock and enable !
-//  
-//assign pixel = {palette, color};
-//always @(posedge clk)
-  //if (char_rom_cen == 1'b1) // ?
-    //this not really palette but half a code of the palette 
-    //palette <= ram_out[15:12]; //not in original !!! XXX 
 
 //XXX LOOK ON PCB char char must be updated only each char_rom_cen that's normal 
 //must look on pcb but it must be somehow latched as we put the other part
@@ -144,7 +123,10 @@ always @(posedge clk)
   if (char_rom_cen == 1'b1)
     char_code <= ram_out[15:12];
 
-
+//color mixer /priority pixel  ? 
+//sg0140 ?  seems good sg0140 take color and output from ram 
+//and have different clock and enable !
+//  
 sg0140 sg0140_u(
   .clk(pxl_cen), 
   .char_color(color),

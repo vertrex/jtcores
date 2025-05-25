@@ -10,7 +10,7 @@ module scan_sprite_ram(
   input                 pxl_cen,
   input                 LHBL,
 
-  input           [8:0] vpos,
+  input           [7:0] vpos,
  
   //XXX two ram chips to copy two words will be faster?
   output reg     [10:1] ram_addr,
@@ -38,7 +38,7 @@ parameter STATE_PLANE_COLOR     = 4'd7;
 parameter STATE_COPY_PIXEL      = 4'd8;
 parameter STATE_FINISHED        = 4'd9;
 
-reg  [8:0]  previous_vpos;
+reg  [7:0]  previous_vpos;
 
 reg         flip_x;
 reg  [3:0]  color;
@@ -76,7 +76,7 @@ jtframe_obj_buffer #(.DW(8),.AW(9), .ALPHAW(4), .BLANK_DLY(1), .KEEP_OLD(1), .FL
 
 always @(posedge clk, posedge rst) begin
     if (rst) begin
-      previous_vpos <= 9'd0;
+      previous_vpos <= 8'd0;
       flip_x <= 1'd0;
       pix_index <= 4'd0;
       rom_index <= 13'd0;
