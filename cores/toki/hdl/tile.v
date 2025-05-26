@@ -40,17 +40,25 @@ wire [3:0] color;
 reg [3:0] palette;
 //SEI21BU ??? 
 //
-// 
+
+reg [3:0] vpos_latch; 
+
+always @(posedge gfx_cen) begin
+  vpos_latch[3:0] <= vpos[3:0];
+end 
+
 assign gfx_rom_cs = 1'b1;
 //assign gfx_rom_addr[18:1] = LHBL ? {ram_out[11:0], scrolled_hpos[3], scrolled_vpos[3:0], scrolled_hpos[2]} : 18'hff;
-assign gfx_rom_addr[18:1] = {ram_out[11:0], hpos[3], vpos[3:0], hpos[2]};
+//assign gfx_rom_addr[18:1] = {ram_out[11:0], hpos[3], vpos[3:0], hpos[2]};
+//
+                                                    //16 pos y        rom 0 ou
+                                                                      //1  ?
+assign gfx_rom_addr[18:1] = {ram_out[11:0], hpos[3], vpos_latch[3:0], hpos[2]};
 
 sei0010bu sei0010bu_u(
   .clk(pxl_cen),
   .rst(rst),
   .g(gfx_rom_cen),
-  //.rom_data(char_rom_data[15:0]),
-  //.rom_data({char_rom_2_data[7:0], char_rom_1_data[7:0]}),
   .rom_data(gfx_rom_data),
   .color(color)
 );

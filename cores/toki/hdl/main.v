@@ -425,32 +425,13 @@ jtframe_ram16 #(.AW(15)) u_cpu_ram(
     .q(ram_do[15:0])
 );
 
-///////// PALETTE RAM //////////
-//
-// palette ram (2048)
-// palette is read and checked by main cpu 
-//
-wire [15:0]  palette_do;
-
-sis6091 #(.W(10)) u_palette_ram(
-  .clk(clk),
-  .trigger_n(LVBL),
-  .we({palette_cs && !cpu_wr && !cpu_uds_n, palette_cs && !cpu_wr && !cpu_lds_n}),
-  .addr_in(cpu_a[10:1]), 
-  .data(cpu_dout[15:0]),
-  .q_in(palette_do),
-
-  .addr_out(palette_addr[10:1]),
-  .q(palette_out)
-); 
-
 ///////// VIDEO RAM //////////
-//
+// 
 // video ram (2048)
 // we use special ram that copy content @vblank
 // because during dipswitch (only) vram is reset at each frame
 // that make cpu write to vram longer than a vblank period
-//
+// C1 on PCB
 wire [15:0] vram_do;
 
 /*
@@ -474,7 +455,7 @@ sis6091 #(.W(10)) u_vram_ram(
   .clk(clk),
   .trigger_n(LVBL),
   .we({vram_cs && !cpu_wr && !cpu_uds_n , vram_cs && !cpu_wr && !cpu_lds_n}),
-  .addr_in(cpu_a[10:1]), 
+  .addr_in(cpu_a[10:1]),  //if we lower cpu addr in we don't have the shift
   .data(cpu_dout[15:0]),
   .q_in(vram_do),
 
@@ -494,10 +475,10 @@ sis6091 #(.W(10)) u_vram_ram(
   .q(vram_out[15:0])
 ); 
 
-///////// BG1 RAM //////////
+///////// BK1 RAM //////////
 //
 // background 1 (2048)
-//
+// D4 on pcb
 //
 
 //sei021bu ? 
@@ -528,10 +509,10 @@ sis6091 #(.W(10)) u_bk1_ram(
   .q(bk1_out)
 ); 
 
-///////// BG2 RAM //////////
+///////// BK2 RAM //////////
 //
 // background 2 (2048)
-//
+// F4 on pcb
 //wire signed [8:0] vpos_shift_2 = vpos[7:0] + bk2_scroll_y[8:0];
 //wire signed [8:0] hpos_shift_2 = hpos[7:0] + bk2_scroll_x[8:0];
 
@@ -559,6 +540,27 @@ sis6091 #(.W(10)) u_bk2_ram(
   .q(bk2_out)
 );
 
+///////// PALETTE RAM //////////
+// 
+// palette ram (2048)
+// palette is read and checked by main cpu 
+// H4 on PCB behind UEC-51
+wire [15:0]  palette_do;
+
+sis6091 #(.W(10)) u_palette_ram(
+  .clk(clk),
+  .trigger_n(LVBL),
+  .we({palette_cs && !cpu_wr && !cpu_uds_n, palette_cs && !cpu_wr && !cpu_lds_n}),
+  .addr_in(cpu_a[10:1]), 
+  .data(cpu_dout[15:0]),
+  .q_in(palette_do),
+
+  .addr_out(palette_addr[10:1]),
+  .q(palette_out)
+); 
+
+// XXX SPRITE SEEMS TO USE 8 6091 on board ! 
+
 ///////// SPRITE RAM //////////
 //
 // sprite ram (2048)
@@ -579,5 +581,7 @@ sis6091 #(.W(10)) u_sprite_ram(
   .addr_out(sprite_addr[10:1]),
   .q(sprite_out)
 );
+
+
 
 endmodule
