@@ -11,7 +11,7 @@ module toki_main(
 
   // Clock
   input             clk,
-  //input             pxl_cen,
+  input             pxl_cen,
   //input             pxl2_cen,
 
   // Video
@@ -364,8 +364,10 @@ always @(posedge clk, posedge rst) begin
     if (scroll_cs == 'b1) begin
 
       if      (cpu_a[6:1] == 'h6)
+        //get 8 byte 
         bk1_scroll_x_lo[15:0] <= cpu_dout[15:0];
       else if (cpu_a[6:1] == 'h5)
+        //add the 9th bit / sign bit ? 
         bk1_scroll_x[8:0] <= { cpu_dout[4], bk1_scroll_x_lo[6:0], bk1_scroll_x_lo[7] };
 
       else if (cpu_a[6:1] == 'he)
@@ -424,6 +426,7 @@ jtframe_ram16 #(.AW(15)) u_cpu_ram(
     .we({ram_cs && !cpu_wr && !cpu_uds_n, ram_cs && !cpu_wr && !cpu_lds_n}),
     .q(ram_do[15:0])
 );
+
 
 ///////// VIDEO RAM //////////
 // 
@@ -486,13 +489,17 @@ sis6091 #(.W(10)) u_vram_ram(
 //wire signed [8:0] bk1_vpos;// = vpos[7:0] + bk1_scroll_y[8:0];
 
 sei0021bu sei21bu_bk1_h(
+   .clk(pxl_cen),
    .pos(hpos),
+   // XXX ROM CEN 
    .scroll(bk1_scroll_x),
    .scrolled(bk1_hpos)
 );
 
 sei0021bu sei21bu_bk1_v(
+   .clk(pxl_cen),
    .pos(vpos),
+   // XXX ROM CEN 
    .scroll(bk1_scroll_y),
    .scrolled(bk1_vpos)
 );
@@ -517,12 +524,14 @@ sis6091 #(.W(10)) u_bk1_ram(
 //wire signed [8:0] hpos_shift_2 = hpos[7:0] + bk2_scroll_x[8:0];
 
 sei0021bu sei21bu_bk2_h(
+   .clk(clk),
    .pos(hpos),
    .scroll(bk2_scroll_x),
    .scrolled(bk2_hpos)
 );
 
 sei0021bu sei21bu_bk2_v(
+   .clk(clk),
    .pos(vpos),
    .scroll(bk2_scroll_y),
    .scrolled(bk2_vpos)

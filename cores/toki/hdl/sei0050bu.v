@@ -47,13 +47,16 @@ module SEI0050BU(
 // 256x224
 
 //XXX is hblank vpos pin8 ? 
-parameter HBLANK_START  = 256; //pin 40 on board, 256 include 
+parameter HBLANK_START  = 255; //pin 40 on board, 256 include 
+//parameter HBLANK_START  = 263; //pin 40 on board, 256 include 
 parameter HBLANK_END 	  = 383; //383 ? //pinb 40 on board, 256 + 128 include 
+//parameter HBLANK_END 	  = 6; //383 ? //pinb 40 on board, 256 + 128 include 
 
-parameter HSYNC_START 	= 263; //304 csync p33 
+//parameter HSYNC_START 	= 264; //304 csync p33 
+parameter HSYNC_START 	= 304; //304 csync p33 
 parameter HSYNC_END 		= 336; //336 csync p33 (31/32? ticks)
 
-parameter H_TOTAL			  = 383; //384 ??
+parameter H_TOTAL			  = 384; //384 ??
 
 //vblank is on pin 28 of sei50bu 
 //vpos pin [0:22][1:2]
@@ -90,7 +93,7 @@ end
 //always @(negedge pxl_cen) begin
 always @(posedge pxl_cen) begin
   // + 1 ? otherwise it's the next pixel 
-   if (hpos[1:0] + 1  == 2'b11 || hcnt == HBLANK_END)
+   if (hpos[1:0]   == 2'b10)
       char_rom_cen <= 1'b1;
    else 
       char_rom_cen <= 1'b0;
@@ -166,7 +169,7 @@ always @(posedge pxl_cen) begin
       endcase 
     
     case (vcnt)
-      LVBLANK_START: 
+      LVBLANK_START - 1: 
         if (hcnt == HBLANK_START)
           LVBL <= 0;
       LVBLANK_END: 

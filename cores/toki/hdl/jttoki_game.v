@@ -102,7 +102,7 @@ toki_main  u_main(
 
   // Clock
   .clk(clk),
-  //.pxl_cen(pxl_cen),
+  .pxl_cen(pxl_cen),
   //.pxl2_cen(pxl2_cen),
   //.char_cen(char_cen),
 

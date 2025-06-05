@@ -47,12 +47,14 @@ module char(
   output         [15:0] char_rom_2_addr,
   output                char_rom_2_cs,
 
-  output          [7:0] pixel
+  //output          [7:0] pixel
+  output         [3:0]  char_color, 
+  output  reg    [3:0]  char_code
 );
 
 // SEI50BU -> RAM (sis6091) -> ROM -> SEI10BU -> SG0140 -> PALETTE RAM -> UEC51 
 
-wire [3:0] color;
+//wire [3:0] color;
 reg [3:0] palette;
 reg [2:0] vpos_latch;
 
@@ -89,6 +91,11 @@ assign char_rom_2_cs = 1'b1;
 //assign char_rom_1_addr[15:0] = LHBL ? {ram_out[11:0], vpos_latch[2:0], hpos[2]} : 16'hff; //latch vpos/hpos ? because ram_out use vpos/hpos so it must way 
 //assign char_rom_2_addr[15:0] = LHBL ? {ram_out[11:0], vpos_latch[2:0], hpos[2]} : 16'hff; //latch vpos/hpos ? because ram_out use vpos/hpos so it must way 
 
+                                                //change @ pixel clk ? 
+                                                //or two pixel clk : 
+                                                //clk + 1 clk cycle for
+                                                //sei21bu if there is change
+                                                //in scroll 
 assign char_rom_1_addr[15:0] =  {ram_out[11:0], vpos_latch[2:0], hpos[2]} ; //latch vpos/hpos ? because ram_out use vpos/hpos so it must way 
 assign char_rom_2_addr[15:0] =  {ram_out[11:0], vpos_latch[2:0], hpos[2]} ; //latch vpos/hpos ? because ram_out use vpos/hpos so it must way
 
@@ -100,7 +107,7 @@ sei0010bu sei0010bu_u(
   //.rom_data(char_rom_data[15:0]),
   //.rom_data({char_rom_2_data[7:0], char_rom_1_data[7:0]}),
   .rom_data({char_rom_2_data[7:0], char_rom_1_data[7:0]}),
-  .color(color)
+  .color(char_color)
 );
 
 //XXX still 9:14 shift (6 pix off) with latch
@@ -117,25 +124,28 @@ sei0010bu sei0010bu_u(
 //to serialize and get only pixel, we must mix wiwth the same data of
 //ram_out
 
-reg [3:0] char_code;
+//reg [3:0] char_code;
 
 always @(posedge clk)
   if (char_rom_cen == 1'b1)
     char_code <= ram_out[15:12];
+// on board XXX ???
+
 
 //color mixer /priority pixel  ? 
 //sg0140 ?  seems good sg0140 take color and output from ram 
 //and have different clock and enable !
 //  
-sg0140 sg0140_u(
-  .clk(pxl_cen), 
-  .char_color(color),
-  .char_code(char_code), //char char must be updated only each char_rom_cen that's normal 
+//sg0140 sg0140_u(
+  //.clk(pxl_cen), 
+  //.char_color(color),
+  //.char_code(ram_out[15:12]), //it's like that on the board
+  //.char_code(char_code), //char char must be updated only each char_rom_cen that's normal 
   //must look on pcb but it must be somehow latched as we put the other part
   //of ram out in char_rom addr to get the data from the rom then in sei10bu
   //to serialize and get only pixel, we must mix wiwth the same data of
   //ram_out 
-  .palette_addr(pixel)
-);
+  //.palette_addr(pixel)
+//);
 
 endmodule

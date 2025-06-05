@@ -93,7 +93,7 @@ module toki_video(
   output     [7:0]  prom_26_addr,
   output            prom_26_cs,
 
-  input      [7:0]  prom_27_data,
+  input      [7:0]  prom_27_data, // XXX 4 bit wide ! 
   input             prom_27_ok,
   output     [7:0]  prom_27_addr,
   output            prom_27_cs
@@ -108,7 +108,7 @@ assign prom_26_cs = 1'b1;
 assign prom_27_cs = 1'b1;
 
 assign prom_26_addr[7:0] = vpos[7:0]; // generate CPU VBLANK on O5 (pin 6)  
-assign prom_27_addr[7:0] = vpos[7:0]; // ?? use for color mixing 
+//assign prom_27_addr[7:0] = vpos[7:0]; // ?? use for color mixing 
 
 
 wire [8:0] hcnt;
@@ -138,7 +138,8 @@ SEI0050BU sei0050bu_u(
 //
 parameter VRAM_PALETTE_OFFSET = 10'h100;
 
-wire [7:0] char_pixel;
+wire [3:0] char_color;
+wire [3:0] char_code;
 
 char char_u(
   .clk(clk),
@@ -170,7 +171,8 @@ char char_u(
   .char_rom_2_addr(char_rom_2_addr),
   .char_rom_2_cs(char_rom_2_cs),
 
-  .pixel(char_pixel)
+  .char_color(char_color),
+  .char_code(char_code)
 );
 
 
@@ -180,7 +182,10 @@ char char_u(
 //
 parameter BG1_PALETTE_OFFSET = 10'h200;
 
-wire  [7:0] bk1_pixel;
+//wire  [7:0] bk1_pixel;
+wire [3:0] bk1_color;
+wire [3:0] bk1_code;
+
 
 bk bk1_u(
   .clk(clk),
@@ -193,7 +198,7 @@ bk bk1_u(
 
   .LHBL(LHBL), //XXX
   .hpos(bk1_hpos),
-  .vpos(bk2_vpos),
+  .vpos(bk1_vpos),
 
   //.ram_addr(bk1_addr),
   .ram_out(bk1_out),
@@ -203,7 +208,9 @@ bk bk1_u(
   .gfx_rom_addr(gfx3_rom_addr),
   .gfx_rom_cs(gfx3_rom_cs),
 
-  .pixel(bk1_pixel)
+  .color(bk1_color),
+  .code(bk1_code)
+  //.pixel(bk1_pixel)
 );
 
 ///////// BG2 DRAWING /////////////////
@@ -212,8 +219,9 @@ bk bk1_u(
 //
 parameter BG2_PALETTE_OFFSET = 10'h300;
 
-wire    [7:0] bk2_pixel;
-
+//wire    [7:0] bk2_pixel;
+wire [3:0] bk2_color;
+wire [3:0] bk2_code;
 
 
 bk bk2_u(
@@ -237,7 +245,9 @@ bk bk2_u(
   .gfx_rom_addr(gfx4_rom_addr),
   .gfx_rom_cs(gfx4_rom_cs),
 
-  .pixel(bk2_pixel)
+  .color(bk2_color),
+  .code(bk2_code)
+  //.pixel(bk2_pixel)
 );
 
 ///////// SPRITE DRAWING /////////////////
@@ -266,7 +276,8 @@ scan_sprite_ram scan_sprite_ram_u(
   .gfx_rom_addr(gfx2_rom_addr),
   .gfx_rom_cs(gfx2_rom_cs),
 
-  .line_buffer_addr(hcnt), //+ 1 ?
+  //.line_buffer_addr(hcnt - 5), //-5 make it work if I shift hblank by 5 end finish hblank at 5 
+  .line_buffer_addr(hcnt), //-5 make it work if I shift hblank by 5 end finish hblank at 5 
   .line_buffer_out(sprite_line_buffer_out)
 );
 
@@ -290,20 +301,84 @@ scan_sprite_ram scan_sprite_ram_u(
 // and simple chip select 
 // to assign to ram
 
-//color mix 
-//must use rom27
-assign palette_addr[10:1] = 
-          char_pixel[3:0] != 'hf ? {2'd0, char_pixel} + VRAM_PALETTE_OFFSET :
-          sprite_line_buffer_out[3:0] != 'hf ? {2'd0, sprite_line_buffer_out} : 
-          bg_order == 1'b0 & bk1_pixel[3:0] != 'hf ? {2'd0, bk1_pixel} + BG1_PALETTE_OFFSET :
-          bg_order == 1'b0 & bk2_pixel[3:0] != 'hf ? {2'd0, bk2_pixel} + BG2_PALETTE_OFFSET :
-          bg_order == 1'b1 & bk2_pixel[3:0] != 'hf ? {2'd0, bk2_pixel} + BG2_PALETTE_OFFSET :
-          bg_order == 1'b1 & bk1_pixel[3:0] != 'hf ? {2'd0, bk1_pixel} + BG1_PALETTE_OFFSET :
-          10'h3ff; //3ff 0x400 -1???
+wire [7:0] sg_palette_addr;
+wire [1:0] pri;
+
+sg0140 sg0140_u(
+  .clk(pxl_cen), 
+
+  .char_color(char_color),
+  .char_code(char_code), 
+
+  .bk1_code(bk1_code), 
+  .bk1_color(bk1_color),
+
+  .pri(pri),
+  .palette_addr(sg_palette_addr) 
+); 
+
+// XXX OFFSET IS GIVEN BY ROM27 ! 
+//give us PALETTE_OFFSET rom27_addr <- sg0x140 
+//palette_offset <= 
+//
+wire [1:0] palette_offset;
+
+wire bk2_select  = bk2_color[3:0] == 'hf ? 1'b0 : 1'b1;
+
+                             //bit 4 is controlled by bk2 sei010bu 
+                             //so certainly 1 if bk2 char color != 0'f
+                             // as it receive bk2 char color 
+                             // there is also certainly at least 1 bit for
+                             // background selection from cpu and 1 for 
+                             // selecting obj ?
+assign prom_27_addr[7:0] = { 4'b0, bk2_select, 1'b0, pri[1:0] }; //XXX PROM IS 4bits wide /? not 8bits wide ?
+//assign prom_27_addr[7:1] = { 4'b0, bk2_select, 1'b0, pri[1:0] }; //XXX PROM IS 4bits wide /? not 8bits wide ?
+//we don't want the first high nibl 0e 
+//
+//other sg0140 maybe used to supperpose the different sprite, we can get
+//n sprite on top of each other 
+//
+
+// ?? use for color mixing 
+//assign palette_offset[1:0] = prom_27_data[3:2]; //low byte is 0 other is 1,3, 8, e ? 
+assign palette_addr[10:1] = {prom_27_data[3:2], sg_palette_addr[7:0]}  ;//+ VRAM_PALETTE_OFFSET; // + OFFSET 
 
 // UEC-51 
 assign r = palette_out[3:0];
 assign g = palette_out[7:4];
 assign b = palette_out[11:8];
+
+//parameter VRAM_PALETTE_OFFSET = 10'h100; 256   0b1 0000 0000  (high bit de 4 ) 
+//parameter BG1_PALETTE_OFFSET = 10'h200;  512  0b10 0000 0000  (hight bit de 8 )
+//parameter BG2_PALETTE_OFFSET = 10'h300;  768      0b1100000000  (hight bit de e)
+// one on two on the file are 0 and the other 4 8 or e et par faois 1 
+// mais on utilise que les hight bits sur 4 bits donc -> 01 pour 10 pour 8 11
+// pour e et 0 pour 1 donc ok puisuq on a palette a 0 / 1 , 10 , 11 
+// ca suffit a select la palette, le low bits est utiliser pour select 
+// entre d'autre offset qui vont rentrer dans la ram ?? ca sert a quoi ? 
+// comprendre ca
+// laisser des notes si non personne va rien comprendrendre dans le futur meme
+// avec le schema
+// maintenant comment savoir commnet select le sg 0140 ? 
+// il utilise que 2 bits d'adresse don il peux renvoyer 00, 01, 10, 11 
+// et ca doit mapper sur un 4 pour vram/char et un 8 pour bg mais a3 et aussi
+// up parfois i lfaudrer verifier pour tous pour cocmprendre 
+// on peux imaginier que la prio est donner 0 char, 1 char, 0 bk, 1 bk ? 
+// si les 2 sont a 1 ca va select le bk ? donc envoyez 11 ?
+
+//color mix 
+//must use rom27
+//+ sg1040 -> one sg0140 got char + prom27 + bk1 
+
+//assign palette_addr[10:1] = 
+          //char_pixel[3:0] != 'hf ? {2'd0, char_pixel} + VRAM_PALETTE_OFFSET :
+          //sprite_line_buffer_out[3:0] != 'hf ? {2'd0, sprite_line_buffer_out} : 
+          //bg_order == 1'b0 & (bk1_pixel[3:0] != 'hf) ? {2'd0, bk1_pixel} + BG1_PALETTE_OFFSET :
+          //bg_order == 1'b0 & (bk2_pixel[3:0] != 'hf) ? {2'd0, bk2_pixel} + BG2_PALETTE_OFFSET :
+          //bg_order == 1'b1 & (bk2_pixel[3:0] != 'hf) ? {2'd0, bk2_pixel} + BG2_PALETTE_OFFSET :
+          //bg_order == 1'b1 & (bk1_pixel[3:0] != 'hf) ? {2'd0, bk1_pixel} + BG1_PALETTE_OFFSET :
+          //10'h3ff; //3ff 0x400 -1???
+
+
 
 endmodule
