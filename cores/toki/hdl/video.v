@@ -323,25 +323,45 @@ sg0140 sg0140_u(
 //
 wire [1:0] palette_offset;
 
-wire bk2_select  = bk2_color[3:0] == 'hf ? 1'b0 : 1'b1;
 
+wire obj_select =  sprite_line_buffer_out[3:0] == 'hf ? 1'b0 : 1'b1; 
+wire unknown_a2 = 1'b0;
+//wire bg_order = // ?
+wire [1:0] unknown_a6_a7 = 2'b0;
+
+//wire bk2_select  = bk2_color[3:0] == 'hf ? 1'b1 : 1'b0;
                              //bit 4 is controlled by bk2 sei010bu 
                              //so certainly 1 if bk2 char color != 0'f
                              // as it receive bk2 char color 
                              // there is also certainly at least 1 bit for
                              // background selection from cpu and 1 for 
-                             // selecting obj ?
-assign prom_27_addr[7:0] = { 4'b0, bk2_select, 1'b0, pri[1:0] }; //XXX PROM IS 4bits wide /? not 8bits wide ?
-//assign prom_27_addr[7:1] = { 4'b0, bk2_select, 1'b0, pri[1:0] }; //XXX PROM IS 4bits wide /? not 8bits wide ?
-//we don't want the first high nibl 0e 
-//
-//other sg0140 maybe used to supperpose the different sprite, we can get
-//n sprite on top of each other 
-//
+wire obj_on;                              // selecting obj ?
+wire s2on;
+wire prior_a = 1'b0; //addr page 3 cpu ram 8/9 (from 0 ?)
+wire prior_b = 1'b0; //addr page 3 
+wire prior_c = 1'b0; //obj linebuf page 18 
+wire prior_d = 1'b0; //obj linebuf page 18
 
-// ?? use for color mixing 
-//assign palette_offset[1:0] = prom_27_data[3:2]; //low byte is 0 other is 1,3, 8, e ? 
-assign palette_addr[10:1] = {prom_27_data[3:2], sg_palette_addr[7:0]}  ;//+ VRAM_PALETTE_OFFSET; // + OFFSET 
+
+//s1 sc1 => bk1 ? 
+//sc2 s2 => bk2
+//sc4 s4 => char 
+
+//color mixing clut page 10
+assign obj_on = (sprite_line_buffer_out[3:0] != 4'b1111); //XXX
+//74LS20P check if color != 'hf
+assign s2on = ~(bk2_color[3] & bk2_color[2] & bk2_color[1] & bk2_color[0]); //sch page 8 
+
+assign prom_27_addr[7:0] = { prior_d, prior_c, prior_b, prior_a, s2on, obj_on, pri[1:0] };
+
+//74LS257  2H/3h & 74LS20  2J 
+assign palette_addr[10:1] =  prom_27_data[0] == 1'b1 ?  {prom_27_data[3:2], sprite_line_buffer_out[7:0] } :
+                             prom_27_data[1] == 1'b0 ?  {prom_27_data[3:2], sg_palette_addr[7:0]} :
+                                                        {prom_27_data[3:2], {bk2_code, bk2_color}};
+
+//assign palette_addr[10:1] =  obj_on ?  {prom_27_data[3:2], sprite_line_buffer_out[7:0] } :
+                             //s2on == 1'b0 ?  {prom_27_data[3:2], sg_palette_addr[7:0]} :
+                                              //{prom_27_data[3:2], {bk2_code, bk2_color}};
 
 // UEC-51 
 assign r = palette_out[3:0];
