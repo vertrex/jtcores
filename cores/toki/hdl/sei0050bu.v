@@ -1,27 +1,48 @@
+//page 5
+//
+//
 module SEI0050BU(
-  input clk, //needed ???
-  input pxl_cen,
-  input rst,
+  input pxl_cen, //pin 9  CLK 
+  input rst, //pin 8
 
+  input VBL_ROM, //pin33 prom26 rom d7 
+
+  output pld_i6, //29 30
   // Video out
   // THIS IS NOT WHAT IS REALLY OUTPUTED BYY THE SEI0050bu 
-  //
-  output reg HS,
-  output reg VS,
-  output reg LHBL,
-  output reg LVBL,
+  
+  //384x262 59.63 khz 15.62hz 
+  output reg [8:0] hpos, //128 to 511 (511-128 == 383) [0, 383] == 384  
+  output reg [8:0] vpos, //250 to 511 (511-250 == 261) [0, 261] == 262 ? 
 
-  output reg [7:0] hpos, //7:0 and ~hblank pin for 8 ? XXX it's not synced on clock but shift 1/2 clock
-  output reg [8:0] hcnt,
-  output reg [7:0] vpos,  // same ? 
 
+  //output reg [8:0] hcnt,
+  output reg T8H, //p22 CHAR_CEN
+  output reg HBL, //p23 HSYNC 
+  output L3, //p24  ~cblank
+  output reg T3F, //p25 CHAR_ROM_CEN
+  output reg T4H, //p26  hpos2 ?  char SIS 6091 ! 
+  output HD, //p27   hsync 
+  output VSYNC, //p28 csync
+
+  //NOT IN ORIGINAL BUT NEED BY JTCORE 
+  output reg HS,  //HS 
+  output reg VS,  //VS 
+  output LHBL,//~HBL ? 
+  output reg LVBL// drived by VBL ROM ?  
   //this is a ~750khz clk
   //it's used to latch hpos,vpos 
   //before they are inputed into the ROM address
-  output reg char_cen,
+  //output reg char_cen,
   //every 4 pixel or 1.5mhz we must copy the pixel 
-  output reg char_rom_cen
+  //output reg char_rom_cen
 );
+
+assign pld_i6 = 0;
+assign L3 = 0;
+//assign T4H = 0;
+assign HD = 0;
+assign VSYNC = HS | VS;
 
 // Retro tink : 
 // input lines 261p 
@@ -44,47 +65,43 @@ module SEI0050BU(
 // PROM generate different 59.61hz 
 
 
-// 256x224
+//HBLANK is pin 23 (what I think was hsync hsync\acbefore ) it's then latche by 74LS174 & xor with pin 24 to create
+//mask, hblk is then send to the cpu , mask is then use for hsync on the jamma
+//output 
 
-//XXX is hblank vpos pin8 ? 
-parameter HBLANK_START  = 256; //pin 40 on board, 256 include 
-//parameter HBLANK_START  = 263; //pin 40 on board, 256 include 
-parameter HBLANK_END 	  = 383; //383 ? //pinb 40 on board, 256 + 128 include 
-//parameter HBLANK_END 	  = 6; //383 ? //pinb 40 on board, 256 + 128 include 
 
-//parameter HSYNC_START 	= 264; //304 csync p33 
-parameter HSYNC_START 	= 304; //304 csync p33 
-parameter HSYNC_END 		= 336; //336 csync p33 (31/32? ticks)
+parameter HBLANK_START  = 265; //high [265, 137]  
+parameter HBLANK_END 	  = 9; //10 tick so stop at 9  
 
-parameter H_TOTAL			  = 383; //384 ??
+parameter HSYNC_START 	= 304; //[179,210] +50 hblank start  
+parameter HSYNC_END 		= 336; //32
 
-//vblank is on pin 28 of sei50bu 
-//vpos pin [0:22][1:2]
-//checked two times with and without merge
+parameter H_TOTAL			  = 384; //384 ??
+//512-268
+//244
+
+//40-128
+//12
+
+//244 + 12 lines = 256 lines 
 //
-//
-// USE LVBL DIRECTLY AS IT'S LIKE THAT IN THE seibu50
-//parameter VBLANK_START  = 240; //checked on board pin 28 SEI0050BU, 240 included in ~vblank
-parameter LVBLANK_START  = 239; //checked on board pin 28 SEI0050BU, 240 included in ~vblank
-//parameter VBLANK_END		= 15;  //checked on board pin 28 SEI0050BU, 15 included in ~vblank, 16 not
-parameter LVBLANK_END		= 15;  //checked on board pin 28 SEI0050BU, 15 included in ~vblank, 16 not
-//cheked two times with and without merge 
+parameter LVBLANK_START  = 239; //rom blank 
+parameter LVBLANK_END		= 16; //15 ??? if 224 , only 223 line ?
+
 parameter VSYNC_START	  = 256; //pin3 ~vsync, 256 include,
 parameter VSYNC_END		  = 261; //pin3 ~vsync, 261 include (6 ticks)
-parameter V_TOTAL			  = 261; //checked on board pin3  
+parameter V_TOTAL			  = 262; //checked on board pin3  
 
-//reg [8:0] hcnt, vcnt;
-reg [8:0] vcnt;
+reg [8:0] hcnt, vcnt;
 
-reg pin4, pin5, pin6, pin7;
-
+//reg pin4, pin5, pin6, pin7;
 initial begin
-	hcnt  = 9'b0;
+	//hcnt  = 9'b0;
 	vcnt  = 9'b0;
-  hpos  = 8'b0; //recalc size for 1st iteration H_TOTAL - 138 -1 ?
-  vpos  = 8'b0;
+  hpos  = 9'b0; //recalc size for 1st iteration H_TOTAL - 138 -1 ?
+  vpos  = 9'b0;
   hcnt  = 9'b0;
-	LHBL  = 1'b1;
+	//LHBL  = 1'b1;
 	LVBL  = 1'b1;
 	HS    = 1'b0;
 	VS    = 1'b0;
@@ -94,39 +111,36 @@ end
 always @(posedge pxl_cen) begin
   // + 1 ? otherwise it's the next pixel 
    if (hpos[1:0]   == 2'b10)
-      char_rom_cen <= 1'b1;
+      T3F <= 1'b1;
    else 
-      char_rom_cen <= 1'b0;
+      T3F <= 1'b0;
+end 
+
+assign LHBL = HBL;
+
+always @(negedge pxl_cen) begin 
+    if (hpos[2:0]  == 3'b000 || hcnt == HBLANK_END) //we nneed 0 too but 384 + 1 is not 0
+      T4H <= 1'b1; 
+     else 
+      T4H <= 1'b0;
 end 
 
 always @(posedge pxl_cen) begin 
-  //if (pxl_cen) begin
-  //
-    if (hcnt == 256) begin 
-      vcnt <= vcnt + 1'd1;
-      vpos <= vpos + 1'd1;
+    if (hcnt == H_TOTAL - 1) begin  //256 ? 
 
-      if (vcnt  == V_TOTAL) begin
+      if (vcnt  == V_TOTAL - 1) begin
         vcnt <= 0;
         vpos <= 0;
         end
+      else begin 
+        vcnt <= vcnt + 1'd1;
+        vpos <= vpos + 1'd1;
+        end 
       end 
 
-    if (hcnt  == H_TOTAL) begin
+    if (hcnt  == H_TOTAL - 1) begin //we start a 0
       hcnt <= 0;
       hpos <= 0;
-      //char_cen <= 1'b1 ?
-      //vpos <= vpos + 1'd1;
-      //vcnt <= vcnt + 1'd1;
-
-      //VPOS start as 255+128 ? (or finish at 255+ 128-255)
-      //so start at 255 ?? 
-      //hpos is 0 128 tick avec vpos start ...
-
-      //if (vcnt  == V_TOTAL) begin
-        //vcnt <= 0;
-        //vpos <= 0;
-        //end
       end 
     else begin
       hcnt <= hcnt + 1'd1;
@@ -136,7 +150,9 @@ always @(posedge pxl_cen) begin
       //is there somewhere an other counter to know that we are > 255 
       //and just after the screen so we must keep hpos[7] high ?
       //hpos[7:0] <= hcnt[8:0] + 9'd1 > 9'd255 ? {1'b1, hcnt[6:0]}  + 8'b1 : hcnt[7:0] + 8'b1 ;
-      hpos[7:0] <= hcnt[8:0] + 9'd1 > 9'd255 ? {1'b1, hcnt[6:0]}  + 8'b1 : hcnt[7:0] + 8'b1 ;
+      //hpos[8:0] <= {1'b0, hcnt[8:0] + 9'd1 > 9'd255 ? {1'b1, hcnt[6:0]}  + 8'b1 : hcnt[7:0] + 8'b1};
+      //hpos[8:0] <= {1'b0, hcnt[8:0] + 9'd1 > 9'd255 ? {1'b1, hcnt[6:0]}  + 8'b1 : hcnt[7:0] + 8'b1};
+      hpos <= hpos + 1'd1;
       end
 
     //to check on SEI50BU original for same 
@@ -149,66 +165,38 @@ always @(posedge pxl_cen) begin
     //it's synced on clock but HPOS is NOT ! 
     //so there is a shift of 180 degres 
     //it's start every 8 (first start at end of 7) at clock tick
-    //
     //+1 ? 
     //if (hpos[2:0] + 1'd1 == 3'b000 || hcnt == HBLANK_END) //we nneed 0 too but 384 + 1 is not 0
     if (hpos[2:0]  == 3'b000 || hcnt == HBLANK_END) //we nneed 0 too but 384 + 1 is not 0
-      char_cen <= 1'b1; 
+      T8H <= 1'b1; 
      else 
-      char_cen <= 1'b0;
+      T8H <= 1'b0;
 
     case (hcnt)
-      HBLANK_START - 1 : begin
-        LHBL <= 0;
+      HBLANK_START: begin
+        HBL <= 0;
         end 
       HBLANK_END : begin
-        LHBL <= 1;
+        HBL <= 1;
       end
-      HSYNC_START-1  : HS <= 1;
-      HSYNC_END-1    : HS <= 0;
+      HSYNC_START  : HS <= 1;
+      HSYNC_END    : HS <= 0;
       endcase 
     
     case (vcnt)
-      LVBLANK_START - 1: 
+      LVBLANK_START: 
         if (hcnt == HBLANK_START)
           LVBL <= 0;
       LVBLANK_END: 
         if (hcnt == HBLANK_END)
           LVBL <= 1;
-      VSYNC_START - 1: 
+      VSYNC_START: 
         if (hcnt == HSYNC_START)
           VS <= 1;
       VSYNC_END: 
         if (hcnt == HSYNC_START) 
           VS <= 0;
       endcase
-    //end	
 end 
 
-always @(posedge char_cen, posedge rst) begin
-   if (rst)
-     pin4 <= 1'b1;
-   else begin 
-     pin4 <= ~pin4; 
-   end 
-end 
-
-//always @(posedge pxl_cen, posedge rst) begin
-  //if (rst)
-    //char_cen <= 1'b0;
-  //else begin 
-    //original use 3'b100 with two 8 bits rom 
-    //we currently use one 16 bits rom 
-    //if (hpos[2:0] ==  3'b100)// + 1 ? 
-    //voir sur l original !
-    //half char cen 
-    //if (hpos[1:0] -1  ==  2'b10) //working like 2'd3  
-      //char_cen <= 1'b1;
-    //else 
-      //char_cen <= 1'b0;
-  //end 
-//end 
-
-//assign display_on = ~(vblank | hblank);
-  
 endmodule

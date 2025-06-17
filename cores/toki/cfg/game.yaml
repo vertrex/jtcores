@@ -16,6 +16,7 @@ game:
       - z80_cs.v
       - dual_ram_buffer.v
       - sis6091.v
+      - 74LS74.v
 jtframe:
   - from: ram
     get:

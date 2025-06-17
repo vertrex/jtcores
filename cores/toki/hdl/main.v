@@ -15,9 +15,11 @@ module toki_main(
   //input             pxl2_cen,
 
   // Video
-  input             LVBL, //cpu IPL0n triggered by 82s135 pin 11 
-  input       [7:0] hpos,
-  input       [7:0] vpos,
+  //input             LVBL, //cpu IPL0n triggered by 82s135 pin 11 
+  input             HBLB, 
+  input             INT_T, 
+  input       [8:0] hpos,
+  input       [8:0] vpos,
 
   // Input
   input      [1:0]  start_button,
@@ -70,8 +72,10 @@ module toki_main(
 
   output      [8:0] bk1_hpos,
   output      [8:0] bk1_vpos,
+  output            bk1_hsync, 
   output      [8:0] bk2_hpos,
-  output      [8:0] bk2_vpos
+  output      [8:0] bk2_vpos,
+  output            bk2_hsync
 );
 
 wire p1_right    = joystick1[0];
@@ -115,6 +119,9 @@ wire cen10b;
 wire dtack_n;
 wire int1;
 
+wire RAM_CLK;
+assign RAM_CLK = clk; //6 MHZ CLK ?
+
 fx68k fx68k (
     .clk(clk),    // Input clock
     .enPhi1(cen10), // cpu clock 
@@ -126,6 +133,7 @@ fx68k fx68k (
 
     //SYSTEM CONTROL 
     .BERRn(1'b1),
+    //.BERRn(berr),
     .oRESETn(), 
     .oHALTEDn(), 
 
@@ -152,6 +160,7 @@ fx68k fx68k (
     .E(),              // output : cpu enable 
     .VMAn(),           // output : valid pheripheral memory address
     .VPAn(inta_n),     // output :valid peripheral address detected  
+    //.VPAn(vpa_n),     // output :valid peripheral address detected  
 
     /// PROCESSOR STATUS 
     .FC0(cpu_fc[0]),   // output 
@@ -159,7 +168,8 @@ fx68k fx68k (
     .FC2(cpu_fc[2]),   // output 
 
     //INTERUPT CONTROL 
-    .IPL0n(int1),      //int @vblank
+    //.IPL0n(int1),      //int @vblank
+    .IPL0n(ipl0_n),      //int @vblank
     .IPL1n(1'b1),
     .IPL2n(1'b1)  
 );
@@ -175,19 +185,47 @@ fx68k fx68k (
 wire inta_n;
 assign inta_n = ~&{cpu_fc[2], cpu_fc[1], cpu_fc[0], ~cpu_as_n};
 
-jtframe_virq u_virq(
-    .rst        (rst),
-    .clk        (clk),
-    .LVBL       (LVBL), //~LVBL ???
-    .dip_pause  (dip_pause), //handle cpu pause
-    .skip_en    (),
-    .skip_but   (),
-    .clr        (~inta_n),
-    .custom_in  (),
-    .blin_n     (),
-    .blout_n    (int1),
-    .custom_n   ()
+//jtframe_virq u_virq(
+    //.rst        (rst),
+    //.clk        (clk),
+    //.LVBL       (INT_T), //~LVBL ???
+    //.dip_pause  (dip_pause), //handle cpu pause
+    //.skip_en    (),
+    //.skip_but   (),
+    //.clr        (~inta_n),
+    //.custom_in  (),
+    //.blin_n     (),
+    //.blout_n    (int1),
+    //.custom_n   ()
+//);
+
+//74LS74 21R 
+//
+//wire vpa_n; 
+wire int_clk;
+wire int_a, int_n; 
+
+LS74 u_21R_1(
+  .CLK(HBLB),
+  .D(INT_T),
+  .PRE(1'b1),
+  .CLR(1'b1),
+  .Q(int_clk),
+  .QN(int_n)
 );
+
+LS74 u_21R_2(
+  .CLK(int_clk),
+  .D(1'b0),
+  .PRE(inta_n),
+  .CLR(1'b1),
+  .Q(int_a),
+  .QN()
+);
+
+//74LS32
+wire ipl0_n;
+assign ipl0_n = (int_a | int_n);
 
 
 ///////// 68K dtack //////////////////////////////
@@ -454,9 +492,11 @@ end
 */ 
 //replace by 4:0 ? directly in add_out ???
 
+//clk port 31 N6M / OBJN6M /WR6M
+
 sis6091 #(.W(10)) u_vram_ram(
-  .clk(clk),
-  .trigger_n(LVBL),
+  .clk(RAM_CLK),
+  .trigger_n(int_n),
   .we({vram_cs && !cpu_wr && !cpu_uds_n , vram_cs && !cpu_wr && !cpu_lds_n}),
   .addr_in(cpu_a[10:1]),  //if we lower cpu addr in we don't have the shift
   .data(cpu_dout[15:0]),
@@ -490,23 +530,25 @@ sis6091 #(.W(10)) u_vram_ram(
 
 sei0021bu sei21bu_bk1_h(
    .clk(pxl_cen),
-   .pos(hpos),
-   // XXX ROM CEN 
+   .pos(hpos[7:0]),
+   // XXX ROM CEN
+   .sync(bk1_hsync),
    .scroll(bk1_scroll_x),
    .scrolled(bk1_hpos)
 );
 
 sei0021bu sei21bu_bk1_v(
    .clk(pxl_cen),
-   .pos(vpos),
+   .pos(vpos[7:0]),
    // XXX ROM CEN 
+   .sync(),
    .scroll(bk1_scroll_y),
    .scrolled(bk1_vpos)
 );
 
 sis6091 #(.W(10)) u_bk1_ram(
-  .clk(clk),
-  .trigger_n(LVBL),
+  .clk(RAM_CLK),
+  .trigger_n(int_n),
   .we({bk1_cs && !cpu_wr && !cpu_uds_n, bk1_cs && !cpu_wr && !cpu_lds_n}),
   .addr_in(cpu_a[10:1]), 
   .data(cpu_dout[15:0]),
@@ -525,21 +567,23 @@ sis6091 #(.W(10)) u_bk1_ram(
 
 sei0021bu sei21bu_bk2_h(
    .clk(clk),
-   .pos(hpos),
+   .pos(hpos[7:0]),
+   .sync(bk2_hsync),
    .scroll(bk2_scroll_x),
    .scrolled(bk2_hpos)
 );
 
 sei0021bu sei21bu_bk2_v(
    .clk(clk),
-   .pos(vpos),
+   .pos(vpos[7:0]),
+   .sync(),
    .scroll(bk2_scroll_y),
    .scrolled(bk2_vpos)
 );
 
 sis6091 #(.W(10)) u_bk2_ram(
-  .clk(clk),
-  .trigger_n(LVBL),
+  .clk(RAM_CLK),
+  .trigger_n(int_n),
   .we({bk2_cs && !cpu_wr && !cpu_uds_n, bk2_cs && !cpu_wr && !cpu_lds_n}),
   .addr_in(cpu_a[10:1]), 
   .data(cpu_dout[15:0]),
@@ -557,8 +601,8 @@ sis6091 #(.W(10)) u_bk2_ram(
 wire [15:0]  palette_do;
 
 sis6091 #(.W(10)) u_palette_ram(
-  .clk(clk),
-  .trigger_n(LVBL),
+  .clk(RAM_CLK),
+  .trigger_n(int_n),
   .we({palette_cs && !cpu_wr && !cpu_uds_n, palette_cs && !cpu_wr && !cpu_lds_n}),
   .addr_in(cpu_a[10:1]), 
   .data(cpu_dout[15:0]),
@@ -580,8 +624,8 @@ sis6091 #(.W(10)) u_palette_ram(
 wire [15:0] sprite_do;
 
 sis6091 #(.W(10)) u_sprite_ram(
-  .clk(clk),
-  .trigger_n(LVBL),
+  .clk(RAM_CLK),
+  .trigger_n(int_n),
   .we({sprite_cs && !cpu_wr && !cpu_uds_n, sprite_cs && !cpu_wr && !cpu_lds_n}),
   .addr_in(cpu_a[10:1]), 
   .data(cpu_dout[15:0]),

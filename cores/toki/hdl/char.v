@@ -19,8 +19,8 @@
 module char(
   input                 clk,
   input                 pxl_cen,
-  input                 char_cen,
-  input                 char_rom_cen,
+  input                 char_cen,  //T8H 
+  input                 char_rom_cen, //T3F
   input                 rst,
 
   input                 LHBL,
@@ -103,7 +103,8 @@ assign char_rom_2_addr[15:0] =  {ram_out[11:0], vpos_latch[2:0], hpos[2]} ; //la
 sei0010bu sei0010bu_u(
   .clk(pxl_cen),
   .rst(rst),
-  .g(char_rom_cen),
+  .load(char_rom_cen),
+  .rev(1'b0),
   //.rom_data(char_rom_data[15:0]),
   //.rom_data({char_rom_2_data[7:0], char_rom_1_data[7:0]}),
   .rom_data({char_rom_2_data[7:0], char_rom_1_data[7:0]}),

@@ -31,8 +31,8 @@ module jttoki_game(
 //assign LHBL = ~hblank;
 //assign LVBL = ~vblank;
 
-wire  [7:0] hpos;
-wire  [7:0] vpos;
+wire  [8:0] hpos;
+wire  [8:0] vpos;
 wire [10:1] palette_addr;
 wire [15:0] palette_out;
 
@@ -53,8 +53,10 @@ wire [15:0] scroll_out;
 
 wire [8:0]  bk1_scroll_x;
 wire [8:0]  bk1_scroll_y;
+wire        bk1_hsync; 
 wire [8:0]  bk2_scroll_x;
 wire [8:0]  bk2_scroll_y;
+wire        bk2_hsync;
 wire        bg_order;
 
 wire m68k_sound_cs_2;
@@ -71,13 +73,13 @@ assign debug_view = 0;
 assign sample     = 0;
 assign dip_flip   = 0;
 
-wire char_cen;
-
 wire [8:0] bk1_hpos;
 wire [8:0] bk1_vpos;
 wire [8:0] bk2_hpos;
 wire [8:0] bk2_vpos;
 
+wire HBLB;
+wire INT_T;
 //reg  div = 1'b0;
 
 // don't work with jtframe_obj_buffer because of rd 
@@ -104,11 +106,12 @@ toki_main  u_main(
   .clk(clk),
   .pxl_cen(pxl_cen),
   //.pxl2_cen(pxl2_cen),
-  //.char_cen(char_cen),
 
   // Video 
   //.LVBL(prom_26_data[6]), //CPU VBLANK IS TRIGGERED BY 82S135 pin 11
-  .LVBL(LVBL), //CPU VBLANK IS TRIGGERED BY 82S135 pin 11
+  //.LVBL(LVBL), //CPU VBLANK IS TRIGGERED BY 82S135 pin 11
+  .HBLB(HBLB),
+  .INT_T(INT_T),
   .hpos(hpos),
   .vpos(vpos),
 
@@ -165,8 +168,10 @@ toki_main  u_main(
   .z80_sound_latch_2(z80_sound_latch_2),
 
   .bk1_hpos(bk1_hpos),
+  .bk1_hsync(bk1_hsync),
   .bk1_vpos(bk1_vpos),
   .bk2_hpos(bk2_hpos),
+  .bk2_hsync(bk2_hsync),
   .bk2_vpos(bk2_vpos)
 );
 
@@ -251,11 +256,11 @@ toki_video u_video(
   // scroll latch
   .bk1_hpos(bk1_hpos),
   .bk1_vpos(bk1_vpos),
+  .bk1_hsync(bk1_hsync),
   .bk2_hpos(bk2_hpos),
   .bk2_vpos(bk2_vpos),
+  .bk2_hsync(bk2_hsync),
   .bg_order(bg_order),
-
-  .char_cen(char_cen),
 
   .prom_26_data(prom_26_data),
   .prom_26_ok(prom_26_ok),
@@ -265,7 +270,10 @@ toki_video u_video(
   .prom_27_data(prom_27_data),
   .prom_27_ok(prom_27_ok),
   .prom_27_cs(prom_27_cs),
-  .prom_27_addr(prom_27_addr)
+  .prom_27_addr(prom_27_addr),
+
+  .HBLB(HBLB),
+  .INT_T(INT_T)
 );
 
 //////// SOUND ////////////

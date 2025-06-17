@@ -3,9 +3,10 @@
 module sei0021bu(
    input      clk,
    input      [7:0] pos,
-   input      [8:0] scroll, 
+   input      [8:0] scroll,
 
-   output      [8:0] scrolled 
+   output reg sync,
+   output reg [8:0] scrolled 
 );
 
 //XXX check on board
@@ -17,6 +18,17 @@ module sei0021bu(
 //sei0021bu certainly as in input the CPU address but so maybe only that is
 //cloked bu this is constnat ? 
 //always @(posedge clk)
-   assign scrolled[8:0] = pos[7:0] + scroll[8:0];
+   //assign scrolled[8:0] = pos[7:0] + scroll[8:0];
 
+always @(posedge clk) begin 
+   scrolled[8:0] <= {1'b0, pos[7:0]} + scroll[8:0];
+   //or every 4 clock ???? 
+   //we need to measure that or find a way to make that like on the board 
+   //it's only one wire but it will change or reset serialization
+   //if scroll %4 and need to reset realign sei10bu serialization ?
+   if (scrolled[8:0] != ({1'b0, pos[7:0]} + scroll[8:0]) )
+      sync <= 1;
+   else 
+      sync <= 0;
+end
 endmodule 

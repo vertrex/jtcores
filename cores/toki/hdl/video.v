@@ -19,8 +19,8 @@ module toki_video(
   output            VS, 
   output            LHBL, 
   output            LVBL,
-  output      [7:0] hpos,
-  output      [7:0] vpos, 
+  output      [8:0] hpos,
+  output      [8:0] vpos, 
 
   // RGB out
   output [3:0]      r,
@@ -82,11 +82,11 @@ module toki_video(
   // Scroll latch
   input      [8:0]  bk1_hpos,
   input      [8:0]  bk1_vpos,
+  input             bk1_hsync,
   input      [8:0]  bk2_hpos,
   input      [8:0]  bk2_vpos,
+  input             bk2_hsync,
   input             bg_order,
-
-  output            char_cen,
 
   input      [7:0]  prom_26_data,
   input             prom_26_ok,
@@ -96,41 +96,88 @@ module toki_video(
   input      [7:0]  prom_27_data, // XXX 4 bit wide ! 
   input             prom_27_ok,
   output     [7:0]  prom_27_addr,
-  output            prom_27_cs
+  output            prom_27_cs,
 
+  output            INT_T,
+  output  reg        HBLB
 );
 
 ////////// VIDEO SYNC /////////////
 //
-wire char_rom_cen;
+
+wire pld_i6;
+wire HBL; 
+wire L3;
+wire T4H;
+wire HD;
+wire VSYNC;
+
+wire revx = 1'b0;
+wire revy = 1'b0;
+
+// REVERSE SCREEN X/Y HD74LS86P A1/2
+//wire [7:0] exh = {hpos[7] ^ revx, hpos[6] ^ revx, hpos[5] ^ revx, hpos[4] ^ revx, hpos[3] ^ revx, hpos[2] ^ revx, hpos[1] ^ revx, hpos[0] ^ revx};
+//wire [7:0] exv = {vpos[7] ^ revy, vpos[6] ^ revy, vpos[5] ^ revy, vpos[4] ^ revy, vpos[3] ^ revy, vpos[2] ^ revy, vpos[1] ^ revy, vpos[0] ^ revy};
+//wire exv[7:0] = {};
+
+// 
+//PROM26 
+//
+
+//reg HBL;
+
+wire T8H;
 
 assign prom_26_cs = 1'b1;
-assign prom_27_cs = 1'b1;
+assign prom_26_addr[7:0] = vpos[7:0];// generate CPU VBLANK on O5 (pin 6)  
 
-assign prom_26_addr[7:0] = vpos[7:0]; // generate CPU VBLANK on O5 (pin 6)  
-//assign prom_27_addr[7:0] = vpos[7:0]; // ?? use for color mixing 
-
-
-wire [8:0] hcnt;
-//cpu_irq = prom_26_addr[6]; cpu lvbl irq
-
+wire OBJT1, OBJT2, STARTY, VORIGIN, ROM_CLK_IN;
+assign OBJT1 = prom_26_data[0];
+assign OBJT2 = prom_27_data[1]; //need to be latched 
+assign STARTY = prom_27_data[2];
+assign VORIGIN = prom_27_data[3];
+assign INT_T = prom_26_data[4];
+//nc
+//nc 
+assign ROM_CLK_IN = prom_26_data[7];
 // HV SYNC
+//
+
+wire T3F;
+
 SEI0050BU sei0050bu_u(
-  .clk(clk),
+  //.clk(clk),
   .pxl_cen(pxl_cen),
   .rst(rst),
+
+  .VBL_ROM(VBL_ROM),
+  .pld_i6(pld_i6),
+  .hpos(hpos),
+  .vpos(vpos),
+
+  .T8H(T8H), //char cen
+  .HBL(HBL),
+  .L3(L3),
+  .T3F(T3F),
+  .T4H(T4H),
+  .HD(HD),
+  .VSYNC(VSYNC),
 
   .HS(HS),
   .VS(VS),
   .LHBL(LHBL),
-  .LVBL(LVBL),
+  .LVBL(LVBL)
 
-  .hcnt(hcnt),
-  .hpos(hpos),
-  .vpos(vpos),
-  .char_cen(char_cen),
-  .char_rom_cen(char_rom_cen)
+  //.hcnt(hcnt),
+  //.char_cen(char_cen),
+  //.char_rom_cen(char_rom_cen)
 );
+
+          //CHAR_CEN IS T3F
+always @(posedge T8H) begin 
+   HBLB <= HBL; //HBL sei50bu pin 23 
+   //LHBL <= HBL; // ?
+end 
 
 ///////// CHAR DRAWING //////////
 //
@@ -144,8 +191,8 @@ wire [3:0] char_code;
 char char_u(
   .clk(clk),
   .pxl_cen(pxl_cen),
-  .char_cen(char_cen),
-  .char_rom_cen(char_rom_cen),
+  .char_cen(T8H), //char_cen T8H
+  .char_rom_cen(T3F), //char rom cen T3F 
 
   .rst(rst),
 
@@ -191,15 +238,15 @@ bk bk1_u(
   .clk(clk),
   .pxl_cen(pxl_cen),
 
-  .gfx_cen(char_cen),  // XXX check signal on board 
-  .gfx_rom_cen(char_rom_cen),  // XXX check signal on board 
+  .gfx_cen(T8H),  // XXX check signal on board 
+  .gfx_rom_cen(T3F),  // XXX check signal on board 
 
   .rst(rst),
 
   .LHBL(LHBL), //XXX
   .hpos(bk1_hpos),
   .vpos(bk1_vpos),
-
+  .hpos_sync(bk1_hsync),
   //.ram_addr(bk1_addr),
   .ram_out(bk1_out),
 
@@ -228,14 +275,15 @@ bk bk2_u(
   .clk(clk),
   .pxl_cen(pxl_cen),
 
-  .gfx_cen(char_cen), // XXX check signal on board 
-  .gfx_rom_cen(char_rom_cen), // XXX check signal on board
+  .gfx_cen(T8H), // XXX check signal on board 
+  .gfx_rom_cen(T3F), // XXX check signal on board
 
   .rst(rst),
 
   .LHBL(LHBL), //XXX
   .hpos(bk2_hpos),
   .vpos(bk2_vpos),
+  .hpos_sync(bk1_hsync),
 
   //.ram_addr(bk2_addr),
   .ram_out(bk2_out),
@@ -266,7 +314,7 @@ scan_sprite_ram scan_sprite_ram_u(
 
   .LHBL(LHBL), //XXX
 
-  .vpos(vpos), //we calculate 1 line head because of buffering , hpos + 2??
+  .vpos(vpos[7:0]), //we calculate 1 line head because of buffering , hpos + 2??
 
   .ram_addr(sprite_addr),
   .ram_out(sprite_out),
@@ -277,7 +325,7 @@ scan_sprite_ram scan_sprite_ram_u(
   .gfx_rom_cs(gfx2_rom_cs),
 
   //.line_buffer_addr(hcnt - 5), //-5 make it work if I shift hblank by 5 end finish hblank at 5 
-  .line_buffer_addr(hcnt), //-5 make it work if I shift hblank by 5 end finish hblank at 5 
+  .line_buffer_addr(hpos[8:0]), //-5 make it work if I shift hblank by 5 end finish hblank at 5 
   .line_buffer_out(sprite_line_buffer_out)
 );
 
@@ -320,44 +368,43 @@ sg0140 sg0140_u(
 // XXX OFFSET IS GIVEN BY ROM27 ! 
 //give us PALETTE_OFFSET rom27_addr <- sg0x140 
 //palette_offset <= 
-//
 wire [1:0] palette_offset;
-
-
 wire obj_select =  sprite_line_buffer_out[3:0] == 'hf ? 1'b0 : 1'b1; 
 wire unknown_a2 = 1'b0;
-//wire bg_order = // ?
 wire [1:0] unknown_a6_a7 = 2'b0;
 
-//wire bk2_select  = bk2_color[3:0] == 'hf ? 1'b1 : 1'b0;
-                             //bit 4 is controlled by bk2 sei010bu 
-                             //so certainly 1 if bk2 char color != 0'f
-                             // as it receive bk2 char color 
-                             // there is also certainly at least 1 bit for
-                             // background selection from cpu and 1 for 
 wire obj_on;                              // selecting obj ?
 wire s2on;
 wire prior_a = 1'b0; //addr page 3 cpu ram 8/9 (from 0 ?)
 wire prior_b = 1'b0; //addr page 3 
 wire prior_c = 1'b0; //obj linebuf page 18 
 wire prior_d = 1'b0; //obj linebuf page 18
-
-
 //s1 sc1 => bk1 ? 
 //sc2 s2 => bk2
 //sc4 s4 => char 
 
 //color mixing clut page 10
-assign obj_on = (sprite_line_buffer_out[3:0] != 4'b1111); //XXX
-//74LS20P check if color != 'hf
-assign s2on = ~(bk2_color[3] & bk2_color[2] & bk2_color[1] & bk2_color[0]); //sch page 8 
+// XXX BK2 is latched before input into palette page 8 with P6M clck 
+ 
+reg [7:0] bk2;
 
+always @(posedge pxl_cen)  
+   bk2[7:0] <= { bk2_code[3:0], bk2_color[3:0] };
+  
+assign s2on = ~(bk2[3] & bk2[2] & bk2[1] & bk2[0]); //sch page 8 
+
+assign obj_on = (sprite_line_buffer_out[3:0] != 4'b1111); //XXX:
+//
+//74LS20P check if color != 'hf XXX used latched value
+
+assign prom_27_cs = 1'b1;
 assign prom_27_addr[7:0] = { prior_d, prior_c, prior_b, prior_a, s2on, obj_on, pri[1:0] };
 
 //74LS257  2H/3h & 74LS20  2J 
+//
 assign palette_addr[10:1] =  prom_27_data[0] == 1'b1 ?  {prom_27_data[3:2], sprite_line_buffer_out[7:0] } :
                              prom_27_data[1] == 1'b0 ?  {prom_27_data[3:2], sg_palette_addr[7:0]} :
-                                                        {prom_27_data[3:2], {bk2_code, bk2_color}};
+                                                        {prom_27_data[3:2], bk2[7:0]};
 
 //assign palette_addr[10:1] =  obj_on ?  {prom_27_data[3:2], sprite_line_buffer_out[7:0] } :
                              //s2on == 1'b0 ?  {prom_27_data[3:2], sg_palette_addr[7:0]} :
