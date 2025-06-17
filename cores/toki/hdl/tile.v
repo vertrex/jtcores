@@ -51,7 +51,7 @@ sei0010bu sei0010bu_u(
   .rst(rst),
   //just get a reset at hblank ?
   //.g(hpos_sync), // XXX COM FROM SEI21B0
-  .load(gfx_rom_cen), // XXX COM FROM SEI21B0 XXX reset with scroll ?
+  .load(hpos_sync), // XXX COM FROM SEI21B0 XXX reset with scroll ?
   .rev(1'b0),
   .rom_data(gfx_rom_data),
   .color(color)

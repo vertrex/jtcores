@@ -283,7 +283,7 @@ bk bk2_u(
   .LHBL(LHBL), //XXX
   .hpos(bk2_hpos),
   .vpos(bk2_vpos),
-  .hpos_sync(bk1_hsync),
+  .hpos_sync(bk2_hsync),
 
   //.ram_addr(bk2_addr),
   .ram_out(bk2_out),

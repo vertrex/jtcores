@@ -26,9 +26,13 @@ always @(posedge clk) begin
    //we need to measure that or find a way to make that like on the board 
    //it's only one wire but it will change or reset serialization
    //if scroll %4 and need to reset realign sei10bu serialization ?
-   if (scrolled[8:0] != ({1'b0, pos[7:0]} + scroll[8:0]) )
+   if (pos[1:0] + scroll[1:0] == 2'b11)
       sync <= 1;
    else 
       sync <= 0;
+   //if (scrolled[8:0] != ({1'b0, pos[7:0]} + scroll[8:0]) )
+      //sync <= 1;
+   //else 
+      //sync <= 0;
 end
 endmodule 
