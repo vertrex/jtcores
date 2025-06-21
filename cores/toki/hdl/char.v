@@ -73,9 +73,5 @@ sei0010bu sei0010bu_u(
     
 //seem like that on the sch
 assign char_code = ram_out[15:12];
-//always @(posedge clk) //if posedge T3F that didn't work why ? 
-                      //we need posedge clk & T3F == 1 ! 
-    //if (T3F == 1'b1)//T3H ? same for the 4 pixel ? 
-      //char_code <= ram_out[15:12]; //every t3f ?
 
 endmodule

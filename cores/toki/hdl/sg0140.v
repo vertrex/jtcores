@@ -35,17 +35,20 @@ reg [7:0] bk_latch;
 //always @(posedge char_en)
     //char_latch[7:0] <= {char_code[3:0], char_color[3:0]};
 
-//always @(posedge bk_en)
+//always @(posedge bk1_en)
   //if (bk_en)
     //bk_latch[7:0] <= {bk1_code[3:0], bk1_color[3:0]};
 
 always @(posedge clk) begin 
-    bk_latch[7:0] <= {bk1_code[3:0], bk1_color[3:0]};
-    char_latch[7:0] <= {char_code[3:0], char_color[3:0]};
+  //if (bk1_en)
+    //bk_latch[7:0] <= {bk1_code[3:0], bk1_color[3:0]};
+  //if (char_en)
+    //char_latch[7:0] <= {char_code[3:0], char_color[3:0]};
+  
 
     pri <= {  
-           char_latch[3:0] == 'hf ? 1'b0: 1'b1,
-           bk_latch[3:0] == 'hf ? 1'b0 : 1'b1
+           char_color[3:0] == 'hf ? 1'b0: 1'b1,
+           bk1_color[3:0] == 'hf ? 1'b0 : 1'b1
          };
 
   //  00   bk1 0 char 0 (e)
@@ -56,8 +59,10 @@ always @(posedge clk) begin
   //pri <= { bk1_color[3:0] != 'hf ? 1'b0 : 1'b1, 
            //char_color[3:0] != 'hf ? 1'b0: 1'b1 };
   //assign ? 
-  palette_addr[7:0] <= char_latch[3:0] != 'hf ?  char_latch :
-                                                 bk_latch;
+  //palette_addr[7:0] <= char_latch[3:0] != 'hf ?  char_latch :
+                                                 //bk_latch;
+  palette_addr[7:0] <= char_color[3:0] != 'hf ?  {char_code[3:0], char_color[3:0]} :
+                                            {bk1_code[3:0], bk1_color[3:0]};
 end
 
 endmodule
