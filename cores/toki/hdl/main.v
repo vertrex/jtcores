@@ -3,7 +3,7 @@
 //  - Motorola 68k main cpu @10mhz 
 //  - cpu address bus 
 //  - cpu 2*32kx8 ram
-//  - palette / video / bk1 / bk2 / sprite ram
+//  - palette / video / bk1 / bk2 / obj ram
 //  - scrolling & sound latch
 // 
 module toki_main(
@@ -11,7 +11,8 @@ module toki_main(
 
   // Clock
   input             clk,
-  input             pxl_cen,
+  input             P6M,
+  input             N6M,
   //input             pxl2_cen,
 
   // Video
@@ -49,8 +50,8 @@ module toki_main(
   //input      [10:1] bk2_addr,
   output     [15:0] bk2_out,
 
-  input      [10:1] sprite_addr,
-  output     [15:0] sprite_out,
+  input      [10:1] obj_addr,
+  output     [15:0] obj_out,
 
   output  reg signed [8:0] bk1_scroll_x,
   output  reg signed [8:0] bk1_scroll_y,
@@ -75,7 +76,14 @@ module toki_main(
   output            bk1_hsync, 
   output      [8:0] bk2_hpos,
   output      [8:0] bk2_vpos,
-  output            bk2_hsync
+  output            bk2_hsync,
+
+  input             T4H,
+
+  output     reg    vram_cs,
+  output     reg    bk1_cs,
+  output     reg    bk2_cs,
+  output     reg    obj_cs
 );
 
 wire p1_right    = joystick1[0];
@@ -118,9 +126,7 @@ wire cen10;
 wire cen10b;
 wire dtack_n;
 wire int1;
-
-wire RAM_CLK;
-assign RAM_CLK = clk; //6 MHZ CLK ?
+wire ipl0_n;
 
 fx68k fx68k (
     .clk(clk),    // Input clock
@@ -224,7 +230,6 @@ LS74 u_21R_2(
 );
 
 //74LS32
-wire ipl0_n;
 assign ipl0_n = (int_a | int_n);
 
 
@@ -273,11 +278,13 @@ jtframe_68kdma #(.BW(1)) u_arbitration(
     .dev_br     (1'b1)
 );
 
+//WRN6M ? 
+
 ///////// 68k bus mapping  ////////////////////
 //
 // 0x000000, 0x05ffff : rom        (393216)(ro)
 // 0x060000, 0x06d7ff : cpu ram     (55296)(rw)
-// 0x06d800, 0x06dfff : spriteram    (2048)(rw) 
+// 0x06d800, 0x06dfff : objram    (2048)(rw) 
 // 0x06e000, 0x06e7ff : palette      (2048)(rw)
 // 0x06e800, 0x06efff : bk1 vram     (2048)(wo) 
 // 0x06f000, 0x06f7ff : bk2 vram     (2048)(wo)
@@ -291,62 +298,38 @@ jtframe_68kdma #(.BW(1)) u_arbitration(
 // 0x0c0002, 0x0c0003 : input port         (ro)
 // 0x0c0004, 0x0c0005 : system port        (ro) 
 //
-reg ram_cs, sprite_cs, palette_cs, bk1_cs, bk2_cs, vram_cs,  
-    scroll_cs, dsw_cs, inputs_cs, system_cs;
+//reg ram_cs, obj_cs, palette_cs, bk1_cs, bk2_cs, vram_cs,  
+reg ram_cs, palette_cs, scroll_cs, dsw_cs, inputs_cs, system_cs;
 reg sound_cs_3, sound_cs_5;
 
-always @(posedge clk or posedge rst) begin
-  if (rst) begin
-    ram_cs <= 1'd0;
-    sprite_cs <= 1'd0;
-    palette_cs <= 1'd0;
-    bk1_cs <= 1'd0;
-    bk2_cs <= 1'd0;
-    vram_cs <= 1'd0;
-    scroll_cs <= 1'd0;
-    dsw_cs <= 1'd0;
-    inputs_cs <= 1'd0;
-    system_cs <= 1'd0;
-    cpu_rom_addr <= 18'd0;
-  end else begin
-     if(!cpu_as_n) begin
-      if (cpu_a[23:0] < 24'h60000)
-        cpu_rom_addr[18:1] <= cpu_a[18:1];
+always @(posedge clk) begin 
+     if (~cpu_as_n & (cpu_a[23:0] < 24'h60000))
+       cpu_rom_addr[18:1] <= cpu_a[18:1];
+end 
 
-      cpu_rom_cs <= (                        cpu_a[23:0] < 24'h60000);
-      ram_cs <= (cpu_a[23:0] >= 24'h60000 && cpu_a[23:0] < 24'h6d800);
+// XXX page3 rev_y & rev_x etc 
+always @(*) begin
+      cpu_rom_cs = ~cpu_as_n & (cpu_a[23:0] < 24'h60000);
+      ram_cs = ~cpu_as_n & (cpu_a[23:0] >= 24'h60000 && cpu_a[23:0] < 24'h6d800);
       //video 
-      sprite_cs  <= (cpu_a[23:0] >= 24'h6d800 && cpu_a[23:0] < 24'h6e000); //2048
-      palette_cs <= (cpu_a[23:0] >= 24'h6e000 && cpu_a[23:0] < 24'h6e800); //2048
-      bk1_cs     <= (cpu_a[23:0] >= 24'h6e800 && cpu_a[23:0] < 24'h6f000); //2048
-      bk2_cs     <= (cpu_a[23:0] >= 24'h6f000 && cpu_a[23:0] < 24'h6f800); //2048
-      vram_cs    <= (cpu_a[23:0] >= 24'h6f800 && cpu_a[23:0] < 24'h70000); //2048
+      obj_cs  = ~cpu_as_n & (cpu_a[23:0] >= 24'h6d800 && cpu_a[23:0] < 24'h6e000); //2048
+      palette_cs = ~cpu_as_n & (cpu_a[23:0] >= 24'h6e000 && cpu_a[23:0] < 24'h6e800); //2048
+      bk1_cs     = ~cpu_as_n & (cpu_a[23:0] >= 24'h6e800 && cpu_a[23:0] < 24'h6f000); //2048
+      bk2_cs     = ~cpu_as_n & (cpu_a[23:0] >= 24'h6f000 && cpu_a[23:0] < 24'h6f800); //2048
+      vram_cs    = ~cpu_as_n & (cpu_a[23:0] >= 24'h6f800 && cpu_a[23:0] < 24'h70000); //2048
       //sound latch
-      sound_cs_2 <= (cpu_a[23:0] == 24'h80004);
-      sound_cs_3 <= (cpu_a[23:0] == 24'h80006);
-      sound_cs_4 <= (cpu_a[23:0] == 24'h80008);
-      sound_cs_5 <= (cpu_a[23:0] == 24'h8000a);
-      sound_cs_6 <= (cpu_a[23:0] == 24'h8000c);
+      sound_cs_2 = ~cpu_as_n & (cpu_a[23:0] == 24'h80004);
+      sound_cs_3 = ~cpu_as_n & (cpu_a[23:0] == 24'h80006);
+      sound_cs_4 = ~cpu_as_n & (cpu_a[23:0] == 24'h80008);
+      sound_cs_5 = ~cpu_as_n & (cpu_a[23:0] == 24'h8000a);
+      sound_cs_6 = ~cpu_as_n & (cpu_a[23:0] == 24'h8000c);
       //scroll 
-      scroll_cs  <= (cpu_a[23:0] >= 24'ha0000 && cpu_a[23:0] < 24'ha005f); //96 
+      scroll_cs  = ~cpu_as_n & (cpu_a[23:0] >= 24'ha0000 && cpu_a[23:0] < 24'ha005f); //96 
+      //divide it in sub cs & use it bg scroll 
       //IO
-      dsw_cs     <= (cpu_a[23:0] >= 24'hc0000 && cpu_a[23:0] < 24'hc0001); //2 
-      inputs_cs  <= (cpu_a[23:0] >= 24'hc0002 && cpu_a[23:0] < 24'hc0003); //2 
-      system_cs  <= (cpu_a[23:0] >= 24'hc0004 && cpu_a[23:0] < 24'hc0005); //2 
-    end else begin
-      ram_cs <= 1'd0;
-      sprite_cs <= 1'd0;
-      palette_cs <= 1'd0;
-      bk1_cs <= 1'd0;
-      bk2_cs <= 1'd0;
-      vram_cs <= 1'd0;
-      scroll_cs <= 1'd0;
-      dsw_cs <= 1'd0;
-      inputs_cs <= 1'd0;
-      system_cs <= 1'd0;
-      cpu_rom_addr <= 18'd0;
-    end
-  end
+      dsw_cs     = ~cpu_as_n & (cpu_a[23:0] >= 24'hc0000 && cpu_a[23:0] < 24'hc0001); //2 
+      inputs_cs  = ~cpu_as_n & (cpu_a[23:0] >= 24'hc0002 && cpu_a[23:0] < 24'hc0003); //2 
+      system_cs  = ~cpu_as_n & (cpu_a[23:0] >= 24'hc0004 && cpu_a[23:0] < 24'hc0005); //2 
 end
 
 
@@ -361,7 +344,7 @@ always @(posedge clk, posedge rst) begin
       cpu_din <= cpu_rom_cs ? cpu_rom_data[15:0] :  
                  ram_cs     ? ram_do[15:0] :
                  palette_cs ? palette_do[15:0] :
-                 sprite_cs  ? sprite_do[15:0] : 
+                 obj_cs  ? obj_do[15:0] : 
                  vram_cs    ? vram_do[15:0] : 
                  dsw_cs     ? dipsw[15:0] : 
                  inputs_cs  ? {1'b1,1'b1,p2_button2,p2_button1,p2_right,p2_left,p2_down,p2_up,
@@ -494,29 +477,39 @@ end
 
 //clk port 31 N6M / OBJN6M /WR6M
 
-sis6091 #(.W(10)) u_vram_ram(
-  .clk(RAM_CLK),
-  .trigger_n(int_n),
-  .we({vram_cs && !cpu_wr && !cpu_uds_n , vram_cs && !cpu_wr && !cpu_lds_n}),
-  .addr_in(cpu_a[10:1]),  //if we lower cpu addr in we don't have the shift
-  .data(cpu_dout[15:0]),
-  .q_in(vram_do),
 
-  // WHICH CLOCK ???
-  //XXX latchc or enable for a certain time XXX must use char_addr_en to
-  //enable or latched pos  ...
-  //check what it get just after hblank 
-  //10 pin :( we have 8 pin capable 
-  //left 8 for hpos or vblank still can be usefull if 
-  //vpos 7 is low 
-  //        tile addr 256*256 / 32 
-  //        256 x/32
-  //        256 y/32
-  //
-  //.addr_out({vpos[7:3], hpos_shift_0[7:3]}),//+ 2'd2 ? hpos[4] ?  ^ every 32pix ? 
-  .addr_out({vpos[7:3], hpos[7:3]}),//+ 2'd2 ? hpos[4] ?  ^ every 32pix ? 
-  .q(vram_out[15:0])
-); 
+//sis6091 #(.W(10)) u_vram_ram(
+  //.clk(clk),
+  //.trigger_n(INT_T),
+  //.we({vram_cs && !cpu_wr && !cpu_uds_n , vram_cs && !cpu_wr && !cpu_lds_n}),
+  //.addr_in(cpu_a[10:1]), // if we lower cpu addr in we don't have the shift
+  //.data(cpu_dout[15:0]),
+  //.q_in(vram_do),
+
+  //.addr_out({vpos[7:3], hpos[7:3]}),
+  //.q(vram_out[15:0])
+//); 
+
+wire WRN6M;
+//74LS368 page 6 
+assign WRN6M=~P6M;
+
+jtframe_dual_ram16 #(.AW(10)) u_vram_ram(
+  .clk0(WRN6M),
+  //.clk0(clk),
+  .data0(cpu_dout[15:0]),
+  .addr0(cpu_a[10:1]),
+  .we0({vram_cs && !cpu_wr && !cpu_uds_n , vram_cs && !cpu_wr && !cpu_lds_n}), //DSML S4 
+  .q0(vram_do),
+
+  //.select() 
+  .clk1(T4H), // XXX T4H
+  .data1(),
+  .addr1({vpos[7:3], hpos[7:3]}),
+  .we1(),
+  .q1(vram_out[15:0])
+);
+
 
 ///////// BK1 RAM //////////
 //
@@ -529,34 +522,53 @@ sis6091 #(.W(10)) u_vram_ram(
 //wire signed [8:0] bk1_vpos;// = vpos[7:0] + bk1_scroll_y[8:0];
 
 sei0021bu sei21bu_bk1_h(
-   .clk(pxl_cen),
+   .clk(clk),
    .pos(hpos[7:0]),
-   // XXX ROM CEN
+ 
    .sync(bk1_hsync),
    .scroll(bk1_scroll_x),
    .scrolled(bk1_hpos)
 );
 
 sei0021bu sei21bu_bk1_v(
-   .clk(pxl_cen),
+   .clk(clk),
    .pos(vpos[7:0]),
-   // XXX ROM CEN 
+   
    .sync(),
    .scroll(bk1_scroll_y),
    .scrolled(bk1_vpos)
 );
 
-sis6091 #(.W(10)) u_bk1_ram(
-  .clk(RAM_CLK),
-  .trigger_n(int_n),
-  .we({bk1_cs && !cpu_wr && !cpu_uds_n, bk1_cs && !cpu_wr && !cpu_lds_n}),
-  .addr_in(cpu_a[10:1]), 
-  .data(cpu_dout[15:0]),
-  .q_in(),
+
+//sis6091 #(.W(10)) u_bk1_ram(
+  //.clk(clk),
+  //.trigger_n(INT_T),
+  //.we({bk1_cs && !cpu_wr && !cpu_uds_n, bk1_cs && !cpu_wr && !cpu_lds_n}),
+  //.addr_in(cpu_a[10:1]), 
+  //.data(cpu_dout[15:0]),
+  //.q_in(),
   
-  .addr_out({bk1_vpos[8:4], bk1_hpos[8:4]}),
-  .q(bk1_out)
-); 
+  //.addr_out({bk1_vpos[8:4], bk1_hpos[8:4]}),
+  //.q(bk1_out)
+//); 
+
+
+
+jtframe_dual_ram16 #(.AW(10)) u_bk1_ram(
+  //.clk0(clk),
+  .clk0(WRN6M),
+  .data0(cpu_dout[15:0]),
+  .addr0(cpu_a[10:1]),
+  .we0({bk1_cs && !cpu_wr && !cpu_uds_n, bk1_cs && !cpu_wr && !cpu_lds_n}),//DMSL S1
+  .q0(),
+
+  .clk1(bk1_hpos[0]),
+  .data1(),
+  .addr1({bk1_vpos[8:4], bk1_hpos[8:4]}),
+  .we1(),
+  .q1(bk1_out)
+);
+
 
 ///////// BK2 RAM //////////
 //
@@ -581,9 +593,10 @@ sei0021bu sei21bu_bk2_v(
    .scrolled(bk2_vpos)
 );
 
-sis6091 #(.W(10)) u_bk2_ram(
-  .clk(RAM_CLK),
-  .trigger_n(int_n),
+
+/*sis6091 #(.W(10)) u_bk2_ram(
+  .clk(clk),
+  .trigger_n(INT_T), //P6M ? 
   .we({bk2_cs && !cpu_wr && !cpu_uds_n, bk2_cs && !cpu_wr && !cpu_lds_n}),
   .addr_in(cpu_a[10:1]), 
   .data(cpu_dout[15:0]),
@@ -591,6 +604,22 @@ sis6091 #(.W(10)) u_bk2_ram(
   
   .addr_out({bk2_vpos[8:4], bk2_hpos[8:4]}),
   .q(bk2_out)
+);
+*/
+
+jtframe_dual_ram16 #(.AW(10)) u_bk2_ram(
+  .clk0(N6M),
+  //.clk0(clk),
+  .data0(cpu_dout[15:0]),
+  .addr0(cpu_a[10:1]),
+  .we0({bk2_cs && !cpu_wr && !cpu_uds_n, bk2_cs && !cpu_wr && !cpu_lds_n}),
+  .q0(),
+
+  .clk1(bk2_hpos[0]),//  XXX T4H
+  .data1(),
+  .addr1({bk2_vpos[8:4], bk2_hpos[8:4]}),
+  .we1(),
+  .q1(bk2_out)
 );
 
 ///////// PALETTE RAM //////////
@@ -600,9 +629,9 @@ sis6091 #(.W(10)) u_bk2_ram(
 // H4 on PCB behind UEC-51
 wire [15:0]  palette_do;
 
-sis6091 #(.W(10)) u_palette_ram(
-  .clk(RAM_CLK),
-  .trigger_n(int_n),
+/*sis6091 #(.W(10)) u_palette_ram(
+  .clk(clk),
+  .trigger_n(INT_T),
   .we({palette_cs && !cpu_wr && !cpu_uds_n, palette_cs && !cpu_wr && !cpu_lds_n}),
   .addr_in(cpu_a[10:1]), 
   .data(cpu_dout[15:0]),
@@ -611,28 +640,60 @@ sis6091 #(.W(10)) u_palette_ram(
   .addr_out(palette_addr[10:1]),
   .q(palette_out)
 ); 
+*/
+
+jtframe_dual_ram16 #(.AW(10)) u_palette_ram(
+  .clk0(WRN6M),
+  //.clk0(clk),
+  .data0(cpu_dout[15:0]),
+  .addr0(cpu_a[10:1]),
+  .we0({palette_cs && !cpu_wr && !cpu_uds_n, palette_cs && !cpu_wr && !cpu_lds_n}), //DSML GL
+  .q0(palette_do),
+
+  .clk1(P6M), 
+  .data1(),
+  .addr1(palette_addr[10:1]),
+  .we1(),
+  .q1(palette_out)
+);
 
 // XXX SPRITE SEEMS TO USE 8 6091 on board ! 
 
 ///////// SPRITE RAM //////////
 //
-// sprite ram (2048)
-// sprite ram is read by the cpu 
-// if cpu can't read sprite ram content 
+// obj ram (2048)
+// obj ram is read by the cpu 
+// if cpu can't read obj ram content 
 // there will be no scrolling during the 'cave screen'
 //
-wire [15:0] sprite_do;
+wire [15:0] obj_do;
 
-sis6091 #(.W(10)) u_sprite_ram(
-  .clk(RAM_CLK),
-  .trigger_n(int_n),
-  .we({sprite_cs && !cpu_wr && !cpu_uds_n, sprite_cs && !cpu_wr && !cpu_lds_n}),
-  .addr_in(cpu_a[10:1]), 
-  .data(cpu_dout[15:0]),
-  .q_in(sprite_do),
+//sis6091 #(.W(10)) u_obj_ram(
+  //.clk(clk),
+  //.trigger_n(INT_T),
+  //.we({obj_cs && !cpu_wr && !cpu_uds_n, obj_cs && !cpu_wr && !cpu_lds_n}),
+  //.addr_in(cpu_a[10:1]), 
+  //.data(cpu_dout[15:0]),
+  //.q_in(obj_do),
 
-  .addr_out(sprite_addr[10:1]),
-  .q(sprite_out)
+  //.addr_out(obj_addr[10:1]),
+  //.q(obj_out)
+//);
+
+jtframe_dual_ram16 #(.AW(10)) u_obj_ram(
+  //.clk0(N6M),
+  .clk0(clk), //must be fast here because we use one chips to scan everything 
+  //on the real board there is multiple chipset ....
+  .data0(cpu_dout[15:0]),
+  .addr0(cpu_a[10:1]),
+  .we0({obj_cs && !cpu_wr && !cpu_uds_n, obj_cs && !cpu_wr && !cpu_lds_n}),
+  .q0(obj_do),
+
+  .clk1(clk), 
+  .data1(),
+  .addr1(obj_addr[10:1]),
+  .we1(),
+  .q1(obj_out)
 );
 
 

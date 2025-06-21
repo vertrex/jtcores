@@ -17,11 +17,11 @@ module SEI0050BU(
 
 
   //output reg [8:0] hcnt,
-  output reg T8H, //p22 CHAR_CEN
+  output T8H, //p22 CHAR_CEN
   output reg HBL, //p23 HSYNC 
   output L3, //p24  ~cblank
-  output reg T3F, //p25 CHAR_ROM_CEN
-  output reg T4H, //p26  hpos2 ?  char SIS 6091 ! 
+  output T3F, //p25 CHAR_ROM_CEN
+  output T4H, //p26  hpos2 ?  char SIS 6091 ! 
   output HD, //p27   hsync 
   output VSYNC, //p28 csync
 
@@ -70,8 +70,10 @@ assign VSYNC = HS | VS;
 //output 
 
 
-parameter HBLANK_START  = 265; //high [265, 137]  
-parameter HBLANK_END 	  = 9; //10 tick so stop at 9  
+//parameter HBLANK_START  = 265; //high [265, 137]     | 265  
+parameter HBLANK_START  = 262; //high [265, 137]     | 265  
+//parameter HBLANK_END 	  = 9; //10 tick so stop at 9  | 9  we shift 3 to align but there's maybe a latch somewhere
+parameter HBLANK_END 	  = 6; //10 tick so stop at 9  | 9  we shift 3 to align but there's maybe a latch somewhere
 
 parameter HSYNC_START 	= 304; //[179,210] +50 hblank start  
 parameter HSYNC_END 		= 336; //32
@@ -85,8 +87,8 @@ parameter H_TOTAL			  = 384; //384 ??
 
 //244 + 12 lines = 256 lines 
 //
-parameter LVBLANK_START  = 239; //rom blank 
-parameter LVBLANK_END		= 16; //15 ??? if 224 , only 223 line ?
+parameter LVBLANK_START  = 240; //rom blank  | 239   
+parameter LVBLANK_END		= 16; //15 ??? if 224 , only 223 line ? | 16
 
 parameter VSYNC_START	  = 256; //pin3 ~vsync, 256 include,
 parameter VSYNC_END		  = 261; //pin3 ~vsync, 261 include (6 ticks)
@@ -107,23 +109,19 @@ initial begin
 	VS    = 1'b0;
 end	
 
-//always @(negedge pxl_cen) begin
-always @(posedge pxl_cen) begin
-  // + 1 ? otherwise it's the next pixel 
-   if (hpos[1:0]   == 2'b10)
-      T3F <= 1'b1;
-   else 
-      T3F <= 1'b0;
-end 
-
 assign LHBL = HBL;
 
-always @(negedge pxl_cen) begin 
-    if (hpos[2:0]  == 3'b000 || hcnt == HBLANK_END) //we nneed 0 too but 384 + 1 is not 0
-      T4H <= 1'b1; 
-     else 
-      T4H <= 1'b0;
-end 
+// the are not really @hpos1 it's betwee nedge ....
+// half 11 half 00 @negedge ? 
+assign T3F = (hpos[1:0] == 2'b11); // || hpos[1:0] == 2'b00);
+assign T4H = (hpos[2:0] == 3'b100);
+assign T8H = (hpos[2:0] == 3'b000);
+
+
+//on other measure it look like that ... but it's the merged one 
+//assign T3F = (hpos[1:0] == 2'b01);
+//assign T4H = (hpos[2:0] == 3'b101);
+//assign T8H = (hpos[2:0] == 3'b001);
 
 always @(posedge pxl_cen) begin 
     if (hcnt == H_TOTAL - 1) begin  //256 ? 
@@ -167,10 +165,10 @@ always @(posedge pxl_cen) begin
     //it's start every 8 (first start at end of 7) at clock tick
     //+1 ? 
     //if (hpos[2:0] + 1'd1 == 3'b000 || hcnt == HBLANK_END) //we nneed 0 too but 384 + 1 is not 0
-    if (hpos[2:0]  == 3'b000 || hcnt == HBLANK_END) //we nneed 0 too but 384 + 1 is not 0
-      T8H <= 1'b1; 
-     else 
-      T8H <= 1'b0;
+    //if (hpos[2:0]  == 3'b000 || hcnt == HBLANK_END) //we nneed 0 too but 384 + 1 is not 0
+      //T8H <= 1'b1; 
+     //else 
+      //T8H <= 1'b0;
 
     case (hcnt)
       HBLANK_START: begin

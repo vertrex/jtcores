@@ -45,8 +45,8 @@ wire [15:0] bk1_out;
 //wire [10:1] bk2_addr;
 wire [15:0] bk2_out;
 
-wire [10:1] sprite_addr;
-wire [15:0] sprite_out;
+wire [10:1] obj_addr;
+wire [15:0] obj_out;
 
 wire  [6:1] scroll_addr;
 wire [15:0] scroll_out;
@@ -80,16 +80,16 @@ wire [8:0] bk2_vpos;
 
 wire HBLB;
 wire INT_T;
-//reg  div = 1'b0;
+wire T4H;
 
-// don't work with jtframe_obj_buffer because of rd 
-//assign pxl2_cen = pixel_cen;
-//assign pxl_cen = div;
+wire P6M, N6M;
+assign P6M = pxl_cen;
+assign N6M = ~pxl_cen;
 
-//always @(posedge pixel_cen)
-  //div <= ~div;
-
-//assign pxl_cen = pixel_cen;
+wire vram_cs;
+wire bk1_cs;
+wire bk2_cs;
+wire obj_cs;
 
 //////// MAIN ////////////
 //
@@ -104,8 +104,8 @@ toki_main  u_main(
 
   // Clock
   .clk(clk),
-  .pxl_cen(pxl_cen),
-  //.pxl2_cen(pxl2_cen),
+  .P6M(P6M),
+  .N6M(N6M),
 
   // Video 
   //.LVBL(prom_26_data[6]), //CPU VBLANK IS TRIGGERED BY 82S135 pin 11
@@ -144,8 +144,8 @@ toki_main  u_main(
   //.bk2_addr(bk2_addr),
   .bk2_out(bk2_out),
 
-  .sprite_addr(sprite_addr),
-  .sprite_out(sprite_out),
+  .obj_addr(obj_addr),
+  .obj_out(obj_out),
 
   //Scroll latch
   .bk1_scroll_x(bk1_scroll_x),
@@ -172,21 +172,27 @@ toki_main  u_main(
   .bk1_vpos(bk1_vpos),
   .bk2_hpos(bk2_hpos),
   .bk2_hsync(bk2_hsync),
-  .bk2_vpos(bk2_vpos)
+  .bk2_vpos(bk2_vpos),
+
+  .T4H(T4H),
+  .vram_cs(vram_cs),
+  .bk1_cs(bk1_cs),
+  .bk2_cs(bk2_cs),
+  .obj_cs(obj_cs)
 );
 
 //////// VIDEO ////////////
 //
 // video module 
-// - char, tile & sprite drawing 
+// - char, tile & obj drawing 
 // - vga sync 
 //
 toki_video u_video(
   .rst(rst),
 
   .clk(clk),
-  .pxl_cen(pxl_cen),
-  .pxl2_cen(pxl2_cen),
+  .P6M(P6M),
+  .N6M(N6M),
 
   // Video signal
   .HS(HS),
@@ -214,8 +220,8 @@ toki_video u_video(
   //.bk2_addr(bk2_addr),
   .bk2_out(bk2_out),
 
-  .sprite_addr(sprite_addr),
-  .sprite_out(sprite_out),
+  .obj_addr(obj_addr),
+  .obj_out(obj_out),
 
   //GFX ROM 
   //.gfx1_rom_data(gfx1_rom_data),
@@ -273,7 +279,13 @@ toki_video u_video(
   .prom_27_addr(prom_27_addr),
 
   .HBLB(HBLB),
-  .INT_T(INT_T)
+  .INT_T(INT_T),
+  .T4H(T4H),
+
+  .vram_cs(vram_cs),
+  .bk1_cs(bk1_cs),
+  .bk2_cs(bk2_cs),
+  .obj_cs(obj_cs)
 );
 
 //////// SOUND ////////////

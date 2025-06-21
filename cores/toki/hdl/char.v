@@ -18,135 +18,64 @@
 //
 module char(
   input                 clk,
-  input                 pxl_cen,
-  input                 char_cen,  //T8H 
-  input                 char_rom_cen, //T3F
   input                 rst,
-
-  input                 LHBL,
+  input                 T8H,  //T8H char_cen 
+  input                 T3F, //T3F char_rom_cen
 
   input           [7:0] hpos, //8:0
   input           [7:0] vpos, //8:0
+  input                 hrev,
 
-  //output reg     [10:1] ram_addr, //vram_addr 
   input          [15:0] ram_out,  //code [11:0], pal 15:12
-
-  //input          [15:0] char_rom_data,
-  //input                 char_rom_ok,
-  //output         [16:1] char_rom_addr,
-  //output                char_rom_cs,
 
   input          [7:0]  char_rom_1_data,
   input                 char_rom_1_ok,
   output         [15:0] char_rom_1_addr,
   output                char_rom_1_cs,
 
-
   input          [7:0]  char_rom_2_data,
   input                 char_rom_2_ok,
   output         [15:0] char_rom_2_addr,
   output                char_rom_2_cs,
 
-  //output          [7:0] pixel
-  output         [3:0]  char_color, 
-  output  reg    [3:0]  char_code
+  output         [3:0]  char_color, //pic  
+  output         [3:0]  char_code   //col
 );
 
 // SEI50BU -> RAM (sis6091) -> ROM -> SEI10BU -> SG0140 -> PALETTE RAM -> UEC51 
-
-//wire [3:0] color;
-reg [3:0] palette;
 reg [2:0] vpos_latch;
 
-//latch line number, why ??? we would latch x the hpos but we latch of 4 
-//maybe to be on the right line2 when at the start or end of the screen
-//if yes it mean that hpos in ram is latched too
-// XXX CHECK RESET SIGNAL IT if signal is reset time to time 
-// vpos_latch (line is set to 0)
-// it may help going in the next line ? 
-always @(posedge char_cen) begin
-  vpos_latch[2:0] <= vpos[2:0];
-end 
-
-//if tile number is late it mean ram_addr in main.v is late 
-//and should be populated before
-
- //tile number , line number (8), rom 1 or 2 every 8 pix
-//assign char_rom_addr[16:1] = {ram_out[11:0], vpos_latch[2:0], hpos_shift_0[2]}; //latch vpos/hpos ? because ram_out use vpos/hpos so it must way 
-
-//after analyzing hpos[2]
-//it seem to start 50ns after ~hpos[2] and finish at the same time but not
-//every time ! so it may be clocked some where with the cpu clock 
-
-//74LS368 P15 near cpu  hex inverter
-//wire rom_a0;
-//assign rom_a0 = ~hpos[2];
+//74LS74 8B clock T8H
+always @(posedge T8H) begin
+   vpos_latch[2:0] <= vpos[2:0];
+end
+//hpos2 is latched too ? (hpos/4)
 
 assign char_rom_1_cs = 1'b1;
 assign char_rom_2_cs = 1'b1;
-//on mobo it's ~hpos[2] why ? maybe cpu write in memory in 16 bits in reverse
-//byte order ?
-//tile addr => tile_number + v line number + 16/2  bits ?
-// XXX CHECK IF LHBL ON THE BOARD OR NOT ! 
-//assign char_rom_1_addr[15:0] = LHBL ? {ram_out[11:0], vpos_latch[2:0], hpos[2]} : 16'hff; //latch vpos/hpos ? because ram_out use vpos/hpos so it must way 
-//assign char_rom_2_addr[15:0] = LHBL ? {ram_out[11:0], vpos_latch[2:0], hpos[2]} : 16'hff; //latch vpos/hpos ? because ram_out use vpos/hpos so it must way 
 
-                                                //change @ pixel clk ? 
-                                                //or two pixel clk : 
-                                                //clk + 1 clk cycle for
-                                                //sei21bu if there is change
-                                                //in scroll 
-assign char_rom_1_addr[15:0] =  {ram_out[11:0], vpos_latch[2:0], hpos[2]} ; //latch vpos/hpos ? because ram_out use vpos/hpos so it must way 
-assign char_rom_2_addr[15:0] =  {ram_out[11:0], vpos_latch[2:0], hpos[2]} ; //latch vpos/hpos ? because ram_out use vpos/hpos so it must way
+//page 6 
+//74LS368  exh<4> -> exh<4>/4
+assign char_rom_1_addr[15:0] =  {ram_out[11:0], vpos_latch[2:0], ~hpos[2]} ;  
+assign char_rom_2_addr[15:0] =  {ram_out[11:0], vpos_latch[2:0], ~hpos[2]} ; 
+//assign char_rom_1_addr[15:0] =  {ram_out[11:0], vpos_latch[2:0], hpos[2]} ;  
+//assign char_rom_2_addr[15:0] =  {ram_out[11:0], vpos_latch[2:0], hpos[2]} ; 
 
 // latch / serialize pixel
 sei0010bu sei0010bu_u(
-  .clk(pxl_cen),
+  .clk(clk),
   .rst(rst),
-  .load(char_rom_cen),
-  .rev(1'b0),
-  //.rom_data(char_rom_data[15:0]),
-  //.rom_data({char_rom_2_data[7:0], char_rom_1_data[7:0]}),
+  .load(T3F), //load new pixel
+  .rev(hrev),
   .rom_data({char_rom_2_data[7:0], char_rom_1_data[7:0]}),
   .color(char_color)
 );
-
-//XXX still 9:14 shift (6 pix off) with latch
-//without latch there is also 6 ??? 
-//74LS174
-//hpos[2] ?? seem always up on the mobo ... check it 
-//ram_out from 6091 what clocking ?
-//on board ~hpos[2] (vpos_latch seems equal to vpos ...)
-//maybe ram take one more cycle that's why we have ~hpos2
-
-//XXX LOOK ON PCB char char must be updated only each char_rom_cen that's normal 
-//must look on pcb but it must be somehow latched as we put the other part
-//of ram out in char_rom addr to get the data from the rom then in sei10bu
-//to serialize and get only pixel, we must mix wiwth the same data of
-//ram_out
-
-//reg [3:0] char_code;
-
-always @(posedge clk)
-  if (char_rom_cen == 1'b1)
-    char_code <= ram_out[15:12];
-// on board XXX ???
-
-
-//color mixer /priority pixel  ? 
-//sg0140 ?  seems good sg0140 take color and output from ram 
-//and have different clock and enable !
-//  
-//sg0140 sg0140_u(
-  //.clk(pxl_cen), 
-  //.char_color(color),
-  //.char_code(ram_out[15:12]), //it's like that on the board
-  //.char_code(char_code), //char char must be updated only each char_rom_cen that's normal 
-  //must look on pcb but it must be somehow latched as we put the other part
-  //of ram out in char_rom addr to get the data from the rom then in sei10bu
-  //to serialize and get only pixel, we must mix wiwth the same data of
-  //ram_out 
-  //.palette_addr(pixel)
-//);
+    
+//seem like that on the sch
+assign char_code = ram_out[15:12];
+//always @(posedge clk) //if posedge T3F that didn't work why ? 
+                      //we need posedge clk & T3F == 1 ! 
+    //if (T3F == 1'b1)//T3H ? same for the 4 pixel ? 
+      //char_code <= ram_out[15:12]; //every t3f ?
 
 endmodule
