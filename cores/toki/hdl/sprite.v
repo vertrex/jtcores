@@ -21,7 +21,7 @@ module scan_obj_ram(
   output reg     [19:1] gfx_rom_addr,
   output reg            gfx_rom_cs,
 
-  input           [7:0] line_buffer_addr, //8:0 ??
+  input           [8:0] line_buffer_addr, //8:0 ??
   output          [7:0] line_buffer_out
 );
 
@@ -60,7 +60,7 @@ reg [3:0]  plane_color;
 
 reg write_pixel;
 
-jtframe_obj_buffer #(.DW(8),.AW(8), .ALPHAW(4), .BLANK_DLY(1), .KEEP_OLD(1), .FLIP_OFFSET(4)) obj_buffer(
+jtframe_obj_buffer #(.DW(8),.AW(9), .ALPHAW(4), .BLANK_DLY(1), .KEEP_OLD(1), .FLIP_OFFSET(4)) obj_buffer(
   .clk(clk),
   .LHBL(LHBL), //swap buffer at each line (horizontal blank)
   .flip(1'b0), //flip whole screen ?

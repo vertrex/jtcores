@@ -91,6 +91,15 @@ wire bk1_cs;
 wire bk2_cs;
 wire obj_cs;
 
+wire S1MASK;
+wire S2MASK;
+wire OBJMASK;
+wire S4MASK;
+wire PRIOR_A;
+wire PRIOR_B;
+wire HREV;
+wire YREV;
+
 //////// MAIN ////////////
 //
 // main module 
@@ -109,7 +118,7 @@ toki_main  u_main(
 
   // Video 
   //.LVBL(prom_26_data[6]), //CPU VBLANK IS TRIGGERED BY 82S135 pin 11
-  //.LVBL(LVBL), //CPU VBLANK IS TRIGGERED BY 82S135 pin 11
+  .LVBL(LVBL), //CPU VBLANK IS TRIGGERED BY 82S135 pin 11
   .HBLB(HBLB),
   .INT_T(INT_T),
   .hpos(hpos),
@@ -178,7 +187,16 @@ toki_main  u_main(
   .vram_cs(vram_cs),
   .bk1_cs(bk1_cs),
   .bk2_cs(bk2_cs),
-  .obj_cs(obj_cs)
+  .obj_cs(obj_cs),
+
+  .S1MASK(S1MASK),
+  .S2MASK(S2MASK),
+  .OBJMASK(OBJMASK),
+  .S4MASK(S4MASK),
+  .PRIOR_A(PRIOR_A),
+  .PRIOR_B(PRIOR_B),
+  .HREV(HREV),
+  .YREV(YREV)
 );
 
 //////// VIDEO ////////////
@@ -285,7 +303,16 @@ toki_video u_video(
   .vram_cs(vram_cs),
   .bk1_cs(bk1_cs),
   .bk2_cs(bk2_cs),
-  .obj_cs(obj_cs)
+  .obj_cs(obj_cs),
+
+  .S1MASK(S1MASK),
+  .S2MASK(S2MASK),
+  .OBJMASK(OBJMASK),
+  .S4MASK(S4MASK),
+  .PRIOR_A(PRIOR_A),
+  .PRIOR_B(PRIOR_B),
+  .HREV(HREV),
+  .YREV(YREV)
 );
 
 //////// SOUND ////////////

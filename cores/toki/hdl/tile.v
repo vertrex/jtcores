@@ -26,7 +26,6 @@ module bk(
 );
 
 assign gfx_rom_cs = 1'b1;
-
 assign gfx_rom_addr[18:1] = {ram_out[11:0], hpos[3], vpos[3:0], hpos[2]}; 
 
 //16 bits

@@ -105,25 +105,29 @@ module toki_video(
   input             vram_cs,
   input             bk1_cs,
   input             bk2_cs,
-  input             obj_cs
+  input             obj_cs,
+
+  input             S1MASK,
+  input             S2MASK,
+  input             OBJMASK,
+  input             S4MASK,
+  input             PRIOR_A,
+  input             PRIOR_B,
+  input             HREV,
+  input             YREV
 );
 
 ////////// VIDEO SYNC /////////////
 //
 
-wire pld_i6;
 wire HBL; 
 wire L3;
 wire HD;
 wire VSYNC;
 
-wire revx = 1'b0;
-wire revy = 1'b0;
-
-// REVERSE SCREEN X/Y HD74LS86P A1/2
-//wire [7:0] exh = {hpos[7] ^ revx, hpos[6] ^ revx, hpos[5] ^ revx, hpos[4] ^ revx, hpos[3] ^ revx, hpos[2] ^ revx, hpos[1] ^ revx, hpos[0] ^ revx};
-//wire [7:0] exv = {vpos[7] ^ revy, vpos[6] ^ revy, vpos[5] ^ revy, vpos[4] ^ revy, vpos[3] ^ revy, vpos[2] ^ revy, vpos[1] ^ revy, vpos[0] ^ revy};
-//wire exv[7:0] = {};
+//REVERSE SCREEN X/Y HD74LS86P A1/2
+wire [7:0] exh = {hpos[7] ^ HREV, hpos[6] ^ HREV, hpos[5] ^ HREV, hpos[4] ^ HREV, hpos[3] ^ HREV, hpos[2] ^ HREV, hpos[1] ^ HREV, hpos[0] ^ HREV};
+wire [7:0] exv = {vpos[7] ^ YREV, vpos[6] ^ YREV, vpos[5] ^ YREV, vpos[4] ^ YREV, vpos[3] ^ YREV, vpos[2] ^ YREV, vpos[1] ^ YREV, vpos[0] ^ YREV};
 
 // 
 //PROM26 
@@ -131,25 +135,23 @@ wire revy = 1'b0;
 
 //reg HBL;
 
-wire T8H;
+wire OBJT1, OBJT2, STARTY, VORIGIN, VBL_ROM;
 
 assign prom_26_cs = 1'b1;
 assign prom_26_addr[7:0] = vpos[7:0];// generate CPU VBLANK on O5 (pin 6)  
 
-wire OBJT1, OBJT2, STARTY, VORIGIN, ROM_CLK_IN;
-assign OBJT1 = prom_26_data[0];
-assign OBJT2 = prom_27_data[1]; //need to be latched 
-assign STARTY = prom_27_data[2];
+assign OBJT1 =   prom_26_data[0];
+assign OBJT2 =   prom_27_data[1]; //need to be latched 
+assign STARTY =  prom_27_data[2];
 assign VORIGIN = prom_27_data[3];
-assign INT_T = prom_26_data[4];
+assign INT_T =   prom_26_data[4];
 //nc
 //nc 
-assign ROM_CLK_IN = prom_26_data[7];
+assign VBL_ROM = prom_26_data[7];
 // HV SYNC
 //
 
-wire T3F;
-wire VBL_ROM;
+wire T8H, T3F;
 
 SEI0050BU sei0050bu_u(
   //.clk(clk),
@@ -157,7 +159,6 @@ SEI0050BU sei0050bu_u(
   .rst(rst),
 
   .VBL_ROM(VBL_ROM),
-  .pld_i6(pld_i6),
   .hpos(hpos),
   .vpos(vpos),
 
@@ -170,19 +171,20 @@ SEI0050BU sei0050bu_u(
   .VSYNC(VSYNC),
 
   .HS(HS),
-  .VS(VS),
-  .LHBL(LHBL),
-  .LVBL(LVBL)
+  .VS(VS)
+  //.LHBL(LHBL),
+  //.LVBL()
 
   //.hcnt(hcnt),
   //.char_cen(char_cen),
   //.char_rom_cen(char_rom_cen)
 );
 
+assign LVBL = VBL_ROM;
+assign LHBL = HBL; // ?
           //CHAR_CEN IS T3F
 always @(posedge T8H) begin 
    HBLB <= HBL; //HBL sei50bu pin 23 
-   //LHBL <= HBL; // ?
 end 
 
 ///////// CHAR DRAWING //////////
@@ -202,7 +204,7 @@ char char_u(
 
   .hpos(hpos[7:0]),
   .vpos(vpos[7:0]),
-  .hrev(revx),
+  .hrev(HREV),
 
   .ram_out(vram_out),
 
@@ -235,7 +237,7 @@ bk bk1_u(
 
   .hpos(bk1_hpos),
   .vpos(bk1_vpos),
-  .hpos_sync(bk1_hsync),
+  .hpos_sync(bk1_hsync), //bk1_sync
   
   .ram_out(bk1_out),
 
@@ -252,7 +254,6 @@ bk bk1_u(
 //
 // background 2 : 16x16 tile 
 //
-
 wire [3:0] bk2_color;
 wire [3:0] bk2_code;
 
@@ -279,16 +280,15 @@ bk bk2_u(
 //
 // obj : 16x16 tile 
 //
-wire  [7:0] obj_line_buffer_out;
+wire  [7:0] obj;
 reg   [8:0] obj_line_buffer_addr;
 
 scan_obj_ram scan_obj_ram_u(
   .clk(clk),
+  .rst(rst),
   .pxl_cen(N6M), // P6M on board
   
-  .rst(rst),
-
-  .LHBL(HBL), //XXX
+  .LHBL(HBLB), //XXX
 
   .vpos(vpos[7:0]), //we calculate 1 line head because of buffering , hpos + 2??
 
@@ -302,7 +302,7 @@ scan_obj_ram scan_obj_ram_u(
 
   //.line_buffer_addr(hcnt - 5), //-5 make it work if I shift hblank by 5 end finish hblank at 5 
   .line_buffer_addr(hpos[8:0]), //-5 make it work if I shift hblank by 5 end finish hblank at 5 
-  .line_buffer_out(obj_line_buffer_out)
+  .line_buffer_out(obj)
 );
 
 ///////// COLOR MIX & OUTPUT ////////////////////////////
@@ -352,9 +352,6 @@ wire [1:0] palette_offset;
 wire unknown_a2 = 1'b0;
 wire [1:0] unknown_a6_a7 = 2'b0;
 
-wire s2on;
-wire prior_a = 1'b0; //addr page 3 cpu ram 8/9 (from 0 ?)
-wire prior_b = 1'b0; //addr page 3 
 wire prior_c = 1'b0; //obj linebuf page 18 
 wire prior_d = 1'b0; //obj linebuf page 18
 //s1 sc1 => bk1 ? 
@@ -363,34 +360,37 @@ wire prior_d = 1'b0; //obj linebuf page 18
 
 //color mixing clut page 10
 // XXX BK2 is latched before input into palette page 8 with P6M clck 
- 
-reg [7:0] bk2;//clock is output of sei21bu hpos[1] !
-reg [3:0] bk2_code_latch;
 
-always @(posedge hpos[1]) begin 
+//74LS174 8H page 8
+reg  [7:0] bk2_r;//clock is output of sei21bu hpos[1] !
+wire [7:0] bk2;
+reg  [3:0] bk2_code_latch;
+
+always @(posedge bk2_hpos[1]) begin 
     bk2_code_latch <= bk2_code[3:0];
 end 
 
+//74LS374 7FH page 8
+always @(posedge P6M) 
+    if (~bk2_cs) 
+     bk2_r[7:0] <= { bk2_code_latch[3:0], bk2_color[3:0] };
 
-always @(posedge P6M)  
-   bk2[7:0] <= { bk2_code_latch[3:0], bk2_color[3:0] };
-  
-assign s2on = ~(bk2[3] & bk2[2] & bk2[1] & bk2[0]); //sch page 8 
+assign bk2 = S2MASK ? 8'bz : bk2_r;
 
-//wire obj_on = (obj_line_buffer_out[3:0] != 4'b1111); //XXX:
-wire obj_on = (obj_line_buffer_out[3:0] != 4'b1111); //XXX:
+wire s2on = ~(bk2[3] & bk2[2] & bk2[1] & bk2[0]); //sch page 8 
+wire obj_on = ~(obj[3] & obj[2] & obj[1] & obj[0]); //XXX:
 
 //74LS20P check if color != 'hf XXX used latched value
-
+//page 10
 assign prom_27_cs = 1'b1;
-assign prom_27_addr[7:0] = { prior_d, prior_c, prior_b, prior_a, s2on, obj_on, pri[1:0] };
+assign prom_27_addr[7:0] = { prior_d, prior_c, PRIOR_B, PRIOR_A, s2on, obj_on, pri[1:0] };
 
-//74LS257  2H/3h & 74LS20  2J 
-//
-assign palette_addr[10:1] =  prom_27_data[0] == 1'b1 ?  {prom_27_data[3:2], obj_line_buffer_out[7:0] } :
+//74LS257  2H/3h 
+//74LS20   2J 
+//assign palette_addr[10:1] =  prom_27_data[0] == 1'b1 ?  {prom_27_data[3:2], obj[7:0] } : // XXX REAL
+assign palette_addr[10:1] =  obj_on  ?  {prom_27_data[3:2], obj[7:0] } :
                              prom_27_data[1] == 1'b0 ?  {prom_27_data[3:2], sg_palette_addr[7:0]} :
                                                         {prom_27_data[3:2], bk2[7:0]};
-
 
 // UEC-51 
 assign r = palette_out[3:0];
@@ -427,7 +427,5 @@ assign b = palette_out[11:8];
           //bg_order == 1'b1 & (bk2_pixel[3:0] != 'hf) ? {2'd0, bk2_pixel} + BG2_PALETTE_OFFSET :
           //bg_order == 1'b1 & (bk1_pixel[3:0] != 'hf) ? {2'd0, bk1_pixel} + BG1_PALETTE_OFFSET :
           //10'h3ff; //3ff 0x400 -1???
-
-
 
 endmodule

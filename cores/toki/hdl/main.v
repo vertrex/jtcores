@@ -16,7 +16,7 @@ module toki_main(
   //input             pxl2_cen,
 
   // Video
-  //input             LVBL, //cpu IPL0n triggered by 82s135 pin 11 
+  input             LVBL, //cpu IPL0n triggered by 82s135 pin 11 
   input             HBLB, 
   input             INT_T, 
   input       [8:0] hpos,
@@ -83,7 +83,16 @@ module toki_main(
   output     reg    vram_cs,
   output     reg    bk1_cs,
   output     reg    bk2_cs,
-  output     reg    obj_cs
+  output     reg    obj_cs,
+
+  output     reg    S1MASK,
+  output     reg    S2MASK,
+  output     reg    OBJMASK,
+  output     reg    S4MASK,
+  output     reg    PRIOR_A,
+  output     reg    PRIOR_B,
+  output     reg    HREV,
+  output     reg    YREV
 );
 
 wire p1_right    = joystick1[0];
@@ -120,13 +129,12 @@ wire [23:0] cpu_a;
 assign cpu_a[0] = 0;   // odd memory address should cause cpu exception
 
 wire bg_n;             // Bus grant
-wire br_n;
-wire bgack_n;
 wire cen10;
 wire cen10b;
 wire dtack_n;
 wire int1;
 wire ipl0_n;
+wire br_n; 
 
 fx68k fx68k (
     .clk(clk),    // Input clock
@@ -139,7 +147,6 @@ fx68k fx68k (
 
     //SYSTEM CONTROL 
     .BERRn(1'b1),
-    //.BERRn(berr),
     .oRESETn(), 
     .oHALTEDn(), 
 
@@ -155,18 +162,20 @@ fx68k fx68k (
     .eRWn(cpu_wr),     // ouput  : write=0, read =1 
     .UDSn(cpu_uds_n),  // ouput  : upper byte strobe
     .LDSn(cpu_lds_n),  // output : lower byte strobe
-    .DTACKn(dtack_n),  // input  : data transfer ack
+    //.DTACKn(dtack_n),  // input  : data transfer ack
+    .DTACKn(dtack_n),  // input  : data transfer ack // DTACK GROUNDED
 
-    //BUS ARBITRATION CONTROL 
-    .BRn(1'b1),        // input  : bus request
-    .BGn(bg_n),        // output : bus grant 
-    .BGACKn(1'b1),     // input  : Bus grant ack 
+    //BUS ARBITRATION CONTROL
+    //.BRn(1'b1),           // When a DMA transfer is initiated, the DMA controller sends a Bus Request (BR) signal to the CPU.
+    .BRn(br_n),        // input  : bus request
+    .BGn(bg_n),        // output : bus grant   An output signal from the CPU indicating that it has granted control of the bus to another device. 
+    //.BGACKn(bgack_n),  // input  : Bus grant ack //didn't work 
+    .BGACKn(1'b1),  // input  : Bus grant ack  An input signal to the CPU indicating that the requesting device has taken control of the bus. 
 
     // PERIPHERAL CONTROL 
     .E(),              // output : cpu enable 
     .VMAn(),           // output : valid pheripheral memory address
-    .VPAn(inta_n),     // output :valid peripheral address detected  
-    //.VPAn(vpa_n),     // output :valid peripheral address detected  
+    .VPAn(vpa_n),     // output :valid peripheral address detected  
 
     /// PROCESSOR STATUS 
     .FC0(cpu_fc[0]),   // output 
@@ -188,32 +197,13 @@ fx68k fx68k (
 // during dip-switch char ram is zero filled @vblank
 // ram drawing and filling is longer than vblank period 
 //
-wire inta_n;
-assign inta_n = ~&{cpu_fc[2], cpu_fc[1], cpu_fc[0], ~cpu_as_n};
 
-//jtframe_virq u_virq(
-    //.rst        (rst),
-    //.clk        (clk),
-    //.LVBL       (INT_T), //~LVBL ???
-    //.dip_pause  (dip_pause), //handle cpu pause
-    //.skip_en    (),
-    //.skip_but   (),
-    //.clr        (~inta_n),
-    //.custom_in  (),
-    //.blin_n     (),
-    //.blout_n    (int1),
-    //.custom_n   ()
-//);
-
-//74LS74 21R 
-//
-//wire vpa_n; 
 wire int_clk;
 wire int_a, int_n; 
 
 LS74 u_21R_1(
-  .CLK(HBLB),
-  .D(INT_T),
+  .CLK(HBLB), //HBLB ? 
+  .D(INT_T),  //INT_T VBLANK BEFORE IS THAT EQUAL ?
   .PRE(1'b1),
   .CLR(1'b1),
   .Q(int_clk),
@@ -223,7 +213,7 @@ LS74 u_21R_1(
 LS74 u_21R_2(
   .CLK(int_clk),
   .D(1'b0),
-  .PRE(inta_n),
+  .PRE(vpa_n),
   .CLR(1'b1),
   .Q(int_a),
   .QN()
@@ -231,7 +221,6 @@ LS74 u_21R_2(
 
 //74LS32
 assign ipl0_n = (int_a | int_n);
-
 
 ///////// 68K dtack //////////////////////////////
 //
@@ -242,9 +231,21 @@ assign ipl0_n = (int_a | int_n);
 // cpu clock 48*5/24 => 10mhz 
 localparam [3:0] cen_num =  4'd5;
 localparam [4:0] cen_den = 5'd24;
+/*
+cnt_nx[CW] ? {CW{1'b1}} : cencnt_nx[CW-1:0];
+    if( rst ) cencnt <= 0;
+    if( over || rst || halt ) begin
+        cpu_cen  <= risefall;
+        cpu_cenb <= ~risefall;
+        risefall <= ~risefall;n_den = 5'd24;*/
 
-wire bus_cs   = |{cpu_rom_cs};
-wire bus_busy = |{cpu_rom_cs & ~cpu_rom_ok}; 
+// XXX USE PLD  INSTEAD
+wire bus_cs  = cpu_rom_cs;
+//  XXX in the board DTACK is grounded and rom is not checked 
+//  but it seems rom in sdram is too slow so we need to check for it 
+//  to avoid cpu having problem reading the rom 
+//  we also need to stop the CPU for dma 
+wire bus_busy = (cpu_rom_cs & ~cpu_rom_ok)  | ~br_n;
 
 jtframe_68kdtack_cen  u_dtack(
     .rst        (rst),
@@ -258,27 +259,13 @@ jtframe_68kdtack_cen  u_dtack(
     .DSn        ({cpu_uds_n, cpu_lds_n}), 
     .num        (cen_num),
     .den        (cen_den),
-    .DTACKn     (dtack_n),
+    .DTACKn     (dtack_n),//?
     .wait2      (1'b0),
     .wait3      (1'b0),
     // unused
     .fave       (),
     .fworst     ()
 );
-
-jtframe_68kdma #(.BW(1)) u_arbitration(
-    .clk        (clk),
-    .cen        (cen10b),
-    .rst        (rst),
-    .cpu_BRn    (br_n),
-    .cpu_BGACKn (bgack_n),
-    .cpu_BGn    (bg_n),
-    .cpu_ASn    (cpu_as_n),
-    .cpu_DTACKn (dtack_n),
-    .dev_br     (1'b1)
-);
-
-//WRN6M ? 
 
 ///////// 68k bus mapping  ////////////////////
 //
@@ -359,6 +346,127 @@ always @(posedge clk, posedge rst) begin
     end
 end
 
+///////
+// 74LS08 19R page 1
+wire OBUSRQ = 1'b0;
+//BR is set to 0 to make a cpu BUS request and grant (bg bus grant will be set when cpu is ready for dma) 
+
+// pld21 need it high or nothing will be output as everything check MBUSDIR  & OBUSDIR ?
+wire OBUSDIR = 1'b1; //OBJ bus direction page 14
+
+wire BUSOPN, MWRLB, MWRMB, MRDLB, MRDMB, BUSAK, bgack_n, vpa_n;
+
+//PLD 20, 22M 
+PLD20 PLD20_u(
+  .AS_n(cpu_as_n),
+  .UDS_n(cpu_uds_n),
+  .LDS_n(cpu_lds_n),
+  .RW(cpu_wr),
+  .BG_n(bg_n),  //get reply that the cpu is ready for dma 
+  .MBUSDIR(MBUSDIR),
+  .OBUSDIR(OBUSDIR),
+  .FC0(cpu_fc[0]),
+  .FC1(cpu_fc[1]),
+  .FC2(cpu_fc[2]),
+
+  .BUSOPN(BUSOPN),
+  .MWRLB(MWRLB),
+  .MWRMB(MWRMB),
+  .MRDLB(MRDLB),
+  .MRDMB(MRDMB),
+  .BUSAK(BUSAK),
+  .BGACK_n(bgack_n), //tell the CPU that device as receive the CPU grant access (bg) , it tell that DMA as starrted in some way
+  .VPA_n(vpa_n)
+);
+
+wire ROM0, ROM1, RAM, MUSIC, MBUFEN, MBUFDR, WRADRS, RDADRS;
+//74LS244
+wire MEMDIR = cpu_wr;
+
+//PLD 21, 22M, p3
+PLD21 PLD21_u(
+  .A(cpu_a[23:17]),
+  .MBUSDIR(MBUSDIR),
+  .OBUSDIR(OBUSDIR),
+  .MEMDIR(MEMDIR),
+
+  .ROM0(ROM0),
+  .ROM1(ROM1),
+  .RAM(RAM),
+  .MUSIC(MUSIC),
+  .MBUFEN(MBUFEN),
+  .MBUFDR(MBUFDR),
+  .WRADRS(WRADRS),
+  .RDADRS(RDADRS)
+);
+
+//MDMARQ : Memory DMA Request
+//ODMARQ : Object DMA Request 
+
+//74LS154 10P p3
+// Scroll 1 rst & sel
+wire RST_S1H, SEL_S1H, RST_S1Y, SEL_S1Y;
+// Scroll 2 rst & sel
+wire RST_S2H, SEL_S2H, RST_S2Y, SEL_S2Y;
+// Memory DMA Request 
+wire MDMARQ; 
+// Object DMA Request 
+wire ODMARQ;
+wire MASKS;
+wire enable;
+reg [15:0] select; //wire ? 
+wire [4:0] nc; 
+
+LS154 LS154_u(
+   .A(cpu_a[6:3]),
+   .G1(WRADRS), //10100?0 & MBUSDIR & OBUSDIR [23:17] 
+   .G2(MWRLB), // G1 & G2 must be 0 to work so WRARDS & MWRLB must be 0 
+   .Y({ nc[4:0], MASKS, ODMARQ, MDMARQ, SEL_S2Y, RST_S2Y, SEL_S2H, RST_S2H, SEL_S1Y, RST_S1Y, SEL_S1H, RST_S1H })
+);
+
+//74LS273 18M & 74LS368 17M page 3
+//always @(posedge MASKS, posedge rst) begin 
+always @(posedge MASKS, posedge rst) begin 
+    if (rst) begin 
+       { S4MASK, OBJMASK, S2MASK, S1MASK } <= 4'b0;
+       { PRIOR_B, PRIOR_A } <= 2'b0;
+       HREV <= 1'b0;
+       YREV <= 1'b0;
+       end 
+    else if (MASKS) begin  //scroll cs ? 
+       { S4MASK, OBJMASK, S2MASK, S1MASK } <= cpu_dout[3:0];
+       { PRIOR_B, PRIOR_A } <= cpu_dout[9:8];  //        if ((cpu_dout[15:0] & 16'h100) == 16'h0) ??? 0b100_000_000
+       HREV <= ~cpu_dout[14]; 
+       YREV <= ~cpu_dout[15];
+   end 
+end 
+
+wire EXH_4_n, WRN6M, MBUSRQ, MBUSDIR, DMSL_GL, DMSL_S1, DMSL_S2, DMSL_S4, DMARD;
+wire [12:1] kda;
+
+MDMA mdma_u(
+  .P6M(P6M),
+  .SYS_RESET(rst),
+  .MDMARQ(MDMARQ),
+  .BUSAK(BUSAK),
+  .EXH_4(hpos[2]), //hpos XXX rev version 
+  
+  .EXH_4_n(EXH_4_n),
+  .WRN6M(WRN6M),
+  .MBUSRQ(MBUSRQ),
+  .MBUSDIR(MBUSDIR),
+  .DMSL_GL(DMSL_GL),
+  .DMSL_S1(DMSL_S1),
+  .DMSL_S2(DMSL_S2),
+  .DMSL_S4(DMSL_S4),
+  .KDA(kda[12:1]),
+  .DMARD(DMARD)
+);
+
+assign br_n = MBUSRQ; //& OBUSRQ; // BR IS ALWAYS LOW IN THAT CASE ! OBUSRQ iS 0 and MBUSRQ is 0  
+//                  '0b101  000'
+//                  scrollram[40]&  0x8000 -> bit 16 up ! 
+//flip_screen_set((m_scrollram[0x28]&0x8000)==0); 
 
 //////// Scroll /////////////////////////
 //
@@ -458,25 +566,7 @@ jtframe_ram16 #(.AW(15)) u_cpu_ram(
 // C1 on PCB
 wire [15:0] vram_do;
 
-/*
-
-reg [7:0] hpos_shift_0 = 0;
-
-always @(pxl_cen) begin 
-   if (hpos[8:0] > 256) //or hblank simply ?
-   //if (LHBL == 1'b0)
-     hpos_shift_0 <= 8'd0;
-     //vpos_shift = vpos + 1; 
-   else
-     hpos_shift_0 <= hpos[7:0]; //better way to calculate ? << 2 ? 
-     //hpos_shift_0 <= hpos[7:0] + 8'd4; //better way to calculate ? << 2 ? 
-     //vpos_shift <= vpos 
-end 
-*/ 
-//replace by 4:0 ? directly in add_out ???
-
 //clk port 31 N6M / OBJN6M /WR6M
-
 
 //sis6091 #(.W(10)) u_vram_ram(
   //.clk(clk),
@@ -490,16 +580,19 @@ end
   //.q(vram_out[15:0])
 //); 
 
-wire WRN6M;
-//74LS368 page 6 
-assign WRN6M=~P6M;
-
 jtframe_dual_ram16 #(.AW(10)) u_vram_ram(
   .clk0(WRN6M),
   //.clk0(clk),
-  .data0(cpu_dout[15:0]),
-  .addr0(cpu_a[10:1]),
-  .we0({vram_cs && !cpu_wr && !cpu_uds_n , vram_cs && !cpu_wr && !cpu_lds_n}), //DSML S4 
+  .data0(cpu_dout[15:0]), 
+  // MDB [0,15] //MDB is shared is either DMA data bus going with a counter to copy cpu ram in vram or it goes directly to cpu ram ? 
+  // we copy directly to vram but is that how it work ? is the ram first in
+  // cpu ram ?
+  // when DMA is asserted it copy from CPU memory to VRAM memory 
+  // so data is not copied directly in video memory (why ?) maybe so the cpu
+  // can continue do other things, but how does the cpu do other things if
+  // doesn't have access to his ram ?
+  .addr0(cpu_a[10:1]),    // KDA [1,10]
+  .we0({vram_cs && !cpu_wr && !cpu_uds_n , vram_cs && !cpu_wr && !cpu_lds_n}), //DSML S4  DMA Select ?
   .q0(vram_do),
 
   //.select() 
@@ -522,8 +615,8 @@ jtframe_dual_ram16 #(.AW(10)) u_vram_ram(
 //wire signed [8:0] bk1_vpos;// = vpos[7:0] + bk1_scroll_y[8:0];
 
 sei0021bu sei21bu_bk1_h(
-   .clk(clk),
-   .pos(hpos[7:0]),
+   .clk(N6M), //N6M ? >
+   .pos(hpos[7:0]), //8 on board 
  
    .sync(bk1_hsync),
    .scroll(bk1_scroll_x),
@@ -531,31 +624,15 @@ sei0021bu sei21bu_bk1_h(
 );
 
 sei0021bu sei21bu_bk1_v(
-   .clk(clk),
-   .pos(vpos[7:0]),
+   .clk(N6M), //N6M ? 
+   .pos(vpos[7:0]), //7 + T8H on board ???
    
    .sync(),
    .scroll(bk1_scroll_y),
    .scrolled(bk1_vpos)
 );
 
-
-//sis6091 #(.W(10)) u_bk1_ram(
-  //.clk(clk),
-  //.trigger_n(INT_T),
-  //.we({bk1_cs && !cpu_wr && !cpu_uds_n, bk1_cs && !cpu_wr && !cpu_lds_n}),
-  //.addr_in(cpu_a[10:1]), 
-  //.data(cpu_dout[15:0]),
-  //.q_in(),
-  
-  //.addr_out({bk1_vpos[8:4], bk1_hpos[8:4]}),
-  //.q(bk1_out)
-//); 
-
-
-
 jtframe_dual_ram16 #(.AW(10)) u_bk1_ram(
-  //.clk0(clk),
   .clk0(WRN6M),
   .data0(cpu_dout[15:0]),
   .addr0(cpu_a[10:1]),
@@ -564,11 +641,10 @@ jtframe_dual_ram16 #(.AW(10)) u_bk1_ram(
 
   .clk1(bk1_hpos[0]),
   .data1(),
-  .addr1({bk1_vpos[8:4], bk1_hpos[8:4]}),
+  .addr1({bk1_vpos[8:4], bk1_hpos[8:4]}),  
   .we1(),
   .q1(bk1_out)
 );
-
 
 ///////// BK2 RAM //////////
 //
@@ -578,7 +654,7 @@ jtframe_dual_ram16 #(.AW(10)) u_bk1_ram(
 //wire signed [8:0] hpos_shift_2 = hpos[7:0] + bk2_scroll_x[8:0];
 
 sei0021bu sei21bu_bk2_h(
-   .clk(clk),
+   .clk(N6M),
    .pos(hpos[7:0]),
    .sync(bk2_hsync),
    .scroll(bk2_scroll_x),
@@ -586,26 +662,12 @@ sei0021bu sei21bu_bk2_h(
 );
 
 sei0021bu sei21bu_bk2_v(
-   .clk(clk),
+   .clk(N6M),
    .pos(vpos[7:0]),
    .sync(),
    .scroll(bk2_scroll_y),
    .scrolled(bk2_vpos)
 );
-
-
-/*sis6091 #(.W(10)) u_bk2_ram(
-  .clk(clk),
-  .trigger_n(INT_T), //P6M ? 
-  .we({bk2_cs && !cpu_wr && !cpu_uds_n, bk2_cs && !cpu_wr && !cpu_lds_n}),
-  .addr_in(cpu_a[10:1]), 
-  .data(cpu_dout[15:0]),
-  .q_in(),
-  
-  .addr_out({bk2_vpos[8:4], bk2_hpos[8:4]}),
-  .q(bk2_out)
-);
-*/
 
 jtframe_dual_ram16 #(.AW(10)) u_bk2_ram(
   .clk0(N6M),
@@ -629,22 +691,8 @@ jtframe_dual_ram16 #(.AW(10)) u_bk2_ram(
 // H4 on PCB behind UEC-51
 wire [15:0]  palette_do;
 
-/*sis6091 #(.W(10)) u_palette_ram(
-  .clk(clk),
-  .trigger_n(INT_T),
-  .we({palette_cs && !cpu_wr && !cpu_uds_n, palette_cs && !cpu_wr && !cpu_lds_n}),
-  .addr_in(cpu_a[10:1]), 
-  .data(cpu_dout[15:0]),
-  .q_in(palette_do),
-
-  .addr_out(palette_addr[10:1]),
-  .q(palette_out)
-); 
-*/
-
 jtframe_dual_ram16 #(.AW(10)) u_palette_ram(
   .clk0(WRN6M),
-  //.clk0(clk),
   .data0(cpu_dout[15:0]),
   .addr0(cpu_a[10:1]),
   .we0({palette_cs && !cpu_wr && !cpu_uds_n, palette_cs && !cpu_wr && !cpu_lds_n}), //DSML GL
@@ -668,18 +716,6 @@ jtframe_dual_ram16 #(.AW(10)) u_palette_ram(
 //
 wire [15:0] obj_do;
 
-//sis6091 #(.W(10)) u_obj_ram(
-  //.clk(clk),
-  //.trigger_n(INT_T),
-  //.we({obj_cs && !cpu_wr && !cpu_uds_n, obj_cs && !cpu_wr && !cpu_lds_n}),
-  //.addr_in(cpu_a[10:1]), 
-  //.data(cpu_dout[15:0]),
-  //.q_in(obj_do),
-
-  //.addr_out(obj_addr[10:1]),
-  //.q(obj_out)
-//);
-
 jtframe_dual_ram16 #(.AW(10)) u_obj_ram(
   //.clk0(N6M),
   .clk0(clk), //must be fast here because we use one chips to scan everything 
@@ -695,7 +731,5 @@ jtframe_dual_ram16 #(.AW(10)) u_obj_ram(
   .we1(),
   .q1(obj_out)
 );
-
-
 
 endmodule

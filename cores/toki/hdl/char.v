@@ -66,7 +66,7 @@ sei0010bu sei0010bu_u(
   .clk(clk),
   .rst(rst),
   .load(T3F), //load new pixel
-  .rev(hrev),
+  .rev(),
   .rom_data({char_rom_2_data[7:0], char_rom_1_data[7:0]}),
   .color(char_color)
 );
