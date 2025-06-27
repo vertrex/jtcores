@@ -26,7 +26,9 @@ module PLD20 (
     assign MWRMB   = ~((~AS_n) & (~UDS_n) & (~RW));                 // from o14_n
     assign MRDLB   = ~((~AS_n) & (~LDS_n) &  RW);                   // from o15_n
     assign MRDMB   = ~((~AS_n) & (~UDS_n) &  RW);                   // from o16_n
-    assign BUSAK   = ~(AS_n & (~BG_n));                             // from o17_n
+    //assign BUSAK   = ~(AS_n & (~BG_n));                             // from o17_n
+    // THAT MAKE IT WORK BUT IT'S NOT THE ORIGINAL EQUATION ! 
+    assign BUSAK   = ~(~AS_n & (~BG_n));                             // from o17_n  
     assign BGACK_n =  (MBUSDIR & OBUSDIR);                          // from o18 (active high)
     assign VPA_n   = ~((~AS_n) & (~LDS_n) & RW & FC0 & FC1 & FC2);  // from o19_n
 
