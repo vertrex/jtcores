@@ -115,7 +115,7 @@ wire p2_start    = start_button[1];
 //
 // 
 //
-wire cpu_wr;                // Read = 1, Write = 0
+wire cpu_wr_n;              // Read = 1, Write = 0
 wire cpu_as_n;              // Address strobe
 wire cpu_lds_n;             // Lower byte strobe
 wire cpu_uds_n;             // Upper byte strobe
@@ -159,7 +159,7 @@ fx68k fx68k (
     
     //ASYNCHRONOUS BUS CONTROL 
     .ASn(cpu_as_n),    // output : address strobe, tell the memory device that the address inputs are valid. Upon receiving this signal the selected memory device starts the memory access (read/write) indicated by its other inputs.
-    .eRWn(cpu_wr),     // ouput  : write=0, read =1 
+    .eRWn(cpu_wr_n),     // ouput  : write=0, read =1 
     .UDSn(cpu_uds_n),  // ouput  : upper byte strobe
     .LDSn(cpu_lds_n),  // output : lower byte strobe
     //.DTACKn(dtack_n),  // input  : data transfer ack
@@ -290,33 +290,34 @@ reg ram_cs, palette_cs, scroll_cs, dsw_cs, inputs_cs, system_cs;
 reg sound_cs_3, sound_cs_5;
 
 always @(posedge clk) begin 
-     if (~cpu_as_n & (cpu_a[23:0] < 24'h60000))
+     if (~cpu_as_n & (cpu_a[23:1] < 23'h30000))
        cpu_rom_addr[18:1] <= cpu_a[18:1];
 end 
 
 // XXX page3 rev_y & rev_x etc 
 always @(*) begin
-      cpu_rom_cs = ~cpu_as_n & (cpu_a[23:0] < 24'h60000);
-      ram_cs = ~cpu_as_n & (cpu_a[23:0] >= 24'h60000 && cpu_a[23:0] < 24'h6d800);
+      cpu_rom_cs = ~cpu_as_n & (cpu_a[23:1] < 23'h30000);
+      ram_cs = ~cpu_as_n & (cpu_a[23:1] >= 23'h30000 && cpu_a[23:1] < 23'h36c00);
       //video 
-      obj_cs  = ~cpu_as_n & (cpu_a[23:0] >= 24'h6d800 && cpu_a[23:0] < 24'h6e000); //2048
-      palette_cs = ~cpu_as_n & (cpu_a[23:0] >= 24'h6e000 && cpu_a[23:0] < 24'h6e800); //2048
-      bk1_cs     = ~cpu_as_n & (cpu_a[23:0] >= 24'h6e800 && cpu_a[23:0] < 24'h6f000); //2048
-      bk2_cs     = ~cpu_as_n & (cpu_a[23:0] >= 24'h6f000 && cpu_a[23:0] < 24'h6f800); //2048
-      vram_cs    = ~cpu_as_n & (cpu_a[23:0] >= 24'h6f800 && cpu_a[23:0] < 24'h70000); //2048
+      obj_cs  = ~cpu_as_n & (cpu_a[23:1] >= 23'h36c00 && cpu_a[23:1] < 23'h37000); //2048
+      palette_cs = ~cpu_as_n & (cpu_a[23:1] >= 23'h37000 && cpu_a[23:1] < 23'h37400); //2048
+      bk1_cs     = ~cpu_as_n & (cpu_a[23:1] >= 23'h37400 && cpu_a[23:1] < 23'h37800); //2048
+      bk2_cs     = ~cpu_as_n & (cpu_a[23:1] >= 23'h37800 && cpu_a[23:1] < 23'h37c00); //2048
+      vram_cs    = ~cpu_as_n & (cpu_a[23:1] >= 23'h37c00 && cpu_a[23:1] < 23'h38000); //2048
       //sound latch
-      sound_cs_2 = ~cpu_as_n & (cpu_a[23:0] == 24'h80004);
-      sound_cs_3 = ~cpu_as_n & (cpu_a[23:0] == 24'h80006);
-      sound_cs_4 = ~cpu_as_n & (cpu_a[23:0] == 24'h80008);
-      sound_cs_5 = ~cpu_as_n & (cpu_a[23:0] == 24'h8000a);
-      sound_cs_6 = ~cpu_as_n & (cpu_a[23:0] == 24'h8000c);
+      sound_cs_2 = ~cpu_as_n & (cpu_a[23:1] == 23'h40002);
+      sound_cs_3 = ~cpu_as_n & (cpu_a[23:1] == 23'h40003);
+
+      sound_cs_4 = ~cpu_as_n & (cpu_a[23:1] == 23'h40004);
+      sound_cs_5 = ~cpu_as_n & (cpu_a[23:1] == 23'h40005);
+      sound_cs_6 = ~cpu_as_n & (cpu_a[23:1] == 23'h40006);
       //scroll 
-      scroll_cs  = ~cpu_as_n & (cpu_a[23:0] >= 24'ha0000 && cpu_a[23:0] < 24'ha005f); //96 
+      scroll_cs  = ~cpu_as_n & (cpu_a[23:1] >= 23'h50000 && cpu_a[23:1] < 23'h5002f); //96 
       //divide it in sub cs & use it bg scroll 
       //IO
-      dsw_cs     = ~cpu_as_n & (cpu_a[23:0] >= 24'hc0000 && cpu_a[23:0] < 24'hc0001); //2 
-      inputs_cs  = ~cpu_as_n & (cpu_a[23:0] >= 24'hc0002 && cpu_a[23:0] < 24'hc0003); //2 
-      system_cs  = ~cpu_as_n & (cpu_a[23:0] >= 24'hc0004 && cpu_a[23:0] < 24'hc0005); //2 
+      dsw_cs     = ~cpu_as_n & (cpu_a[23:1] == 23'h60000); // && cpu_a[23:1] < 24'hc0001); //2 
+      inputs_cs  = ~cpu_as_n & (cpu_a[23:1] == 23'h60001); // && cpu_a[23:1] < 24'hc0003); //2 
+      system_cs  = ~cpu_as_n & (cpu_a[23:1] == 23'h60002); // && cpu_a[23:1] < 24'hc0005); //2 
 end
 
 
@@ -350,18 +351,21 @@ end
 // 74LS08 19R page 1
 wire OBUSRQ = 1'b0;
 //BR is set to 0 to make a cpu BUS request and grant (bg bus grant will be set when cpu is ready for dma) 
+//
 
-// pld21 need it high or nothing will be output as everything check MBUSDIR  & OBUSDIR ?
+// ACTIVE LOW , 0  if DMA is run and obj and CPU must be stopped 
 wire OBUSDIR = 1'b1; //OBJ bus direction page 14
+// pld21 need it high or nothing will be output as everything check MBUSDIR  & OBUSDIR ?
 
+wire MBUSDIR;
+//PLD 20, 22M 
 wire BUSOPN, MWRLB, MWRMB, MRDLB, MRDMB, BUSAK, bgack_n, vpa_n;
 
-//PLD 20, 22M 
 PLD20 PLD20_u(
   .AS_n(cpu_as_n),
   .UDS_n(cpu_uds_n),
   .LDS_n(cpu_lds_n),
-  .RW(cpu_wr),
+  .RW(cpu_wr_n),
   .BG_n(bg_n),  //get reply that the cpu is ready for dma 
   .MBUSDIR(MBUSDIR),
   .OBUSDIR(OBUSDIR),
@@ -379,11 +383,12 @@ PLD20 PLD20_u(
   .VPA_n(vpa_n)
 );
 
-wire ROM0, ROM1, RAM, MUSIC, MBUFEN, MBUFDR, WRADRS, RDADRS;
 //74LS244
-wire MEMDIR = cpu_wr;
+wire MEMDIR = cpu_wr_n;
 
 //PLD 21, 22M, p3
+wire ROM0, ROM1, RAM, MUSIC, MBUFEN, MBUFDR, WRADRS, RDADRS;
+
 PLD21 PLD21_u(
   .A(cpu_a[23:17]),
   .MBUSDIR(MBUSDIR),
@@ -404,6 +409,8 @@ PLD21 PLD21_u(
 //ODMARQ : Object DMA Request 
 
 //74LS154 10P p3
+//
+//
 // Scroll 1 rst & sel
 wire RST_S1H, SEL_S1H, RST_S1Y, SEL_S1Y;
 // Scroll 2 rst & sel
@@ -417,10 +424,12 @@ wire enable;
 reg [15:0] select; //wire ? 
 wire [4:0] nc; 
 
+// All this signal are active low !  
 LS154 LS154_u(
    .A(cpu_a[6:3]),
-   .G1(WRADRS), //10100?0 & MBUSDIR & OBUSDIR [23:17] 
+   .G1(WRADRS), //10100?0 & MBUSDIR & OBUSDIR  & 00?0110 ? 
    .G2(MWRLB), // G1 & G2 must be 0 to work so WRARDS & MWRLB must be 0 
+    // All this signal are active low !  
    .Y({ nc[4:0], MASKS, ODMARQ, MDMARQ, SEL_S2Y, RST_S2Y, SEL_S2H, RST_S2H, SEL_S1Y, RST_S1Y, SEL_S1H, RST_S1H })
 );
 
@@ -438,16 +447,16 @@ always @(posedge MASKS, posedge rst) begin
        { PRIOR_B, PRIOR_A } <= cpu_dout[9:8];  //        if ((cpu_dout[15:0] & 16'h100) == 16'h0) ??? 0b100_000_000
        HREV <= ~cpu_dout[14]; 
        YREV <= ~cpu_dout[15];
-   end 
+       end 
 end 
 
-wire EXH_4_n, WRN6M, MBUSRQ, MBUSDIR, DMSL_GL, DMSL_S1, DMSL_S2, DMSL_S4, DMARD;
+wire EXH_4_n, WRN6M, MBUSRQ, DMSL_GL, DMSL_S1, DMSL_S2, DMSL_S4, DMARD; //MBUSDIR
 wire [12:1] kda;
 
 MDMA mdma_u(
   .P6M(P6M),
   .SYS_RESET(rst),
-  .MDMARQ(MDMARQ),
+  .MDMARQ(MDMARQ), // Request DMA, start DMA 
   .BUSAK(BUSAK),
   .EXH_4(hpos[2]), //hpos XXX rev version 
   
@@ -463,7 +472,7 @@ MDMA mdma_u(
   .DMARD(DMARD)
 );
 
-assign br_n = MBUSRQ; //& OBUSRQ; // BR IS ALWAYS LOW IN THAT CASE ! OBUSRQ iS 0 and MBUSRQ is 0  
+assign br_n = MBUSRQ;  
 //                  '0b101  000'
 //                  scrollram[40]&  0x8000 -> bit 16 up ! 
 //flip_screen_set((m_scrollram[0x28]&0x8000)==0); 
@@ -552,7 +561,7 @@ jtframe_ram16 #(.AW(15)) u_cpu_ram(
     .clk(clk),
     .data(cpu_dout[15:0]), 
     .addr(cpu_a[15:1]), 
-    .we({ram_cs && !cpu_wr && !cpu_uds_n, ram_cs && !cpu_wr && !cpu_lds_n}),
+    .we({ram_cs && !cpu_wr_n && !cpu_uds_n, ram_cs && !cpu_wr_n && !cpu_lds_n}),
     .q(ram_do[15:0])
 );
 
@@ -592,7 +601,7 @@ jtframe_dual_ram16 #(.AW(10)) u_vram_ram(
   // can continue do other things, but how does the cpu do other things if
   // doesn't have access to his ram ?
   .addr0(cpu_a[10:1]),    // KDA [1,10]
-  .we0({vram_cs && !cpu_wr && !cpu_uds_n , vram_cs && !cpu_wr && !cpu_lds_n}), //DSML S4  DMA Select ?
+  .we0({vram_cs && !cpu_wr_n && !cpu_uds_n , vram_cs && !cpu_wr_n && !cpu_lds_n}), //DSML S4  DMA Select ?
   .q0(vram_do),
 
   //.select() 
@@ -636,7 +645,7 @@ jtframe_dual_ram16 #(.AW(10)) u_bk1_ram(
   .clk0(WRN6M),
   .data0(cpu_dout[15:0]),
   .addr0(cpu_a[10:1]),
-  .we0({bk1_cs && !cpu_wr && !cpu_uds_n, bk1_cs && !cpu_wr && !cpu_lds_n}),//DMSL S1
+  .we0({bk1_cs && !cpu_wr_n && !cpu_uds_n, bk1_cs && !cpu_wr_n && !cpu_lds_n}),//DMSL S1
   .q0(),
 
   .clk1(bk1_hpos[0]),
@@ -674,7 +683,7 @@ jtframe_dual_ram16 #(.AW(10)) u_bk2_ram(
   //.clk0(clk),
   .data0(cpu_dout[15:0]),
   .addr0(cpu_a[10:1]),
-  .we0({bk2_cs && !cpu_wr && !cpu_uds_n, bk2_cs && !cpu_wr && !cpu_lds_n}),
+  .we0({bk2_cs && !cpu_wr_n && !cpu_uds_n, bk2_cs && !cpu_wr_n && !cpu_lds_n}),
   .q0(),
 
   .clk1(bk2_hpos[0]),//  XXX T4H
@@ -695,7 +704,7 @@ jtframe_dual_ram16 #(.AW(10)) u_palette_ram(
   .clk0(WRN6M),
   .data0(cpu_dout[15:0]),
   .addr0(cpu_a[10:1]),
-  .we0({palette_cs && !cpu_wr && !cpu_uds_n, palette_cs && !cpu_wr && !cpu_lds_n}), //DSML GL
+  .we0({palette_cs && !cpu_wr_n && !cpu_uds_n, palette_cs && !cpu_wr_n && !cpu_lds_n}), //DSML GL
   .q0(palette_do),
 
   .clk1(P6M), 
@@ -722,7 +731,7 @@ jtframe_dual_ram16 #(.AW(10)) u_obj_ram(
   //on the real board there is multiple chipset ....
   .data0(cpu_dout[15:0]),
   .addr0(cpu_a[10:1]),
-  .we0({obj_cs && !cpu_wr && !cpu_uds_n, obj_cs && !cpu_wr && !cpu_lds_n}),
+  .we0({obj_cs && !cpu_wr_n && !cpu_uds_n, obj_cs && !cpu_wr_n && !cpu_lds_n}),
   .q0(obj_do),
 
   .clk1(clk), 

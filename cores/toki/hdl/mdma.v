@@ -43,8 +43,6 @@ module MDMA(
 
 // 74LS74 5k page 6 
 //
-wire todo = 1'b1;
-
 wire q_6k1; 
 wire qn_6k1; //start dma counter 
 
@@ -53,7 +51,8 @@ wire  copy_end; // XXX we need to add the COUNTER SO WE can copy and finish the 
 
 //74LS368 17M
 wire dma_end_n; 
-assign MBUSDIR = ~qn_6k1;
+//this mean we can replace most of the CS and we got the MDMARQ !!!
+assign MBUSDIR = ~qn_6k1; 
 assign WRN6M = ~P6M;
 assign dma_end_n = ~copy_end; // XXX OUTPUT OF RCO COUNTER HIGH 4*3 bits  1 when dma is finished 
 
@@ -64,21 +63,21 @@ assign dma_end_n = ~copy_end; // XXX OUTPUT OF RCO COUNTER HIGH 4*3 bits  1 when
 LS74 _5K1_u(
    .CLK(MDMARQ), // GET Memory DMA Request 
    .D(1'b0),
-   .PRE(q_6k1), // XXX stop counter  
+   .PRE(q_6k1), // stop counter  
    .CLR(1'b1),
    .Q(MBUSRQ),  // START DMA BUS REQUEST 
    .QN()
 );
 
-
 // 5K 2 
 //
+wire qn_6k2;
 wire q_5k2;
 
 LS74 _5K2_u(
    .CLK(WRN6M),
-   .D(q_6k2),
-   .PRE(dma_end_n), // XXX 
+   .D(qn_6k2),
+   .PRE(dma_end_n), 
    .CLR(1'b1),
    .Q(q_5k2),
    .QN()
@@ -88,25 +87,23 @@ LS74 _5K2_u(
 LS74 _6k1_u(
    .CLK(WRN6M),
    .D(q_5k2),
-   .PRE(1'b1), // XXX 
+   .PRE(1'b1),
    .CLR(1'b1),
    .Q(q_6k1),
    .QN(qn_6k1) //start_dma_counter_n
 );
 
-
 wire busak_rq;
 assign busak_rq = (MBUSRQ | BUSAK);
 
-wire q_6k2;
 // 6K 2 
 LS74 _6K2_u(
    .CLK(1'b0),
    .D(1'b0),
-   .PRE(busak_rq), // XXX 
+   .PRE(busak_rq), 
    .CLR(dma_end_n),
-   .Q(q_6k2),
-   .QN()
+   .Q(),
+   .QN(qn_6k2)
 );
 
 
@@ -115,7 +112,6 @@ LS74 _6K2_u(
 //
 // 7K 
 wire rco_1;
-wire kda[12:1];
 
 LS161 LS161_7K_u(
   .CLK(WRN6M),
@@ -124,7 +120,7 @@ LS161 LS161_7K_u(
   .ENP(dma_end_n),  // 1 ? 0 if end ? 
   .ENT(~SYS_RESET),  //~rst ? XXX 
   .D(4'b0),
-  .Q({kda[4], kda[3], kda[2], kda[1]}),
+  .Q(KDA[4:1]),
   .RCO(rco_1)
 );
 
@@ -138,7 +134,7 @@ LS161 LS161_8K_u(
   .ENP(dma_end_n),
   .ENT(rco_1),
   .D(4'b0),
-  .Q({kda[8], kda[7], kda[6], kda[5]}),
+  .Q(KDA[8:5]),
   .RCO(rco_2)
 );
 
@@ -149,7 +145,7 @@ LS161 LS161_9K_u(
   .ENP(dma_end_n),
   .ENT(rco_2),
   .D(4'b0),
-  .Q({kda[12], kda[11], kda[10], kda[9]}),
+  .Q(KDA[12:9]),
   .RCO(copy_end)
 );
 
