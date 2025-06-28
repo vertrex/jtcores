@@ -183,7 +183,6 @@ fx68k fx68k (
     .FC2(cpu_fc[2]),   // output 
 
     //INTERUPT CONTROL 
-    //.IPL0n(int1),      //int @vblank
     .IPL0n(ipl0_n),      //int @vblank
     .IPL1n(1'b1),
     .IPL2n(1'b1)  
@@ -248,18 +247,18 @@ wire bus_cs  = cpu_rom_cs;
 wire bus_busy = (cpu_rom_cs & ~cpu_rom_ok)  | ~br_n;
 
 jtframe_68kdtack_cen  u_dtack(
-    .rst        (rst),
-    .clk        (clk),
-    .cpu_cen    (cen10),
-    .cpu_cenb   (cen10b),
-    .bus_cs     (bus_cs),
-    .bus_busy   (bus_busy),
-    .bus_legit  (1'b0),
-    .ASn        (cpu_as_n),
-    .DSn        ({cpu_uds_n, cpu_lds_n}), 
-    .num        (cen_num),
-    .den        (cen_den),
-    .DTACKn     (dtack_n),//?
+    .rst        (rst),     //INPUT 
+    .clk        (clk),     //INPUT 
+    .cpu_cen    (cen10),   //INPUT 
+    .cpu_cenb   (cen10b),  //INPUT 
+    .bus_cs     (bus_cs),  //INPUT 
+    .bus_busy   (bus_busy), //INPUT 
+    .bus_legit  (1'b0),    //INPUT 
+    .ASn        (cpu_as_n),//INPUT 
+    .DSn        ({cpu_uds_n, cpu_lds_n}), //INPUT 
+    .num        (cen_num),  //INPUT 
+    .den        (cen_den),  //INPUT 
+    .DTACKn     (dtack_n),  //OUTPUT 
     .wait2      (1'b0),
     .wait3      (1'b0),
     // unused
@@ -330,7 +329,7 @@ always @(posedge clk, posedge rst) begin
   else begin
     if (clk) begin
       cpu_din <= cpu_rom_cs ? cpu_rom_data[15:0] :  
-                 ram_cs     ? ram_do[15:0] :
+                 ~RAM ? ram_do[15:0] :
                  palette_cs ? palette_do[15:0] :
                  obj_cs  ? obj_do[15:0] : 
                  vram_cs    ? vram_do[15:0] : 
@@ -561,7 +560,7 @@ jtframe_ram16 #(.AW(15)) u_cpu_ram(
     .clk(clk),
     .data(cpu_dout[15:0]), 
     .addr(cpu_a[15:1]), 
-    .we({ram_cs && !cpu_wr_n && !cpu_uds_n, ram_cs && !cpu_wr_n && !cpu_lds_n}),
+    .we({~RAM & ~MWRMB, ~RAM & ~ MWRLB}),
     .q(ram_do[15:0])
 );
 

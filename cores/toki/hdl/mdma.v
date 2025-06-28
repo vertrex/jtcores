@@ -38,6 +38,7 @@ module MDMA(
     // Memory Address Bus  
     //output MAB[15:1],
     // DMA Ready (DMA copy is finished)
+    output [15:1] MAB,
     output DMARD
 );
 
@@ -148,5 +149,22 @@ LS161 LS161_9K_u(
   .Q(KDA[12:9]),
   .RCO(copy_end)
 );
+
+LS139 LS139_7L_u(
+    .E1(q_6k1), //counter start 
+    .A1(KDA[11]),
+    .B1(KDA[12]),
+    .Y1({DMSL_S4, DMSL_S2, DMSL_S1, DMSL_GL}),
+
+    .E2(),
+    .A2(),
+    .B2(),
+    .Y2()
+);
+
+// 74LS244P 8L & 9L 
+
+assign {DMARD , MAB[15:1]} = (MBUSDIR == 1'b0) ? { 1'b0 ,3'b111,  KDA[12:1]} 
+                                               : 16'bzzzz_zzzz_zzzz_zzzz;
 
 endmodule
