@@ -53,7 +53,8 @@ wire  copy_end; // XXX we need to add the COUNTER SO WE can copy and finish the 
 //74LS368 17M
 wire dma_end_n; 
 //this mean we can replace most of the CS and we got the MDMARQ !!!
-assign MBUSDIR = ~qn_6k1; 
+assign MBUSDIR = ~qn_6k1;
+assign EXH_4_n = ~EXH_4;
 assign WRN6M = ~P6M;
 assign dma_end_n = ~copy_end; // XXX OUTPUT OF RCO COUNTER HIGH 4*3 bits  1 when dma is finished 
 

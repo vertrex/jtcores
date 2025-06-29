@@ -17,12 +17,14 @@ game:
       - dual_ram_buffer.v
       - sis6091.v
       - 74LS74.v
+      - 74LS138.v
       - 74LS139.v
       - 74LS154.v
       - 74LS161.v
       - pld20.v
       - pld21.v
       - mdma.v
+      - adrs.v
 jtframe:
   - from: ram
     get:

@@ -85,14 +85,14 @@ module toki_main(
   output     reg    bk2_cs,
   output     reg    obj_cs,
 
-  output     reg    S1MASK,
-  output     reg    S2MASK,
-  output     reg    OBJMASK,
-  output     reg    S4MASK,
-  output     reg    PRIOR_A,
-  output     reg    PRIOR_B,
-  output     reg    HREV,
-  output     reg    YREV
+  output            S1MASK,
+  output            S2MASK,
+  output            OBJMASK,
+  output            S4MASK,
+  output            PRIOR_A,
+  output            PRIOR_B,
+  output            HREV,
+  output            YREV
 );
 
 wire p1_right    = joystick1[0];
@@ -383,16 +383,26 @@ PLD20 PLD20_u(
 );
 
 //74LS244
-wire MEMDIR = cpu_wr_n;
+wire  MEMDIR = cpu_wr_n;
+wire  ROM0, ROM1, RAM, MUSIC, MBUFEN, MBUFDR;
+wire  RST_S1H, SEL_S1H, RST_S1Y, SEL_S1Y;
+wire  RST_S2H, SEL_S2H, RST_S2Y, SEL_S2Y;
+wire  MDMARQ, ODMARQ;
+wire  RD_DISPW, RD_PLYER, RD_EXTIF;
 
-//PLD 21, 22M, p3
-wire ROM0, ROM1, RAM, MUSIC, MBUFEN, MBUFDR, WRADRS, RDADRS;
-
-PLD21 PLD21_u(
+ADRS ADRS_u(
   .A(cpu_a[23:17]),
   .MBUSDIR(MBUSDIR),
   .OBUSDIR(OBUSDIR),
   .MEMDIR(MEMDIR),
+
+  //.MAB(mab[6:1]), // XXX working was cpu_a efore  ?
+  .MAB(cpu_a[6:1]), // XXX working was cpu_a efore  ?
+  .MWRLB(MWRLB),
+  .MRDLB(MRDLB),
+  .RESET_A(rst),
+  //.MDB(MDB[15:0])
+  .MDB(cpu_dout[15:0]), // MDB XXX 
 
   .ROM0(ROM0),
   .ROM1(ROM1),
@@ -400,57 +410,43 @@ PLD21 PLD21_u(
   .MUSIC(MUSIC),
   .MBUFEN(MBUFEN),
   .MBUFDR(MBUFDR),
-  .WRADRS(WRADRS),
-  .RDADRS(RDADRS)
+
+  .RST_S1H(RST_S1H),
+  .SEL_S1H(SEL_S1H),
+  .RST_S1Y(RST_S1Y),
+  .SEL_S1Y(SEL_S1Y),
+
+  .RST_S2H(RST_S2H),
+  .SEL_S2H(SEL_S2H),
+  .RST_S2Y(RST_S2Y),
+  .SEL_S2Y(SEL_S2Y),
+
+  .MDMARQ(MDMARQ),
+  .ODMARQ(ODMARQ),
+
+  .RD_DISPW(RD_DISPW),
+  .RD_PLYER(RD_PLYER),
+  .RD_EXTIF(RD_EXTIF),
+
+  .S1MASK(S1MASK),
+  .S2MASK(S2MASK),
+  .OBJMASK(OBJMASK),
+  .S4MASK(S4MASK),
+  .PRIOR_A(PRIOR_A),
+  .PRIOR_B(PRIOR_B),
+
+  .HREV(HREV),
+  .YREV(YREV)
 );
 
 //MDMARQ : Memory DMA Request
 //ODMARQ : Object DMA Request 
 
-//74LS154 10P p3
-//
-//
-// Scroll 1 rst & sel
-wire RST_S1H, SEL_S1H, RST_S1Y, SEL_S1Y;
-// Scroll 2 rst & sel
-wire RST_S2H, SEL_S2H, RST_S2Y, SEL_S2Y;
-// Memory DMA Request 
-wire MDMARQ; 
-// Object DMA Request 
-wire ODMARQ;
-wire MASKS;
-wire enable;
-reg [15:0] select; //wire ? 
-wire [4:0] nc; 
 
-// All this signal are active low !  
-LS154 LS154_u(
-   .A(cpu_a[6:3]),
-   .G1(WRADRS), //10100?0 & MBUSDIR & OBUSDIR  & 00?0110 ? 
-   .G2(MWRLB), // G1 & G2 must be 0 to work so WRARDS & MWRLB must be 0 
-    // All this signal are active low !  
-   .Y({ nc[4:0], MASKS, ODMARQ, MDMARQ, SEL_S2Y, RST_S2Y, SEL_S2H, RST_S2H, SEL_S1Y, RST_S1Y, SEL_S1H, RST_S1H })
-);
-
-//74LS273 18M & 74LS368 17M page 3
-//always @(posedge MASKS, posedge rst) begin 
-always @(posedge MASKS, posedge rst) begin 
-    if (rst) begin 
-       { S4MASK, OBJMASK, S2MASK, S1MASK } <= 4'b0;
-       { PRIOR_B, PRIOR_A } <= 2'b0;
-       HREV <= 1'b0;
-       YREV <= 1'b0;
-       end 
-    else if (MASKS) begin  //scroll cs ? 
-       { S4MASK, OBJMASK, S2MASK, S1MASK } <= cpu_dout[3:0];
-       { PRIOR_B, PRIOR_A } <= cpu_dout[9:8];  //        if ((cpu_dout[15:0] & 16'h100) == 16'h0) ??? 0b100_000_000
-       HREV <= ~cpu_dout[14]; 
-       YREV <= ~cpu_dout[15];
-       end 
-end 
 
 wire EXH_4_n, WRN6M, MBUSRQ, DMSL_GL, DMSL_S1, DMSL_S2, DMSL_S4, DMARD; //MBUSDIR
 wire [12:1] kda;
+wire [15:1] mab;
 
 MDMA mdma_u(
   .P6M(P6M),
@@ -468,6 +464,7 @@ MDMA mdma_u(
   .DMSL_S2(DMSL_S2),
   .DMSL_S4(DMSL_S4),
   .KDA(kda[12:1]),
+  .MAB(mab[15:1]),
   .DMARD(DMARD)
 );
 
