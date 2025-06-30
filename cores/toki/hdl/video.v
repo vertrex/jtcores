@@ -28,9 +28,6 @@ module toki_video(
   output [3:0]      b,
 
   // Shared video RAM
-  output     [10:1] palette_addr,
-  input      [15:0] palette_out,
-
   output     [10:1] obj_addr,
   input      [15:0] obj_out,
 
@@ -97,6 +94,7 @@ module toki_video(
   input              DMSL_S1,
   input              DMSL_S2,
   input              DMSL_S4,
+  input              DMSL_GL,
   input              WRN6M,
 
   input  signed      [8:0] bk1_scroll_x,
@@ -122,7 +120,6 @@ wire [7:0] exv = {vpos[7] ^ YREV, vpos[6] ^ YREV, vpos[5] ^ YREV, vpos[4] ^ YREV
 //
 
 //reg HBL;
-
 wire OBJT1, OBJT2, STARTY, VORIGIN, VBL_ROM;
 
 assign prom_26_cs = 1'b1;
@@ -308,71 +305,24 @@ scan_obj_ram scan_obj_ram_u(
   .line_buffer_out(obj)
 );
 
-///////// COLOR MIX & OUTPUT ////////////////////////////
-//
-// select the right pixel from the different line buffer 
-// go from top layer (char) to background layer
-// check background order
-// check if pixel is transparent
-// get first non-transparent pixel 
-// get pixel final color from the palette
-// output the pixel to the screen
-//
+wire obj_on = ~(obj[3] & obj[2] & obj[1] & obj[0]); //XXX:
+wire s2on = ~(bk2_color[3] & bk2_color[2] & bk2_color[1] & bk2_color[0]); //sch page 8 XXX
+wire prior_c = 1'b0; //obj linebuf page 18  XXX 
+wire prior_d = 1'b0; //obj linebuf page 18  XXX
 
-//
-// SG0140 out ? 
-//
-// MIX MUST ASSIGN ? 
-// there is no clcok
-// it only use rom27 for stuff ?? 
-// and simple chip select 
-// to assign to ram
+wire MASK =  HBLB & L3;//XXX; L3 IS NOT GOOD in sei50bu.v !
 
-wire [7:0] sg_palette_addr;
-wire [1:0] pri;
+reg  [3:0] bk2_code_latch;
 
-sg0140    sg0140_u(
-  .clk(N6M), 
-
-  .char_color(char_color),
-  .char_code(char_code), 
-  .char_en(T8H),
-  .char_mask(S4MASK),
-
-  .bk1_code(bk1_code), 
-  .bk1_color(bk1_color),
-  .bk1_en(sg_sync_bk1),
-  .bk1_mask(S1MASK),
-
-  .pri(pri),
-  .palette_addr(sg_palette_addr) 
-); 
-
-// XXX OFFSET IS GIVEN BY ROM27 ! 
-//give us PALETTE_OFFSET rom27_addr <- sg0x140 
-//palette_offset <= 
-wire [1:0] palette_offset;
-wire unknown_a2 = 1'b0;
-wire [1:0] unknown_a6_a7 = 2'b0;
-
-wire prior_c = 1'b0; //obj linebuf page 18 
-wire prior_d = 1'b0; //obj linebuf page 18
-//s1 sc1 => bk1 ? 
-//sc2 s2 => bk2
-//sc4 s4 => char 
-
-//color mixing clut page 10
-// XXX BK2 is latched before input into palette page 8 with P6M clck 
 
 //74LS174 8H page 8
 reg  [7:0] bk2_r;//clock is output of sei21bu hpos[1] !
 wire [7:0] bk2;
-reg  [3:0] bk2_code_latch;
 
+//? 
 always @(posedge sg_sync_bk2) begin 
     bk2_code_latch <= bk2_code[3:0];
-end 
-
+end
 //74LS374 7FH page 8
 always @(posedge P6M) 
     if (~S2MASK) 
@@ -380,55 +330,42 @@ always @(posedge P6M)
 
 assign bk2 = S2MASK ? 8'bz : bk2_r;
 
-wire s2on = ~(bk2[3] & bk2[2] & bk2[1] & bk2[0]); //sch page 8 
-wire obj_on = ~(obj[3] & obj[2] & obj[1] & obj[0]); //XXX:
 
-//74LS20P check if color != 'hf XXX used latched value
-//page 10
-assign prom_27_cs = 1'b1;
-assign prom_27_addr[7:0] = { prior_d, prior_c, PRIOR_B, PRIOR_A, s2on, obj_on, pri[1:0] };
 
-//74LS257  2H/3h 
-//74LS20   2J 
-//assign palette_addr[10:1] =  prom_27_data[0] == 1'b1 ?  {prom_27_data[3:2], obj[7:0] } : // XXX REAL
-assign palette_addr[10:1] =  obj_on  ?  {prom_27_data[3:2], obj[7:0] } :
-                             prom_27_data[1] == 1'b0 ?  {prom_27_data[3:2], sg_palette_addr[7:0]} :
-                                                        {prom_27_data[3:2], bk2[7:0]};
+// COLOR OUTPUT
+CLUT CLUT_u(
+  .N6M(N6M),
+  .P6M(P6M),
+  .WRN6M(WRN6M),
+  .S1PIC(bk1_color), //inversed ?
+  .S1COL(bk1_code), 
+  .S4PIC(char_color),
+  .S4COL(char_code),
+  .S1CLLT(sg_sync_bk1), // ?
+  .S4CLLT(T8H), // ?
+  .S1MASK(S1MASK),
+  .S4MASK(S4MASK),
+  .SCRN2(bk2),
+  .OBJON(obj_on),
+  .S2ON(s2on),
+  .PRIOR_A(PRIOR_A),
+  .PRIOR_B(PRIOR_B),
+  .PRIOR_C(prior_c),
+  .PRIOR_D(prior_d),
+  .OOB(obj[7:0]), //XXX
+  .KDA(KDA[10:1]),
+  .DMSL_GL(DMSL_GL),
+  .MDB(MDB[15:0]),
+  .MASK(MASK),
 
-// UEC-51 
-assign r = palette_out[3:0];
-assign g = palette_out[7:4];
-assign b = palette_out[11:8];
+  .prom_27_data(prom_27_data),
+  .prom_27_ok(prom_27_ok),
+  .prom_27_addr(prom_27_addr),
+  .prom_27_cs(prom_27_cs),
 
-//parameter VRAM_PALETTE_OFFSET = 10'h100; 256   0b1 0000 0000  (high bit de 4 ) 
-//parameter BG1_PALETTE_OFFSET = 10'h200;  512  0b10 0000 0000  (hight bit de 8 )
-//parameter BG2_PALETTE_OFFSET = 10'h300;  768      0b1100000000  (hight bit de e)
-// one on two on the file are 0 and the other 4 8 or e et par faois 1 
-// mais on utilise que les hight bits sur 4 bits donc -> 01 pour 10 pour 8 11
-// pour e et 0 pour 1 donc ok puisuq on a palette a 0 / 1 , 10 , 11 
-// ca suffit a select la palette, le low bits est utiliser pour select 
-// entre d'autre offset qui vont rentrer dans la ram ?? ca sert a quoi ? 
-// comprendre ca
-// laisser des notes si non personne va rien comprendrendre dans le futur meme
-// avec le schema
-// maintenant comment savoir commnet select le sg 0140 ? 
-// il utilise que 2 bits d'adresse don il peux renvoyer 00, 01, 10, 11 
-// et ca doit mapper sur un 4 pour vram/char et un 8 pour bg mais a3 et aussi
-// up parfois i lfaudrer verifier pour tous pour cocmprendre 
-// on peux imaginier que la prio est donner 0 char, 1 char, 0 bk, 1 bk ? 
-// si les 2 sont a 1 ca va select le bk ? donc envoyez 11 ?
-
-//color mix 
-//must use rom27
-//+ sg1040 -> one sg0140 got char + prom27 + bk1 
-
-//assign palette_addr[10:1] = 
-          //char_pixel[3:0] != 'hf ? {2'd0, char_pixel} + VRAM_PALETTE_OFFSET :
-          //obj_line_buffer_out[3:0] != 'hf ? {2'd0, obj_line_buffer_out} : 
-          //bg_order == 1'b0 & (bk1_pixel[3:0] != 'hf) ? {2'd0, bk1_pixel} + BG1_PALETTE_OFFSET :
-          //bg_order == 1'b0 & (bk2_pixel[3:0] != 'hf) ? {2'd0, bk2_pixel} + BG2_PALETTE_OFFSET :
-          //bg_order == 1'b1 & (bk2_pixel[3:0] != 'hf) ? {2'd0, bk2_pixel} + BG2_PALETTE_OFFSET :
-          //bg_order == 1'b1 & (bk1_pixel[3:0] != 'hf) ? {2'd0, bk1_pixel} + BG1_PALETTE_OFFSET :
-          //10'h3ff; //3ff 0x400 -1???
+  .R(r),
+  .G(g),
+  .B(b)
+);
 
 endmodule

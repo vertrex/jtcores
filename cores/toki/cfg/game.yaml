@@ -25,6 +25,7 @@ game:
       - adrs.v
       - scrn4.v
       - scrn_bk.v
+      - clut.v
 jtframe:
   - from: ram
     get:

@@ -35,10 +35,6 @@ module toki_main(
   output     [18:1] cpu_rom_addr,
   output reg        cpu_rom_cs,
 
-  //Shared video RAM 
-  input      [10:1] palette_addr,
-  output     [15:0] palette_out,
-
   input      [10:1] obj_addr,
   output     [15:0] obj_out,
 
@@ -74,6 +70,7 @@ module toki_main(
   output            DMSL_S1,
   output            DMSL_S2,
   output            DMSL_S4,
+  output            DMSL_GL,
   output            WRN6M
 );
 
@@ -447,7 +444,7 @@ ADRS ADRS_u(
 //MDMARQ : Memory DMA Request
 //ODMARQ : Object DMA Request 
 
-wire EXH_4_n, MBUSRQ, DMSL_GL, DMARD; //MBUSDIR
+wire EXH_4_n, MBUSRQ, DMARD; //MBUSDIR
 
 MDMA mdma_u(
   .P6M(P6M),
@@ -562,64 +559,6 @@ jtframe_ram16 #(.AW(15)) u_cpu_ram(
     .data(cpu_dout[15:0]), //MDB_out  // 
     .we({~RAM & ~MWRMB, ~RAM & ~ MWRLB}),
     .q(ram_do[15:0])  //MDB_in ? //remove from data bus input if set here 
-);
-
-///////// BK2 RAM //////////
-//
-// background 2 (2048)
-// F4 on pcb
-//wire signed [8:0] vpos_shift_2 = vpos[7:0] + bk2_scroll_y[8:0];
-//wire signed [8:0] hpos_shift_2 = hpos[7:0] + bk2_scroll_x[8:0];
-
-/*sei0021bu sei21bu_bk2_h(
-   .clk(N6M),
-   .pos(hpos[7:0]),
-   .sync(bk2_hsync),
-   .scroll(bk2_scroll_x),
-   .scrolled(bk2_hpos)
-);
-
-sei0021bu sei21bu_bk2_v(
-   .clk(N6M),
-   .pos(vpos[7:0]),
-   .sync(),
-   .scroll(bk2_scroll_y),
-   .scrolled(bk2_vpos)
-);
-
-jtframe_dual_ram16 #(.AW(10)) u_bk2_ram(
-  .clk0(N6M),
-  .data0(ram_do[15:0]),
-  .addr0(KDA[10:1]),
-  .we0({~DMSL_S2, ~DMSL_S2}),
-  .q0(),
-
-  .clk1(bk2_hpos[0]),//  XXX T4H
-  .data1(),
-  .addr1({bk2_vpos[8:4], bk2_hpos[8:4]}),
-  .we1(),
-  .q1(bk2_out)
-);*/
-
-///////// PALETTE RAM //////////
-// 
-// palette ram (2048)
-// palette is read and checked by main cpu 
-// H4 on PCB behind UEC-51
-wire [15:0]  palette_do;
-
-jtframe_dual_ram16 #(.AW(10)) u_palette_ram(
-  .clk0(WRN6M),
-  .data0(ram_do[15:0]),
-  .addr0(KDA[10:1]),
-  .we0({~DMSL_GL, ~DMSL_GL}), //DSML GL
-  .q0(palette_do),
-
-  .clk1(P6M), 
-  .data1(),
-  .addr1(palette_addr[10:1]),
-  .we1(),
-  .q1(palette_out)
 );
 
 // XXX SPRITE SEEMS TO USE 8 6091 on board ! 

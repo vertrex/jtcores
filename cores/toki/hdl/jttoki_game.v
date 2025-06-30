@@ -33,8 +33,6 @@ module jttoki_game(
 
 wire  [8:0] hpos;
 wire  [8:0] vpos;
-wire [10:1] palette_addr;
-wire [15:0] palette_out;
 
 wire [10:1] obj_addr;
 wire [15:0] obj_out;
@@ -91,7 +89,7 @@ wire HREV;
 wire YREV;
 wire [12:1] KDA;
 wire [15:0] MDB;
-wire DMSL_S1, DMSL_S2, DMSL_S4;
+wire DMSL_S1, DMSL_S2, DMSL_S4, DMSL_GL;
 wire WRN6M;
 
 //////// MAIN ////////////
@@ -135,9 +133,6 @@ toki_main  u_main(
   .cpu_rom_data(cpu_rom_data),
 
   //Shared video RAM 
-  .palette_addr(palette_addr),
-  .palette_out(palette_out),
-
   .obj_addr(obj_addr),
   .obj_out(obj_out),
 
@@ -175,6 +170,7 @@ toki_main  u_main(
   .DMSL_S1(DMSL_S1),
   .DMSL_S2(DMSL_S2),
   .DMSL_S4(DMSL_S4),
+  .DMSL_GL(DMSL_GL),
   .WRN6M(WRN6M)
 );
 
@@ -205,9 +201,6 @@ toki_video u_video(
   .b(blue),
 
   //Shared video RAM
-  .palette_addr(palette_addr),
-  .palette_out(palette_out),
-
   .obj_addr(obj_addr),
   .obj_out(obj_out),
 
@@ -275,6 +268,7 @@ toki_video u_video(
   .DMSL_S1(DMSL_S1),
   .DMSL_S2(DMSL_S2),
   .DMSL_S4(DMSL_S4),
+  .DMSL_GL(DMSL_GL),
   .WRN6M(WRN6M),
 
   .bk1_scroll_x(bk1_scroll_x),
