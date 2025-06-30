@@ -335,7 +335,7 @@ always @(posedge clk, posedge rst) begin
     end
   else begin
     if (clk) begin
-      cpu_din <=      ~ROM0 | ~ROM1 ? cpu_rom_data[15:0] :  
+      cpu_din <= ~ROM0 | ~ROM1 ? cpu_rom_data[15:0] :  
                  ~RAM       ? ram_do[15:0] :  //& BUSOPN ??
                  dsw_cs     ? dipsw[15:0] : 
                  inputs_cs  ? {1'b1,1'b1,p2_button2,p2_button1,p2_right,p2_left,p2_down,p2_up,
@@ -570,7 +570,7 @@ jtframe_ram16 #(.AW(15)) u_cpu_ram(
 // if cpu can't read obj ram content 
 // there will be no scrolling during the 'cave screen'
 //
-wire [15:0] obj_do;
+/*wire [15:0] obj_do;
 
 jtframe_dual_ram16 #(.AW(10)) u_obj_ram(
   //.clk0(N6M),
@@ -586,6 +586,21 @@ jtframe_dual_ram16 #(.AW(10)) u_obj_ram(
   .addr1(obj_addr[10:1]),
   .we1(),
   .q1(obj_out)
+);
+*/
+
+wire [15:0] sprite_do;
+
+sis6091 #(.W(10)) u_sprite_ram(
+  .clk(clk),
+  .trigger_n(INT_T),
+  .we({obj_cs && !cpu_wr_n && !cpu_uds_n, obj_cs && !cpu_wr_n && !cpu_lds_n}),
+  .addr_in(cpu_a[10:1]), 
+  .data(cpu_dout[15:0]),
+  .q_in(sprite_do),
+
+  .addr_out(obj_addr[10:1]),
+  .q(obj_out)
 );
 
 endmodule

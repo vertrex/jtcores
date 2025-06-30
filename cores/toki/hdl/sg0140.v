@@ -1,25 +1,33 @@
-// priority / color mixer
-//
-// MODE == ABSEL (absolut selection or a b / select? )
-// MODE == YCHECK  ? 
-// MODE == SORT4B  ? 
-// MODE == OHMAX   ? 
+//priority / color mixer
+// SG 0140 have 4 different mode 
+// mode is selected with pin 37/36
+
+//        37,36 
+// MODE == 00 ABSEL (absolut selection or a b / select? )
+// MODE == 10 VCHECK  ? 
+// MODE == 01 SORT4B  ? 
+// MODE == 11 OHMAX   ? 
+
 module sg0140(
+  input [1:0] MODE,
   input clk, //n6m 
 
-  input [3:0] char_color,
-  input [3:0] char_code, 
-  input       char_en, //? S4CLLT T8H 
-  input       char_mask, // S4MASK ? char_cs ?  page 3 address selection 
+  //BK1 
+  input [3:0] PIC_A, 
+  input [3:0] COL_A,  
+  input       EN_A,// S1 CLLT hpos 0
+  input       MASK_A, // ? S1MASK page 3 address selection   bk2 select ? 
 
-  input [3:0] bk1_color,
-  input [3:0] bk1_code,  
-  input       bk1_en,// S1 CLLT hpos 0
-  input       bk1_mask, // ? S1MASK page 3 address selection   bk2 select ? 
+  // CHAR
+  input [3:0] PIC_B,
+  input [3:0] COL_B, 
+  input       EN_B, //? S4CLLT T8H 
+  input       MASK_B, // S4MASK ? char_cs ?  page 3 address selection 
 
-  output reg [1:0]     pri, 
+  output reg  ON_A, //pin 8 
+  output reg  ON_B, //pin 7
 
-  output reg [7:0] palette_addr
+  output      [7:0] Q 
 ); 
 
 //it seem sg0140 get other input like clk from other module like bk 1 output
@@ -31,38 +39,32 @@ reg [7:0] bk_latch;
 
 //always @(posedge clk) begin 
   //met pri a 1 si un des deux et differ de hf ?
-  //if (char_en)
-//always @(posedge char_en)
-    //char_latch[7:0] <= {char_code[3:0], char_color[3:0]};
+  //if (EN_B)
+//always @(posedge EN_B)
+    //char_latch[7:0] <= {COL_B[3:0], PIC_B[3:0]};
 
-//always @(posedge bk1_en)
+//always @(posedge EN_A)
   //if (bk_en)
-    //bk_latch[7:0] <= {bk1_code[3:0], bk1_color[3:0]};
+    //bk_latch[7:0] <= {COL_A[3:0], PIC_A[3:0]};
 
+//  00   bk1 0 char 0 (e)
+//  01   bk1 1 char 0 (8)   
+//  10   bk1 0 char 1 (4)
+//  11   bk1 1 char 1 (4) //char > bk1 so ok
 always @(posedge clk) begin 
-  //if (bk1_en)
-    //bk_latch[7:0] <= {bk1_code[3:0], bk1_color[3:0]};
-  //if (char_en)
-    //char_latch[7:0] <= {char_code[3:0], char_color[3:0]};
-  
+  //if (EN_A)
+    //bk_latch[7:0] <= {COL_A[3:0], PIC_A[3:0]};
+  //if (EN_B)
+    //char_latch[7:0] <= {COL_B[3:0], PIC_B[3:0]};
 
-    pri <= {  
-           char_color[3:0] == 'hf ? 1'b0: 1'b1,
-           bk1_color[3:0] == 'hf ? 1'b0 : 1'b1
-         };
+  ON_A <= PIC_A[3:0] == 'hf ? 1'b0 : 1'b1;
+  ON_B <= PIC_B[3:0] == 'hf ? 1'b0 : 1'b1;
 
-  //  00   bk1 0 char 0 (e)
-  //  01   bk1 1 char 0 (8)   
-  //  10   bk1 0 char 1 (4)
-  //  11   bk1 1 char 1 (4) //char > bk1 so ok
-
-  //pri <= { bk1_color[3:0] != 'hf ? 1'b0 : 1'b1, 
-           //char_color[3:0] != 'hf ? 1'b0: 1'b1 };
-  //assign ? 
-  //palette_addr[7:0] <= char_latch[3:0] != 'hf ?  char_latch :
-                                                 //bk_latch;
-  palette_addr[7:0] <= char_color[3:0] != 'hf ?  {char_code[3:0], char_color[3:0]} :
-                                            {bk1_code[3:0], bk1_color[3:0]};
+  Q[7:0] <= PIC_B[3:0] != 'hf ?  {COL_B[3:0], PIC_B[3:0]} :
+                                 {COL_A[3:0], PIC_A[3:0]};
 end
+
+//assign Q[7:0] = ON_A ?  {COL_B[3:0], PIC_B[3:0]} :
+                        //{COL_A[3:0], PIC_A[3:0]};
 
 endmodule

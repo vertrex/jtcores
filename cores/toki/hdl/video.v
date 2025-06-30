@@ -330,8 +330,6 @@ always @(posedge P6M)
 
 assign bk2 = S2MASK ? 8'bz : bk2_r;
 
-
-
 // COLOR OUTPUT
 CLUT CLUT_u(
   .N6M(N6M),

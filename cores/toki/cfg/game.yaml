@@ -4,7 +4,7 @@ game:
       - jttoki_game.v
       - main.v
       - video.v
-      - sprite.v
+      - obj.v
       - sound.v
       - sei0050bu.v
       - sei0010bu.v
