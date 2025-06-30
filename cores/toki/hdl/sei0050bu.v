@@ -67,10 +67,12 @@ assign VSYNC = HS | VS;
 //output 
 
 //parameter HBLANK_START  = 265; //high [265, 137]     | 265  
-parameter HBLANK_START  = 266; //high [265, 137]     | 265   //WORK FOR CHAR BUT NOT BK ...
+//parameter HBLANK_START  = 266; //high [265, 137]     | 265   //WORK FOR CHAR BUT NOT BK ...
+parameter HBLANK_START  = 265; //high [265, 137]     | 265   //WORK FOR CHAR BUT NOT BK ...
 //parameter HBLANK_START  = 262; //WORK FOR BK BUT NOT CHAR  
 //parameter HBLANK_END 	  = 9; //10 tick so stop at 9  | 9  we shift 3 to align but there's maybe a latch somewhere
-parameter HBLANK_END 	  = 10; //10 tick so stop at 9  | 9  we shift 3 to align but there's maybe a latch somewhere
+//parameter HBLANK_END 	  = 10; //10 tick so stop at 9  | 9  we shift 3 to align but there's maybe a latch somewhere
+parameter HBLANK_END 	  = 9; //10 tick so stop at 9  | 9  we shift 3 to align but there's maybe a latch somewhere
 //parameter HBLANK_END 	  = 6; //
 parameter HSYNC_START 	= 304; //[179,210] +50 hblank start  
 parameter HSYNC_END 		= 336; //32

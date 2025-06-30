@@ -36,18 +36,8 @@ wire  [8:0] vpos;
 wire [10:1] palette_addr;
 wire [15:0] palette_out;
 
-//wire [10:1] vram_addr;
-wire [15:0] vram_out;
-
-//wire [10:1] bk1_addr;
-wire [15:0] bk1_out;
-
-//wire [10:1] bk2_addr;
-wire [15:0] bk2_out;
-
 wire [10:1] obj_addr;
 wire [15:0] obj_out;
-
 wire  [6:1] scroll_addr;
 wire [15:0] scroll_out;
 
@@ -86,10 +76,10 @@ wire P6M, N6M;
 assign P6M = pxl_cen;
 assign N6M = ~pxl_cen;
 
-wire vram_cs;
-wire bk1_cs;
-wire bk2_cs;
-wire obj_cs;
+//wire vram_cs;
+//wire bk1_cs;
+//wire bk2_cs;
+//wire obj_cs;
 
 wire S1MASK;
 wire S2MASK;
@@ -99,6 +89,10 @@ wire PRIOR_A;
 wire PRIOR_B;
 wire HREV;
 wire YREV;
+wire [12:1] KDA;
+wire [15:0] MDB;
+wire DMSL_S1, DMSL_S2, DMSL_S4;
+wire WRN6M;
 
 //////// MAIN ////////////
 //
@@ -144,15 +138,6 @@ toki_main  u_main(
   .palette_addr(palette_addr),
   .palette_out(palette_out),
 
-  //.vram_addr(vram_addr),
-  .vram_out(vram_out),
-
-  //.bk1_addr(bk1_addr),
-  .bk1_out(bk1_out),
-
-  //.bk2_addr(bk2_addr),
-  .bk2_out(bk2_out),
-
   .obj_addr(obj_addr),
   .obj_out(obj_out),
 
@@ -176,19 +161,6 @@ toki_main  u_main(
   .z80_sound_latch_1(z80_sound_latch_1),
   .z80_sound_latch_2(z80_sound_latch_2),
 
-  .bk1_hpos(bk1_hpos),
-  .bk1_hsync(bk1_hsync),
-  .bk1_vpos(bk1_vpos),
-  .bk2_hpos(bk2_hpos),
-  .bk2_hsync(bk2_hsync),
-  .bk2_vpos(bk2_vpos),
-
-  .T4H(T4H),
-  .vram_cs(vram_cs),
-  .bk1_cs(bk1_cs),
-  .bk2_cs(bk2_cs),
-  .obj_cs(obj_cs),
-
   .S1MASK(S1MASK),
   .S2MASK(S2MASK),
   .OBJMASK(OBJMASK),
@@ -196,7 +168,14 @@ toki_main  u_main(
   .PRIOR_A(PRIOR_A),
   .PRIOR_B(PRIOR_B),
   .HREV(HREV),
-  .YREV(YREV)
+  .YREV(YREV),
+
+  .KDA(KDA),
+  .MDB(MDB),
+  .DMSL_S1(DMSL_S1),
+  .DMSL_S2(DMSL_S2),
+  .DMSL_S4(DMSL_S4),
+  .WRN6M(WRN6M)
 );
 
 //////// VIDEO ////////////
@@ -228,15 +207,6 @@ toki_video u_video(
   //Shared video RAM
   .palette_addr(palette_addr),
   .palette_out(palette_out),
-
-  //.vram_addr(vram_addr),
-  .vram_out(vram_out),
-
-  //.bk1_addr(bk1_addr),
-  .bk1_out(bk1_out),
-
-  //.bk2_addr(bk2_addr),
-  .bk2_out(bk2_out),
 
   .obj_addr(obj_addr),
   .obj_out(obj_out),
@@ -278,14 +248,6 @@ toki_video u_video(
   .gfx4_rom_cs(gfx4_rom_cs),
 
   // scroll latch
-  .bk1_hpos(bk1_hpos),
-  .bk1_vpos(bk1_vpos),
-  .bk1_hsync(bk1_hsync),
-  .bk2_hpos(bk2_hpos),
-  .bk2_vpos(bk2_vpos),
-  .bk2_hsync(bk2_hsync),
-  .bg_order(bg_order),
-
   .prom_26_data(prom_26_data),
   .prom_26_ok(prom_26_ok),
   .prom_26_cs(prom_26_cs),
@@ -298,12 +260,6 @@ toki_video u_video(
 
   .HBLB(HBLB),
   .INT_T(INT_T),
-  .T4H(T4H),
-
-  .vram_cs(vram_cs),
-  .bk1_cs(bk1_cs),
-  .bk2_cs(bk2_cs),
-  .obj_cs(obj_cs),
 
   .S1MASK(S1MASK),
   .S2MASK(S2MASK),
@@ -312,7 +268,19 @@ toki_video u_video(
   .PRIOR_A(PRIOR_A),
   .PRIOR_B(PRIOR_B),
   .HREV(HREV),
-  .YREV(YREV)
+  .YREV(YREV),
+
+  .KDA(KDA),
+  .MDB(MDB),
+  .DMSL_S1(DMSL_S1),
+  .DMSL_S2(DMSL_S2),
+  .DMSL_S4(DMSL_S4),
+  .WRN6M(WRN6M),
+
+  .bk1_scroll_x(bk1_scroll_x),
+  .bk2_scroll_x(bk2_scroll_x),
+  .bk1_scroll_y(bk1_scroll_y),
+  .bk2_scroll_y(bk2_scroll_y)
 );
 
 //////// SOUND ////////////

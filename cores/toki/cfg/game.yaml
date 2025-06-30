@@ -4,8 +4,6 @@ game:
       - jttoki_game.v
       - main.v
       - video.v
-      - char.v
-      - tile.v
       - sprite.v
       - sound.v
       - sei0050bu.v
@@ -25,6 +23,8 @@ game:
       - pld21.v
       - mdma.v
       - adrs.v
+      - scrn4.v
+      - scrn_bk.v
 jtframe:
   - from: ram
     get:

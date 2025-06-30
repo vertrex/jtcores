@@ -31,15 +31,6 @@ module toki_video(
   output     [10:1] palette_addr,
   input      [15:0] palette_out,
 
-  //output     [10:1] vram_addr,
-  input      [15:0] vram_out,
-
-  //output     [10:1] bk1_addr,
-  input      [15:0] bk1_out,
-
-  //output     [10:1] bk2_addr,
-  input      [15:0] bk2_out,
-
   output     [10:1] obj_addr,
   input      [15:0] obj_out,
 
@@ -79,15 +70,6 @@ module toki_video(
   output     [18:1] gfx4_rom_addr,
   output            gfx4_rom_cs,
 
-  // Scroll latch
-  input      [8:0]  bk1_hpos,
-  input      [8:0]  bk1_vpos,
-  input             bk1_hsync,
-  input      [8:0]  bk2_hpos,
-  input      [8:0]  bk2_vpos,
-  input             bk2_hsync,
-  input             bg_order,
-
   input      [7:0]  prom_26_data,
   input             prom_26_ok,
   output     [7:0]  prom_26_addr,
@@ -100,12 +82,6 @@ module toki_video(
 
   output            INT_T,
   output  reg       HBLB,
-  output            T4H,
-
-  input             vram_cs,
-  input             bk1_cs,
-  input             bk2_cs,
-  input             obj_cs,
 
   input             S1MASK,
   input             S2MASK,
@@ -114,12 +90,24 @@ module toki_video(
   input             PRIOR_A,
   input             PRIOR_B,
   input             HREV,
-  input             YREV
+  input             YREV,
+
+  input       [12:1] KDA,
+  input       [15:0] MDB,
+  input              DMSL_S1,
+  input              DMSL_S2,
+  input              DMSL_S4,
+  input              WRN6M,
+
+  input  signed      [8:0] bk1_scroll_x,
+  input  signed      [8:0] bk2_scroll_x,
+  input  signed      [8:0] bk1_scroll_y,
+  input  signed      [8:0] bk2_scroll_y
 );
 
 ////////// VIDEO SYNC /////////////
 //
-
+wire T4H;
 wire HBL; 
 wire L3;
 wire HD;
@@ -187,7 +175,7 @@ always @(posedge T8H) begin
    HBLB <= HBL; //HBL sei50bu pin 23 
 end 
 
-///////// CHAR DRAWING //////////
+///////// SCREEN 4 : char tile //////////
 //
 // char : 8x8 tile 
 //
@@ -196,17 +184,21 @@ parameter VRAM_PALETTE_OFFSET = 10'h100;
 wire [3:0] char_color;
 wire [3:0] char_code;
 
-char char_u(
+scrn4 scrn4_u(
   .clk(N6M),
   .rst(rst),
+  .WRN6M(WRN6M),
+  .T4H(T4H),
   .T8H(T8H), //char_cen T8H
   .T3F(T3F), //char rom cen T3F 
 
+  .KDA(KDA[10:1]),
+  .DMSL_S4(DMSL_S4),
+  .MDB(MDB),
+  
   .hpos(hpos[7:0]),
   .vpos(vpos[7:0]),
   .hrev(HREV),
-
-  .ram_out(vram_out),
 
   .char_rom_1_data(char_rom_1_data),
   .char_rom_1_ok(char_rom_1_ok),
@@ -227,19 +219,23 @@ char char_u(
 //
 // background 1 : 16x16 tile 
 //
-
 wire [3:0] bk1_color;
 wire [3:0] bk1_code;
+wire sg_sync_bk1;
 
 bk bk1_u(
-  .pxl_cen(N6M),
+  .N6M(N6M),
+  .WRN6M(WRN6M),
   .rst(rst),
+  .DMSL(DMSL_S1),
+  .KDA(KDA[10:1]),
+  .MDB(MDB),
 
-  .hpos(bk1_hpos),
-  .vpos(bk1_vpos),
-  .hpos_sync(bk1_hsync), //bk1_sync
-  
-  .ram_out(bk1_out),
+  .hpos(hpos[7:0]),
+  .vpos(vpos[7:0]),
+
+  .scroll_x(bk1_scroll_x),
+  .scroll_y(bk1_scroll_y),
 
   .gfx_rom_data(gfx3_rom_data),
   .gfx_rom_ok(gfx3_rom_ok),
@@ -247,7 +243,8 @@ bk bk1_u(
   .gfx_rom_cs(gfx3_rom_cs),
 
   .color(bk1_color),
-  .code(bk1_code)
+  .code(bk1_code),
+  .sg_sync(sg_sync_bk1)
 );
 
 ///////// BG2 DRAWING /////////////////
@@ -256,16 +253,21 @@ bk bk1_u(
 //
 wire [3:0] bk2_color;
 wire [3:0] bk2_code;
+wire sg_sync_bk2;
 
 bk bk2_u(
-  .pxl_cen(N6M),
+  .N6M(N6M),
+  .WRN6M(WRN6M),
   .rst(rst),
+  .DMSL(DMSL_S2),
+  .KDA(KDA[10:1]),
+  .MDB(MDB),
 
-  .hpos(bk2_hpos),
-  .vpos(bk2_vpos),
-  .hpos_sync(bk2_hsync),
+  .hpos(hpos[7:0]),
+  .vpos(vpos[7:0]),
 
-  .ram_out(bk2_out),
+  .scroll_x(bk2_scroll_x),
+  .scroll_y(bk2_scroll_y),
 
   .gfx_rom_data(gfx4_rom_data),
   .gfx_rom_ok(gfx4_rom_ok),
@@ -273,7 +275,8 @@ bk bk2_u(
   .gfx_rom_cs(gfx4_rom_cs),
 
   .color(bk2_color),
-  .code(bk2_code)
+  .code(bk2_code),
+  .sg_sync(sg_sync_bk2)
 );
 
 ///////// SPRITE DRAWING /////////////////
@@ -286,7 +289,7 @@ reg   [8:0] obj_line_buffer_addr;
 scan_obj_ram scan_obj_ram_u(
   .clk(clk),
   .rst(rst),
-  .pxl_cen(N6M), // P6M on board
+  .pxl_cen(P6M), // P6M on board
   
   .LHBL(HBLB), //XXX
 
@@ -334,12 +337,12 @@ sg0140    sg0140_u(
   .char_color(char_color),
   .char_code(char_code), 
   .char_en(T8H),
-  .char_mask(vram_cs),
+  .char_mask(S4MASK),
 
   .bk1_code(bk1_code), 
   .bk1_color(bk1_color),
-  .bk1_en(bk1_hpos[1]),
-  .bk1_mask(bk1_cs),
+  .bk1_en(sg_sync_bk1),
+  .bk1_mask(S1MASK),
 
   .pri(pri),
   .palette_addr(sg_palette_addr) 
@@ -366,13 +369,13 @@ reg  [7:0] bk2_r;//clock is output of sei21bu hpos[1] !
 wire [7:0] bk2;
 reg  [3:0] bk2_code_latch;
 
-always @(posedge bk2_hpos[1]) begin 
+always @(posedge sg_sync_bk2) begin 
     bk2_code_latch <= bk2_code[3:0];
 end 
 
 //74LS374 7FH page 8
 always @(posedge P6M) 
-    if (~bk2_cs) 
+    if (~S2MASK) 
      bk2_r[7:0] <= { bk2_code_latch[3:0], bk2_color[3:0] };
 
 assign bk2 = S2MASK ? 8'bz : bk2_r;

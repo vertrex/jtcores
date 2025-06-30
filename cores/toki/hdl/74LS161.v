@@ -19,7 +19,7 @@ module LS161 (
             Q <= D;
         //else if (ENT && ENP)
         else if (ENT) 
-            Q <= Q + 1;
+            Q <= Q + 4'b1;
                         //end else if (ENT) begin
     end
 

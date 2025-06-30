@@ -16,17 +16,21 @@
 //  pixel are transparent if ROM data is 0xf
 //  pixel value is an index into the video palette 
 //
-module char(
+module scrn4(
   input                 clk,
   input                 rst,
+  input                 WRN6M,
+  input                 T4H,
   input                 T8H,  //T8H char_cen 
   input                 T3F, //T3F char_rom_cen
+
+  input          [10:1] KDA,
+  input                 DMSL_S4,
+  input          [15:0] MDB,
 
   input           [7:0] hpos, //8:0
   input           [7:0] vpos, //8:0
   input                 hrev,
-
-  input          [15:0] ram_out,  //code [11:0], pal 15:12
 
   input          [7:0]  char_rom_1_data,
   input                 char_rom_1_ok,
@@ -40,7 +44,50 @@ module char(
 
   output         [3:0]  char_color, //pic  
   output         [3:0]  char_code   //col
+
+
 );
+
+///////// VIDEO RAM //////////
+// 
+// video ram (2048)
+// we use special ram that copy content @vblank
+// because during dipswitch (only) vram is reset at each frame
+// that make cpu write to vram longer than a vblank period
+// C1 on PCB
+//wire [15:0] vram_do;
+
+//clk port 31 N6M / OBJN6M /WR6M
+//sis6091 #(.W(10)) u_vram_ram(
+  //.clk(clk),
+  //.trigger_n(INT_T),
+  //.we({vram_cs && !cpu_wr && !cpu_uds_n , vram_cs && !cpu_wr && !cpu_lds_n}),
+  //.addr_in(cpu_a[10:1]), // if we lower cpu addr in we don't have the shift
+  //.data(cpu_dout[15:0]),
+  //.q_in(vram_do),
+
+  //.addr_out({vpos[7:3], hpos[7:3]}),
+  //.q(vram_out[15:0])
+//); 
+
+wire [15:0] ram_out;
+
+jtframe_dual_ram16 #(.AW(10)) u_vram_ram(
+  .clk0(WRN6M),
+  //.data0(ram_do[15:0]), 
+  .data0(MDB[15:0]), 
+  .addr0(KDA[10:1]),    // KDA [1,10]
+  .we0({~DMSL_S4 , ~DMSL_S4}), //DSML S4  DMA Select ?
+  .q0(),
+
+  .clk1(T4H), // XXX T4H
+  .data1(),
+  .addr1({vpos[7:3], hpos[7:3]}),
+  .we1(),
+  .q1(ram_out[15:0])
+);
+
+
 
 // SEI50BU -> RAM (sis6091) -> ROM -> SEI10BU -> SG0140 -> PALETTE RAM -> UEC51 
 reg [2:0] vpos_latch;

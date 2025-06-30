@@ -164,8 +164,6 @@ LS139 LS139_7L_u(
 );
 
 // 74LS244P 8L & 9L 
-
-assign {DMARD , MAB[15:1]} = (MBUSDIR == 1'b0) ? { 1'b0 ,3'b111,  KDA[12:1]} 
-                                               : 16'bzzzz_zzzz_zzzz_zzzz;
+assign {DMARD , MAB[15:1]} = (MBUSDIR == 1'b0) ? { 1'b0 ,3'b111,  KDA[12:1]} : 16'bz;
 
 endmodule

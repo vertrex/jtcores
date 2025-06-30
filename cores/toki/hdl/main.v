@@ -13,7 +13,6 @@ module toki_main(
   input             clk,
   input             P6M,
   input             N6M,
-  //input             pxl2_cen,
 
   // Video
   input             LVBL, //cpu IPL0n triggered by 82s135 pin 11 
@@ -33,22 +32,12 @@ module toki_main(
 
   input      [15:0] cpu_rom_data,
   input             cpu_rom_ok,
-  output reg [18:1] cpu_rom_addr,
+  output     [18:1] cpu_rom_addr,
   output reg        cpu_rom_cs,
 
   //Shared video RAM 
   input      [10:1] palette_addr,
   output     [15:0] palette_out,
-
-  //input      [10:1] vram_addr,
-  output     [15:0] vram_out,
-
-
-  //input      [10:1] bk1_addr,
-  output     [15:0] bk1_out,
-
-  //input      [10:1] bk2_addr,
-  output     [15:0] bk2_out,
 
   input      [10:1] obj_addr,
   output     [15:0] obj_out,
@@ -71,20 +60,6 @@ module toki_main(
   input      [15:0] z80_sound_latch_1,
   input      [15:0] z80_sound_latch_2,
 
-  output      [8:0] bk1_hpos,
-  output      [8:0] bk1_vpos,
-  output            bk1_hsync, 
-  output      [8:0] bk2_hpos,
-  output      [8:0] bk2_vpos,
-  output            bk2_hsync,
-
-  input             T4H,
-
-  output     reg    vram_cs,
-  output     reg    bk1_cs,
-  output     reg    bk2_cs,
-  output     reg    obj_cs,
-
   output            S1MASK,
   output            S2MASK,
   output            OBJMASK,
@@ -92,7 +67,14 @@ module toki_main(
   output            PRIOR_A,
   output            PRIOR_B,
   output            HREV,
-  output            YREV
+  output            YREV,
+
+  output     [12:1] KDA,
+  output     [15:0] MDB,
+  output            DMSL_S1,
+  output            DMSL_S2,
+  output            DMSL_S4,
+  output            WRN6M
 );
 
 wire p1_right    = joystick1[0];
@@ -188,6 +170,30 @@ fx68k fx68k (
     .IPL2n(1'b1)  
 );
 
+// 74LS244P 17K,17P, 22K
+wire [17:1] MAB;
+
+assign MAB[17:1] = { cpu_a[17], (BUSOPN == 1'b0) ? cpu_a[16:1] : 16'bz };
+
+// 74LS246
+// bidrectional bus
+wire [15:0] MDB_out; 
+wire [15:0] MDB_in; 
+
+assign MDB_in[7:0]  = (!cpu_lds_n && !MEMDIR) ? cpu_din[7:0] : 8'bz; //memory -> cpu 
+assign MDB_in[15:8] = (!cpu_uds_n && !MEMDIR) ? cpu_din[15:8] : 8'bz; // // B → A
+
+
+
+assign MDB_out[7:0]  = (!cpu_lds_n && MEMDIR) ? cpu_dout[7:0] : 8'bz;  //cpu  -> memory 
+assign MDB_out[15:8] = (!cpu_uds_n && MEMDIR) ? cpu_dout[15:8] : 8'bz; // ;  // A → B
+//assign MDB_out[7:0]  = (!cpu_lds_n && MEMDIR) ? ram_do[7:0] : 8'bz;  //cpu  -> memory 
+//assign MDB_out[15:8] = (!cpu_uds_n && MEMDIR) ? ram_do[15:8] : 8'bz; // ;  // A → B
+
+// XXX ! 
+//assign MDB[15:0] = MDB_out[15:0];
+//assign MDB[15:0] = ram_do[15:0];
+
 ///////// 68K interrupt ///////////////////////////
 //
 // interrupt at each vblank 
@@ -244,7 +250,7 @@ wire bus_cs  = cpu_rom_cs;
 //  but it seems rom in sdram is too slow so we need to check for it 
 //  to avoid cpu having problem reading the rom 
 //  we also need to stop the CPU for dma 
-wire bus_busy = (cpu_rom_cs & ~cpu_rom_ok)  | ~br_n;
+wire bus_busy = (cpu_rom_cs & ~cpu_rom_ok)  | ~br_n | BUSOPN;
 
 jtframe_68kdtack_cen  u_dtack(
     .rst        (rst),     //INPUT 
@@ -284,25 +290,19 @@ jtframe_68kdtack_cen  u_dtack(
 // 0x0c0002, 0x0c0003 : input port         (ro)
 // 0x0c0004, 0x0c0005 : system port        (ro) 
 //
-//reg ram_cs, obj_cs, palette_cs, bk1_cs, bk2_cs, vram_cs,  
-reg ram_cs, palette_cs, scroll_cs, dsw_cs, inputs_cs, system_cs;
+//reg ram_cs, obj_cs, palette_cs, bk1_cs, bk2_cs, vram_cs, 
+reg obj_cs, scroll_cs;
+reg dsw_cs, inputs_cs, system_cs;
 reg sound_cs_3, sound_cs_5;
 
-always @(posedge clk) begin 
-     if (~cpu_as_n & (cpu_a[23:1] < 23'h30000))
-       cpu_rom_addr[18:1] <= cpu_a[18:1];
-end 
+assign cpu_rom_addr[18:1] = cpu_a[18:1];
+//assign cpu_rom_cs = ~ROM0 | ~ROM1; //1'b1 ? doesnt work
 
 // XXX page3 rev_y & rev_x etc 
 always @(*) begin
       cpu_rom_cs = ~cpu_as_n & (cpu_a[23:1] < 23'h30000);
-      ram_cs = ~cpu_as_n & (cpu_a[23:1] >= 23'h30000 && cpu_a[23:1] < 23'h36c00);
       //video 
       obj_cs  = ~cpu_as_n & (cpu_a[23:1] >= 23'h36c00 && cpu_a[23:1] < 23'h37000); //2048
-      palette_cs = ~cpu_as_n & (cpu_a[23:1] >= 23'h37000 && cpu_a[23:1] < 23'h37400); //2048
-      bk1_cs     = ~cpu_as_n & (cpu_a[23:1] >= 23'h37400 && cpu_a[23:1] < 23'h37800); //2048
-      bk2_cs     = ~cpu_as_n & (cpu_a[23:1] >= 23'h37800 && cpu_a[23:1] < 23'h37c00); //2048
-      vram_cs    = ~cpu_as_n & (cpu_a[23:1] >= 23'h37c00 && cpu_a[23:1] < 23'h38000); //2048
       //sound latch
       sound_cs_2 = ~cpu_as_n & (cpu_a[23:1] == 23'h40002);
       sound_cs_3 = ~cpu_as_n & (cpu_a[23:1] == 23'h40003);
@@ -322,17 +322,24 @@ end
 
 ////// 68K databus input   /////////////////////// 
 //
+// this iS MDB ?  XXX 
+// on the original board is done by assignement 
+// and tristate 'z 
+// try with tristate or assign here 
+
+assign MDB[15:0] = cpu_din; 
+
+//assign cpu_din = (!cpu_uds_n && MEMDIR) ? ram_do[15:0] : 16'bz;
+
+//always @(*) begin
 always @(posedge clk, posedge rst) begin
   if(rst) begin 
     cpu_din <= 16'h0000;
     end
   else begin
     if (clk) begin
-      cpu_din <= cpu_rom_cs ? cpu_rom_data[15:0] :  
-                 ~RAM ? ram_do[15:0] :
-                 palette_cs ? palette_do[15:0] :
-                 obj_cs  ? obj_do[15:0] : 
-                 vram_cs    ? vram_do[15:0] : 
+      cpu_din <=      ~ROM0 | ~ROM1 ? cpu_rom_data[15:0] :  
+                 ~RAM       ? ram_do[15:0] :  //& BUSOPN ??
                  dsw_cs     ? dipsw[15:0] : 
                  inputs_cs  ? {1'b1,1'b1,p2_button2,p2_button1,p2_right,p2_left,p2_down,p2_up,
                                1'b1,1'b1,p1_button2,p1_button1,p1_right,p1_left,p1_down,p1_up} :
@@ -342,22 +349,22 @@ always @(posedge clk, posedge rst) begin
                  sound_cs_3 ? z80_sound_latch_1 :
                  sound_cs_5 ? z80_sound_latch_2 :
                  16'd0;
-      end
-    end
-end
+             end
+           end
+end 
 
 ///////
 // 74LS08 19R page 1
 wire OBUSRQ = 1'b0;
 //BR is set to 0 to make a cpu BUS request and grant (bg bus grant will be set when cpu is ready for dma) 
-//
 
 // ACTIVE LOW , 0  if DMA is run and obj and CPU must be stopped 
 wire OBUSDIR = 1'b1; //OBJ bus direction page 14
 // pld21 need it high or nothing will be output as everything check MBUSDIR  & OBUSDIR ?
 
 wire MBUSDIR;
-//PLD 20, 22M 
+//PLD 20, 22M
+// BUSOPN : active low if bus is not use by Memory or Object DMA
 wire BUSOPN, MWRLB, MWRMB, MRDLB, MRDMB, BUSAK, bgack_n, vpa_n;
 
 PLD20 PLD20_u(
@@ -396,13 +403,11 @@ ADRS ADRS_u(
   .OBUSDIR(OBUSDIR),
   .MEMDIR(MEMDIR),
 
-  //.MAB(mab[6:1]), // XXX working was cpu_a efore  ?
-  .MAB(cpu_a[6:1]), // XXX working was cpu_a efore  ?
+  .MAB(MAB[6:1]),
   .MWRLB(MWRLB),
   .MRDLB(MRDLB),
   .RESET_A(rst),
-  //.MDB(MDB[15:0])
-  .MDB(cpu_dout[15:0]), // MDB XXX 
+  .MDB(MDB_out[15:0]),
 
   .ROM0(ROM0),
   .ROM1(ROM1),
@@ -442,11 +447,7 @@ ADRS ADRS_u(
 //MDMARQ : Memory DMA Request
 //ODMARQ : Object DMA Request 
 
-
-
-wire EXH_4_n, WRN6M, MBUSRQ, DMSL_GL, DMSL_S1, DMSL_S2, DMSL_S4, DMARD; //MBUSDIR
-wire [12:1] kda;
-wire [15:1] mab;
+wire EXH_4_n, MBUSRQ, DMSL_GL, DMARD; //MBUSDIR
 
 MDMA mdma_u(
   .P6M(P6M),
@@ -463,8 +464,8 @@ MDMA mdma_u(
   .DMSL_S1(DMSL_S1),
   .DMSL_S2(DMSL_S2),
   .DMSL_S4(DMSL_S4),
-  .KDA(kda[12:1]),
-  .MAB(mab[15:1]),
+  .KDA(KDA[12:1]),
+  .MAB(MAB[15:1]),
   .DMARD(DMARD)
 );
 
@@ -477,14 +478,16 @@ assign br_n = MBUSRQ;
 //
 // Scrolling register latch
 //
-reg [15:0] bk1_scroll_x_lo = 0;
-reg [15:0] bk2_scroll_x_lo = 0;
-reg [15:0] bk1_scroll_y_lo = 0;
-reg [15:0] bk2_scroll_y_lo = 0;
+
 
 // XXX use sei021bu for scrollng check if cpu_address can be high both at same time 
 // durring 1 6mhz clk cycle or how does that work ???
 // bk1_scroll_x[8:0] <= { cpu_dout[4], bk1_scroll_x_lo[6:0], bk1_scroll_x_lo[7] };
+
+reg [15:0] bk1_scroll_x_lo = 0;
+reg [15:0] bk2_scroll_x_lo = 0;
+reg [15:0] bk1_scroll_y_lo = 0;
+reg [15:0] bk2_scroll_y_lo = 0;
 
 always @(posedge clk, posedge rst) begin
   if (rst) begin
@@ -555,100 +558,10 @@ wire [15:0] ram_do;
 
 jtframe_ram16 #(.AW(15)) u_cpu_ram(
     .clk(clk),
-    .data(cpu_dout[15:0]), 
-    .addr(cpu_a[15:1]), 
+    .addr(MAB[15:1]), 
+    .data(cpu_dout[15:0]), //MDB_out  // 
     .we({~RAM & ~MWRMB, ~RAM & ~ MWRLB}),
-    .q(ram_do[15:0])
-);
-
-
-///////// VIDEO RAM //////////
-// 
-// video ram (2048)
-// we use special ram that copy content @vblank
-// because during dipswitch (only) vram is reset at each frame
-// that make cpu write to vram longer than a vblank period
-// C1 on PCB
-wire [15:0] vram_do;
-
-//clk port 31 N6M / OBJN6M /WR6M
-
-//sis6091 #(.W(10)) u_vram_ram(
-  //.clk(clk),
-  //.trigger_n(INT_T),
-  //.we({vram_cs && !cpu_wr && !cpu_uds_n , vram_cs && !cpu_wr && !cpu_lds_n}),
-  //.addr_in(cpu_a[10:1]), // if we lower cpu addr in we don't have the shift
-  //.data(cpu_dout[15:0]),
-  //.q_in(vram_do),
-
-  //.addr_out({vpos[7:3], hpos[7:3]}),
-  //.q(vram_out[15:0])
-//); 
-
-jtframe_dual_ram16 #(.AW(10)) u_vram_ram(
-  .clk0(WRN6M),
-  //.clk0(clk),
-  .data0(cpu_dout[15:0]), 
-  // MDB [0,15] //MDB is shared is either DMA data bus going with a counter to copy cpu ram in vram or it goes directly to cpu ram ? 
-  // we copy directly to vram but is that how it work ? is the ram first in
-  // cpu ram ?
-  // when DMA is asserted it copy from CPU memory to VRAM memory 
-  // so data is not copied directly in video memory (why ?) maybe so the cpu
-  // can continue do other things, but how does the cpu do other things if
-  // doesn't have access to his ram ?
-  .addr0(cpu_a[10:1]),    // KDA [1,10]
-  .we0({vram_cs && !cpu_wr_n && !cpu_uds_n , vram_cs && !cpu_wr_n && !cpu_lds_n}), //DSML S4  DMA Select ?
-  .q0(vram_do),
-
-  //.select() 
-  .clk1(T4H), // XXX T4H
-  .data1(),
-  .addr1({vpos[7:3], hpos[7:3]}),
-  .we1(),
-  .q1(vram_out[15:0])
-);
-
-
-///////// BK1 RAM //////////
-//
-// background 1 (2048)
-// D4 on pcb
-//
-
-//sei021bu ? 
-//wire signed [8:0] bk1_hpos;// = hpos[7:0] + bk1_scroll_x[8:0];
-//wire signed [8:0] bk1_vpos;// = vpos[7:0] + bk1_scroll_y[8:0];
-
-sei0021bu sei21bu_bk1_h(
-   .clk(N6M), //N6M ? >
-   .pos(hpos[7:0]), //8 on board 
- 
-   .sync(bk1_hsync),
-   .scroll(bk1_scroll_x),
-   .scrolled(bk1_hpos)
-);
-
-sei0021bu sei21bu_bk1_v(
-   .clk(N6M), //N6M ? 
-   .pos(vpos[7:0]), //7 + T8H on board ???
-   
-   .sync(),
-   .scroll(bk1_scroll_y),
-   .scrolled(bk1_vpos)
-);
-
-jtframe_dual_ram16 #(.AW(10)) u_bk1_ram(
-  .clk0(WRN6M),
-  .data0(cpu_dout[15:0]),
-  .addr0(cpu_a[10:1]),
-  .we0({bk1_cs && !cpu_wr_n && !cpu_uds_n, bk1_cs && !cpu_wr_n && !cpu_lds_n}),//DMSL S1
-  .q0(),
-
-  .clk1(bk1_hpos[0]),
-  .data1(),
-  .addr1({bk1_vpos[8:4], bk1_hpos[8:4]}),  
-  .we1(),
-  .q1(bk1_out)
+    .q(ram_do[15:0])  //MDB_in ? //remove from data bus input if set here 
 );
 
 ///////// BK2 RAM //////////
@@ -658,7 +571,7 @@ jtframe_dual_ram16 #(.AW(10)) u_bk1_ram(
 //wire signed [8:0] vpos_shift_2 = vpos[7:0] + bk2_scroll_y[8:0];
 //wire signed [8:0] hpos_shift_2 = hpos[7:0] + bk2_scroll_x[8:0];
 
-sei0021bu sei21bu_bk2_h(
+/*sei0021bu sei21bu_bk2_h(
    .clk(N6M),
    .pos(hpos[7:0]),
    .sync(bk2_hsync),
@@ -676,10 +589,9 @@ sei0021bu sei21bu_bk2_v(
 
 jtframe_dual_ram16 #(.AW(10)) u_bk2_ram(
   .clk0(N6M),
-  //.clk0(clk),
-  .data0(cpu_dout[15:0]),
-  .addr0(cpu_a[10:1]),
-  .we0({bk2_cs && !cpu_wr_n && !cpu_uds_n, bk2_cs && !cpu_wr_n && !cpu_lds_n}),
+  .data0(ram_do[15:0]),
+  .addr0(KDA[10:1]),
+  .we0({~DMSL_S2, ~DMSL_S2}),
   .q0(),
 
   .clk1(bk2_hpos[0]),//  XXX T4H
@@ -687,7 +599,7 @@ jtframe_dual_ram16 #(.AW(10)) u_bk2_ram(
   .addr1({bk2_vpos[8:4], bk2_hpos[8:4]}),
   .we1(),
   .q1(bk2_out)
-);
+);*/
 
 ///////// PALETTE RAM //////////
 // 
@@ -698,9 +610,9 @@ wire [15:0]  palette_do;
 
 jtframe_dual_ram16 #(.AW(10)) u_palette_ram(
   .clk0(WRN6M),
-  .data0(cpu_dout[15:0]),
-  .addr0(cpu_a[10:1]),
-  .we0({palette_cs && !cpu_wr_n && !cpu_uds_n, palette_cs && !cpu_wr_n && !cpu_lds_n}), //DSML GL
+  .data0(ram_do[15:0]),
+  .addr0(KDA[10:1]),
+  .we0({~DMSL_GL, ~DMSL_GL}), //DSML GL
   .q0(palette_do),
 
   .clk1(P6M), 
