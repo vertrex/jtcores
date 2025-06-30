@@ -45,10 +45,7 @@ module CLUT(
   output      [3:0] B
 );
 
-///////// PALETTE RAM //////////
-// 
-// palette ram (2048)
-// populated by DMA 
+// SEI0140 / SG0140  1H
 wire [7:0] s1_s4_out;
 wire S4ON, S1ON;
 
@@ -58,12 +55,12 @@ sg0140    sg0140_u(
 
   .PIC_A(S1PIC),
   .COL_A(S1COL), 
-  .EN_A(S1CLLT),
+  .COL_A_EN(S1CLLT),
   .MASK_A(S1MASK),
 
   .PIC_B(S4PIC),
   .COL_B(S4COL), 
-  .EN_B(S4CLLT),
+  .COL_B_EN(S4CLLT),
   .MASK_B(S4MASK),
 
   .ON_A(S1ON),
@@ -72,21 +69,26 @@ sg0140    sg0140_u(
   .Q(s1_s4_out) 
 ); 
 
-// XXX BK2 is latched before input into palette page 8 with P6M clck 
-
-//74LS20P check if color != 'hf XXX used latched value
-//page 10
+// PROM 27 3J
 assign prom_27_cs = 1'b1;
-assign prom_27_addr[7:0] = { PRIOR_D, PRIOR_C, PRIOR_B, PRIOR_A, S2ON, OBJON, S4ON, S1ON };
-//assign prom_27_addr[7:0] = { 1'b1, 1'b1, PRIOR_B, PRIOR_A, S2ON, OBJON, S4ON, S1ON };
-//assign palette_addr[10:1] =  OBJON ? { prom_27_data[3:2], OOB[7:0] } :
-assign palette_addr[10:1] =  prom_27_data[0] == 1'b1 ?  { prom_27_data[3:2], OOB[7:0] } : // XXX REAL
-                             prom_27_data[1] == 1'b0 ?  { prom_27_data[3:2], s1_s4_out[7:0] } :
-                                                        { prom_27_data[3:2], SCRN2[7:0] };
+assign prom_27_addr[7:0] = { PRIOR_D, PRIOR_C, PRIOR_B, PRIOR_A, S2ON, 1'b0, S4ON, S1ON };
 
+//ON_A <= PIC_A[3:0] == 'hf ? 1'b0 : 1'b1;
+
+// 74LS257 2H, 3H 
+// 74LS258 
+// 74LS246 1C 
+//assign palette_addr[10:1] =  OBJON ? { prom_27_data[3:2], OOB[7:0] } :
+ assign palette_addr[10:1] =  prom_27_data[0] == 1'b1 ?  { prom_27_data[3:2], OOB[7:0] } : 
+                              prom_27_data[1] == 1'b0 ?  { prom_27_data[3:2], s1_s4_out[7:0] } :
+                                                         { prom_27_data[3:2], SCRN2[7:0] };
+// SIS6091 5H
 wire [10:1] palette_addr;
 wire [15:0] palette_out;
 
+///////// PALETTE RAM //////////
+// palette ram (2048)
+// populated by DMA 
 jtframe_dual_ram16 #(.AW(10)) u_palette_ram(
   .clk0(WRN6M),
   .data0(MDB[15:0]),
@@ -101,7 +103,7 @@ jtframe_dual_ram16 #(.AW(10)) u_palette_ram(
   .q1(palette_out[15:0])
 );
 
-// UEC-51 
+// UEC-51  6H
 assign R = palette_out[3:0];
 assign G = palette_out[7:4];
 assign B = palette_out[11:8];

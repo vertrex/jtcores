@@ -306,7 +306,6 @@ scan_obj_ram scan_obj_ram_u(
 );
 
 wire obj_on = ~(obj[3] & obj[2] & obj[1] & obj[0]); //XXX:
-wire s2on = ~(bk2_color[3] & bk2_color[2] & bk2_color[1] & bk2_color[0]); //sch page 8 XXX
 wire prior_c = 1'b0; //obj linebuf page 18  XXX 
 wire prior_d = 1'b0; //obj linebuf page 18  XXX
 
@@ -314,10 +313,10 @@ wire MASK =  HBLB & L3;//XXX; L3 IS NOT GOOD in sei50bu.v !
 
 reg  [3:0] bk2_code_latch;
 
-
 //74LS174 8H page 8
 reg  [7:0] bk2_r;//clock is output of sei21bu hpos[1] !
-wire [7:0] bk2;
+//wire [7:0] bk2;
+reg [7:0] bk2;
 
 //? 
 always @(posedge sg_sync_bk2) begin 
@@ -326,9 +325,11 @@ end
 //74LS374 7FH page 8
 always @(posedge P6M) 
     if (~S2MASK) 
-     bk2_r[7:0] <= { bk2_code_latch[3:0], bk2_color[3:0] };
+     bk2[7:0] <= { bk2_code_latch[3:0], bk2_color[3:0] };
 
-assign bk2 = S2MASK ? 8'bz : bk2_r;
+//assign bk2 = S2MASK ? 8'bz : bk2_r; //XXX ????
+
+wire s2on = ~(bk2[3] & bk2[2] & bk2[1] & bk2[0]); //sch page 8 XXX
 
 // COLOR OUTPUT
 CLUT CLUT_u(
