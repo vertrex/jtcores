@@ -123,7 +123,7 @@ wire [7:0] exv = {vpos[7] ^ YREV, vpos[6] ^ YREV, vpos[5] ^ YREV, vpos[4] ^ YREV
 wire OBJT1, OBJT2, STARTY, VORIGIN, VBL_ROM;
 
 assign prom_26_cs = 1'b1;
-assign prom_26_addr[7:0] = vpos[7:0];// generate CPU VBLANK on O5 (pin 6)  
+assign prom_26_addr[7:0] = vpos[7:0]; // generate CPU VBLANK on O5 (pin 6)  
 
 assign OBJT1 =   prom_26_data[0];
 assign OBJT2 =   prom_27_data[1]; //need to be latched 
@@ -134,8 +134,6 @@ assign INT_T =   prom_26_data[4];
 //nc 
 assign VBL_ROM = prom_26_data[7];
 // HV SYNC
-//
-
 wire T8H, T3F;
 
 SEI0050BU sei0050bu_u(
@@ -157,17 +155,12 @@ SEI0050BU sei0050bu_u(
 
   .HS(HS),
   .VS(VS)
-  //.LHBL(LHBL),
-  //.LVBL()
-
-  //.hcnt(hcnt),
-  //.char_cen(char_cen),
-  //.char_rom_cen(char_rom_cen)
 );
 
 assign LVBL = VBL_ROM;
 assign LHBL = HBL; // ?
-          //CHAR_CEN IS T3F
+
+//CHAR_CEN IS T3F
 always @(posedge T8H) begin 
    HBLB <= HBL; //HBL sei50bu pin 23 
 end 
@@ -211,14 +204,13 @@ scrn4 scrn4_u(
   .char_code(char_code)
 );
 
-
 ///////// BG1 DRAWING /////////////////
 //
 // background 1 : 16x16 tile 
 //
 wire [3:0] bk1_color;
 wire [3:0] bk1_code;
-wire sg_sync_bk1;
+wire S1CLLT; //S1 col latch 
 
 bk bk1_u(
   .N6M(N6M),
@@ -241,7 +233,7 @@ bk bk1_u(
 
   .color(bk1_color),
   .code(bk1_code),
-  .sg_sync(sg_sync_bk1)
+  .sg_sync(S1CLLT)
 );
 
 ///////// BG2 DRAWING /////////////////
@@ -250,7 +242,7 @@ bk bk1_u(
 //
 wire [3:0] bk2_color;
 wire [3:0] bk2_code;
-wire sg_sync_bk2;
+wire S2CLLT; // S2 COL latch
 
 bk bk2_u(
   .N6M(N6M),
@@ -273,7 +265,7 @@ bk bk2_u(
 
   .color(bk2_color),
   .code(bk2_code),
-  .sg_sync(sg_sync_bk2)
+  .sg_sync(S2CLLT)
 );
 
 ///////// SPRITE DRAWING /////////////////
@@ -301,7 +293,7 @@ scan_obj_ram scan_obj_ram_u(
   .gfx_rom_cs(gfx2_rom_cs),
 
   //.line_buffer_addr(hcnt - 5), //-5 make it work if I shift hblank by 5 end finish hblank at 5 
-  .line_buffer_addr(hpos[8:0]), //-5 make it work if I shift hblank by 5 end finish hblank at 5 
+  .line_buffer_addr({hpos[8:0]}), //-5 make it work if I shift hblank by 5 end finish hblank at 5 
   .line_buffer_out(obj)
 );
 
@@ -318,17 +310,16 @@ reg  [7:0] bk2_r;//clock is output of sei21bu hpos[1] !
 //wire [7:0] bk2;
 reg [7:0] bk2;
 
-//? 
-always @(posedge sg_sync_bk2) begin 
+always @(posedge S2CLLT) begin 
     bk2_code_latch <= bk2_code[3:0];
 end
+
 //74LS374 7FH page 8
 always @(posedge P6M) 
     if (~S2MASK) 
      bk2[7:0] <= { bk2_code_latch[3:0], bk2_color[3:0] };
 
 //assign bk2 = S2MASK ? 8'bz : bk2_r; //XXX ????
-
 wire s2on = ~(bk2[3] & bk2[2] & bk2[1] & bk2[0]); //sch page 8 XXX
 
 // COLOR OUTPUT
@@ -340,7 +331,7 @@ CLUT CLUT_u(
   .S1COL(bk1_code), 
   .S4PIC(char_color),
   .S4COL(char_code),
-  .S1CLLT(sg_sync_bk1), // ?
+  .S1CLLT(S1CLLT), // ?
   .S4CLLT(T8H), // ?
   .S1MASK(S1MASK),
   .S4MASK(S4MASK),

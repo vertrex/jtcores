@@ -292,6 +292,7 @@ reg obj_cs, scroll_cs;
 reg dsw_cs, inputs_cs, system_cs;
 reg sound_cs_3, sound_cs_5;
 
+//XXX  if <300000 or z ?
 assign cpu_rom_addr[18:1] = cpu_a[18:1];
 //assign cpu_rom_cs = ~ROM0 | ~ROM1; //1'b1 ? doesnt work
 

@@ -71,17 +71,16 @@ sg0140    sg0140_u(
 
 // PROM 27 3J
 assign prom_27_cs = 1'b1;
-assign prom_27_addr[7:0] = { PRIOR_D, PRIOR_C, PRIOR_B, PRIOR_A, S2ON, 1'b0, S4ON, S1ON };
-
-//ON_A <= PIC_A[3:0] == 'hf ? 1'b0 : 1'b1;
+assign prom_27_addr[7:0] = { 1'b0, OBJON, PRIOR_B, PRIOR_A, S2ON, OBJON, S4ON, S1ON };
+//assign prom_27_addr[7:0] = { PRIOR_D, PRIOR_C, PRIOR_B, PRIOR_A, S2ON, 1'b0, S4ON, S1ON };
 
 // 74LS257 2H, 3H 
 // 74LS258 
 // 74LS246 1C 
 //assign palette_addr[10:1] =  OBJON ? { prom_27_data[3:2], OOB[7:0] } :
- assign palette_addr[10:1] =  prom_27_data[0] == 1'b1 ?  { prom_27_data[3:2], OOB[7:0] } : 
-                              prom_27_data[1] == 1'b0 ?  { prom_27_data[3:2], s1_s4_out[7:0] } :
-                                                         { prom_27_data[3:2], SCRN2[7:0] };
+assign palette_addr[10:1] =  prom_27_data[0] == 1'b1 ?  { prom_27_data[3:2], OOB[7:0] } : 
+                             prom_27_data[1] == 1'b0 ?  { prom_27_data[3:2], s1_s4_out[7:0] } :
+                                                        { prom_27_data[3:2], SCRN2[7:0] };
 // SIS6091 5H
 wire [10:1] palette_addr;
 wire [15:0] palette_out;

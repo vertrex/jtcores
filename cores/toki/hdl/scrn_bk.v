@@ -34,7 +34,6 @@ wire [8:0] scrolled_hpos;
 wire [8:0] scrolled_vpos;
 wire s21_hsync; 
 
-
 sei0021bu sei21bu_bk1_h(
    .clk(N6M),
    .pos(hpos[7:0]), //8 on board 
