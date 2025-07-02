@@ -292,8 +292,7 @@ scan_obj_ram scan_obj_ram_u(
   .gfx_rom_addr(gfx2_rom_addr),
   .gfx_rom_cs(gfx2_rom_cs),
 
-  //.line_buffer_addr(hcnt - 5), //-5 make it work if I shift hblank by 5 end finish hblank at 5 
-  .line_buffer_addr({hpos[8:0]}), //-5 make it work if I shift hblank by 5 end finish hblank at 5 
+  .line_buffer_addr({hpos[8:0]} - 'd10), //start at hblank end - 1 ? 9 or 10 ? 
   .line_buffer_out(obj)
 );
 
