@@ -3,6 +3,7 @@
 // draw 16x16 sprite line by line
 // 
 //
+//
 module scan_obj_ram(
   input                 clk,
   input                 rst,
@@ -21,7 +22,7 @@ module scan_obj_ram(
   output reg     [19:1] gfx_rom_addr,
   output reg            gfx_rom_cs,
 
-  input           [8:0] line_buffer_addr, //8:0 ??
+  input           [7:0] line_buffer_addr, //8:0 ??
   output          [7:0] line_buffer_out
 );
 
@@ -55,12 +56,12 @@ reg  [1:0] rom_words_index;
 
 reg [15:0] plane1, plane2, plane3, plane4;
 
-reg [8:0] line_buffer_index;
+reg [7:0] line_buffer_index;
 reg [3:0]  plane_color;
 
 reg write_pixel;
 
-jtframe_obj_buffer #(.DW(8), .AW(9), .ALPHAW(4), .BLANK_DLY(2), .KEEP_OLD(1), .FLIP_OFFSET(4)) obj_buffer(
+jtframe_obj_buffer #(.DW(8), .AW(8), .ALPHAW(4), .BLANK_DLY(2), .KEEP_OLD(1), .FLIP_OFFSET(4)) obj_buffer(
   .clk(clk),
   .LHBL(LHBL), //swap buffer at each line (horizontal blank)
   .flip(1'b0), //flip whole screen ?
@@ -128,8 +129,8 @@ always @(posedge clk, posedge rst) begin
       end
 
       STATE_START_DECODING : begin
-         if (({ram_words[2][15], ram_words[1][11:0]} != 13'b0)) begin
-           //XXX MUST SKIP GLITCH
+         //if (({ram_words[2][15], ram_words[1][11:0]} != 13'b0)) begin
+         if (({ram_words[2][15], ram_words[1][11:0]} != 13'b0) && (ram_words[2] != 'hf000) && (ram_words[0] != 'hffff)) begin
            flip_x <= ram_words[0][8];
            color <= ram_words[1][15:12];
            rom_index[12:0] <= {ram_words[2][15], ram_words[1][11:0]};
@@ -180,11 +181,11 @@ always @(posedge clk, posedge rst) begin
         //pixel 1 2,3,4 
         //pix_index - (rom_words_index * 4)
         // write directly 32 bits 4 pixel in obj_buffer ? 
-        // XXX 
+        // XXX
         plane_color <= {rom_words[pix_index - (rom_words_index*4)+ 12], rom_words[pix_index - (rom_words_index*4) + 8], rom_words[pix_index - (rom_words_index*4) + 4], rom_words[pix_index - (rom_words_index*4)]};
         write_pixel <= 1'b0;
-        line_buffer_index <= flip_x ?  x[8:0] + 8'd15 - {5'b0, pix_index} :
-                                             x[8:0] + {5'b0, pix_index};
+        line_buffer_index <= flip_x ?  x[7:0] + 7'd15 - {4'b0, pix_index}  - 10:
+                                       x[7:0] + {4'b0, pix_index} - 10; //we had -10 because we start drawing a 10
         state <= STATE_COPY_PIXEL;
       end 
 
@@ -208,7 +209,7 @@ always @(posedge clk, posedge rst) begin
       STATE_FINISHED: begin
         write_pixel <= 1'b0; 
         ram_addr <= 10'h0;
-        if (previous_vpos != vpos)
+        if (previous_vpos != vpos) // IF LHBL ! reset signal would be better 
           state <= STATE_START;
         previous_vpos <= vpos;
       end

@@ -275,14 +275,16 @@ bk bk2_u(
 wire  [7:0] obj;
 reg   [8:0] obj_line_buffer_addr;
 
+wire swap = hpos[8:0] == 9'd383 ? 1'b0 : 1'b1; //+1 ? //swap a 10
+
 scan_obj_ram scan_obj_ram_u(
   .clk(clk),
   .rst(rst),
   .pxl_cen(P6M), // P6M on board
   
-  .LHBL(HBLB), //XXX
+  .LHBL(swap), //XXX
 
-  .vpos(vpos[7:0]), //we calculate 1 line head because of buffering , hpos + 2??
+  .vpos(vpos[7:0] + 1), //we calculate 1 line head because of buffering , hpos + 2??
 
   .ram_addr(obj_addr),
   .ram_out(obj_out),
@@ -292,7 +294,7 @@ scan_obj_ram scan_obj_ram_u(
   .gfx_rom_addr(gfx2_rom_addr),
   .gfx_rom_cs(gfx2_rom_cs),
 
-  .line_buffer_addr({hpos[8:0]} - 'd10), //start at hblank end - 1 ? 9 or 10 ? 
+  .line_buffer_addr(hpos[7:0] + 1), //+ 1 to latch the pixel ? 
   .line_buffer_out(obj)
 );
 
