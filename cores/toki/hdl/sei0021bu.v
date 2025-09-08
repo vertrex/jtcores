@@ -1,5 +1,4 @@
-// Must check on pcb -> must do what is done in main.v 
-// is that just a adder ? 
+// scroll controller 
 module sei0021bu(
    input      clk,
 

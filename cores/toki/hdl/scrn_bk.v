@@ -12,6 +12,7 @@ module bk(
 
   input          [10:1] KDA,
   input                 DMSL,
+  input          [17:1] MAB,
   input          [15:0] MDB,
 
   input           [7:0] hpos, 
@@ -37,7 +38,8 @@ wire s21_hsync;
 sei0021bu sei21bu_bk1_h(
    .clk(N6M),
    .pos(hpos[7:0]), //8 on board 
-   .scroll(scroll_x),
+                      //SEL S1H or S2H
+   .scroll(scroll_x), // XXX MAB[1:0] ?  + MDB[0:7]
  
    .sync(s21_hsync),
    .scrolled(scrolled_hpos)
@@ -46,7 +48,7 @@ sei0021bu sei21bu_bk1_h(
 sei0021bu sei21bu_bk1_v(
    .clk(N6M),
    .pos(vpos[7:0]), //7 + T8H on board ???
-   .scroll(scroll_y),
+   .scroll(scroll_y), //XXX MAB + MDB 
    
    .sync(),
    .scrolled(scrolled_vpos)

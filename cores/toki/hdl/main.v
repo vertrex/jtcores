@@ -66,11 +66,22 @@ module toki_main(
   output            YREV,
 
   output     [12:1] KDA,
+  output     [17:1] MAB,
   output     [15:0] MDB,
   output            DMSL_S1,
   output            DMSL_S2,
   output            DMSL_S4,
   output            DMSL_GL,
+
+  output            RST_S1H, 
+  output            SEL_S1H, 
+  output            RST_S1Y, 
+  output            SEL_S1Y,
+  output            RST_S2H, 
+  output            SEL_S2H, 
+  output            RST_S2Y, 
+  output            SEL_S2Y,
+
   output            WRN6M
 );
 
@@ -114,6 +125,7 @@ wire dtack_n;
 wire int1;
 wire ipl0_n;
 wire br_n; 
+wire berr_n;
 
 fx68k fx68k (
     .clk(clk),    // Input clock
@@ -141,15 +153,15 @@ fx68k fx68k (
     .eRWn(cpu_wr_n),     // ouput  : write=0, read =1 
     .UDSn(cpu_uds_n),  // ouput  : upper byte strobe
     .LDSn(cpu_lds_n),  // output : lower byte strobe
-    //.DTACKn(dtack_n),  // input  : data transfer ack
-    .DTACKn(dtack_n),  // input  : data transfer ack // DTACK GROUNDED
+    .DTACKn(dtack_n),  // input  : data transfer ack
+    //.DTACKn(1'b0),  // input  : data transfer ack // DTACK GROUNDED XXX
 
     //BUS ARBITRATION CONTROL
     //.BRn(1'b1),           // When a DMA transfer is initiated, the DMA controller sends a Bus Request (BR) signal to the CPU.
     .BRn(br_n),        // input  : bus request
     .BGn(bg_n),        // output : bus grant   An output signal from the CPU indicating that it has granted control of the bus to another device. 
-    //.BGACKn(bgack_n),  // input  : Bus grant ack //didn't work 
-    .BGACKn(1'b1),  // input  : Bus grant ack  An input signal to the CPU indicating that the requesting device has taken control of the bus. 
+    .BGACKn(bgack_n),  // input  : Bus grant ack //didn't work 
+    //.BGACKn(1'b1),  // input  : Bus grant ack  An input signal to the CPU indicating that the requesting device has taken control of the bus. 
 
     // PERIPHERAL CONTROL 
     .E(),              // output : cpu enable 
@@ -168,7 +180,7 @@ fx68k fx68k (
 );
 
 // 74LS244P 17K,17P, 22K
-wire [17:1] MAB;
+//wire [17:1] MAB;
 
 assign MAB[17:1] = { cpu_a[17], (BUSOPN == 1'b0) ? cpu_a[16:1] : 16'bz };
 
@@ -390,8 +402,8 @@ PLD20 PLD20_u(
 //74LS244
 wire  MEMDIR = cpu_wr_n;
 wire  ROM0, ROM1, RAM, MUSIC, MBUFEN, MBUFDR;
-wire  RST_S1H, SEL_S1H, RST_S1Y, SEL_S1Y;
-wire  RST_S2H, SEL_S2H, RST_S2Y, SEL_S2Y;
+//wire  RST_S1H, SEL_S1H, RST_S1Y, SEL_S1Y;
+//wire  RST_S2H, SEL_S2H, RST_S2Y, SEL_S2Y;
 wire  MDMARQ, ODMARQ;
 wire  RD_DISPW, RD_PLYER, RD_EXTIF;
 

@@ -90,11 +90,20 @@ module toki_video(
   input             YREV,
 
   input       [12:1] KDA,
+  input       [17:1] MAB,
   input       [15:0] MDB,
   input              DMSL_S1,
   input              DMSL_S2,
   input              DMSL_S4,
   input              DMSL_GL,
+  input              RST_S1H, 
+  input              SEL_S1H, 
+  input              RST_S1Y, 
+  input              SEL_S1Y,
+  input              RST_S2H, 
+  input              SEL_S2H, 
+  input              RST_S2Y, 
+  input              SEL_S2Y,
   input              WRN6M,
 
   input  signed      [8:0] bk1_scroll_x,
@@ -218,6 +227,7 @@ bk bk1_u(
   .rst(rst),
   .DMSL(DMSL_S1),
   .KDA(KDA[10:1]),
+  .MAB(MAB),
   .MDB(MDB),
 
   .hpos(hpos[7:0]),
@@ -250,6 +260,7 @@ bk bk2_u(
   .rst(rst),
   .DMSL(DMSL_S2),
   .KDA(KDA[10:1]),
+  .MAB(MAB),
   .MDB(MDB),
 
   .hpos(hpos[7:0]),

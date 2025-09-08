@@ -1,4 +1,4 @@
-//shift reg
+//24bit - shift reg
 module sei0010bu(
   input  clk,
   input  rst,
@@ -6,7 +6,7 @@ module sei0010bu(
   input  load, 
   input  rev, 
 
-  input  [15:0] rom_data, 
+  input  [15:0] rom_data, //seems to be 24 bit on doc XXX
   output reg [3:0]  color 
 );
 

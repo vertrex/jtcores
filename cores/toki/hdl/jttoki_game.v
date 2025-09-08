@@ -88,8 +88,11 @@ wire PRIOR_B;
 wire HREV;
 wire YREV;
 wire [12:1] KDA;
+wire [17:1] MAB;
 wire [15:0] MDB;
 wire DMSL_S1, DMSL_S2, DMSL_S4, DMSL_GL;
+wire RST_S1H, SEL_S1H, RST_S1Y, SEL_S1Y;
+wire RST_S2H, SEL_S2H, RST_S2Y, SEL_S2Y;
 wire WRN6M;
 
 //////// MAIN ////////////
@@ -166,11 +169,22 @@ toki_main  u_main(
   .YREV(YREV),
 
   .KDA(KDA),
+  .MAB(MAB),
   .MDB(MDB),
   .DMSL_S1(DMSL_S1),
   .DMSL_S2(DMSL_S2),
   .DMSL_S4(DMSL_S4),
   .DMSL_GL(DMSL_GL),
+  
+  .RST_S1H(RST_S1H), 
+  .SEL_S1H(SEL_S1H), 
+  .RST_S1Y(RST_S1Y), 
+  .SEL_S1Y(SEL_S1Y),
+  .RST_S2H(RST_S2H), 
+  .SEL_S2H(SEL_S2H), 
+  .RST_S2Y(RST_S2Y), 
+  .SEL_S2Y(SEL_S2Y),
+
   .WRN6M(WRN6M)
 );
 
@@ -264,11 +278,23 @@ toki_video u_video(
   .YREV(YREV),
 
   .KDA(KDA),
+  .MAB(MAB),
   .MDB(MDB),
+
   .DMSL_S1(DMSL_S1),
   .DMSL_S2(DMSL_S2),
   .DMSL_S4(DMSL_S4),
   .DMSL_GL(DMSL_GL),
+
+  .RST_S1H(RST_S1H), 
+  .SEL_S1H(SEL_S1H), 
+  .RST_S1Y(RST_S1Y), 
+  .SEL_S1Y(SEL_S1Y),
+  .RST_S2H(RST_S2H), 
+  .SEL_S2H(SEL_S2H), 
+  .RST_S2Y(RST_S2Y), 
+  .SEL_S2Y(SEL_S2Y),
+
   .WRN6M(WRN6M),
 
   .bk1_scroll_x(bk1_scroll_x),
