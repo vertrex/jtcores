@@ -5,7 +5,7 @@
 // current screen position is adjusted 
 // by scroll_x & scroll_y register
 //
-module bk(
+module scrn_bk(
   input                 N6M,
   input                 WRN6M,
   input                 rst,
@@ -14,6 +14,11 @@ module bk(
   input                 DMSL,
   input          [17:1] MAB,
   input          [15:0] MDB,
+
+  input                 RST_SH,
+  input                 SEL_SH,
+  input                 RST_SY,
+  input                 SEL_SY,
 
   input           [7:0] hpos, 
   input           [7:0] vpos,
@@ -37,9 +42,14 @@ wire s21_hsync;
 
 sei0021bu sei21bu_bk1_h(
    .clk(N6M),
+   .rst(RST_SH),
+   .sel(SEL_SH),
+
    .pos(hpos[7:0]), //8 on board 
                       //SEL S1H or S2H
-   .scroll(scroll_x), // XXX MAB[1:0] ?  + MDB[0:7]
+   .MAB(MAB[2:1]), // 2:1 ?
+   .MDB(MDB[7:0]),
+   //.scroll(scroll_x), // XXX MAB[1:0] ?  + MDB[0:7]
  
    .sync(s21_hsync),
    .scrolled(scrolled_hpos)
@@ -47,8 +57,13 @@ sei0021bu sei21bu_bk1_h(
 
 sei0021bu sei21bu_bk1_v(
    .clk(N6M),
+   .rst(RST_SY),
+   .sel(SEL_SY),
+
    .pos(vpos[7:0]), //7 + T8H on board ???
-   .scroll(scroll_y), //XXX MAB + MDB 
+   .MAB(MAB[2:1]),
+   .MDB(MDB[7:0]),
+   //.scroll(scroll_y), //XXX MAB + MDB 
    
    .sync(),
    .scrolled(scrolled_vpos)

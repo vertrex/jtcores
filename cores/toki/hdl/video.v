@@ -221,7 +221,7 @@ wire [3:0] bk1_color;
 wire [3:0] bk1_code;
 wire S1CLLT; //S1 col latch 
 
-bk bk1_u(
+scrn_bk bk1_u(
   .N6M(N6M),
   .WRN6M(WRN6M),
   .rst(rst),
@@ -229,6 +229,10 @@ bk bk1_u(
   .KDA(KDA[10:1]),
   .MAB(MAB),
   .MDB(MDB),
+  .RST_SH(RST_S1H),
+  .SEL_SH(SEL_S1H),
+  .RST_SY(RST_S1Y),
+  .SEL_SY(SEL_S1Y),
 
   .hpos(hpos[7:0]),
   .vpos(vpos[7:0]),
@@ -254,7 +258,7 @@ wire [3:0] bk2_color;
 wire [3:0] bk2_code;
 wire S2CLLT; // S2 COL latch
 
-bk bk2_u(
+scrn_bk bk2_u(
   .N6M(N6M),
   .WRN6M(WRN6M),
   .rst(rst),
@@ -262,6 +266,11 @@ bk bk2_u(
   .KDA(KDA[10:1]),
   .MAB(MAB),
   .MDB(MDB),
+
+  .RST_SH(RST_S2H),
+  .SEL_SH(SEL_S2H),
+  .RST_SY(RST_S2Y),
+  .SEL_SY(SEL_S2Y),
 
   .hpos(hpos[7:0]),
   .vpos(vpos[7:0]),
@@ -318,9 +327,8 @@ wire MASK =  HBLB & L3;//XXX; L3 IS NOT GOOD in sei50bu.v !
 reg  [3:0] bk2_code_latch;
 
 //74LS174 8H page 8
+reg  [7:0] bk2;
 reg  [7:0] bk2_r;//clock is output of sei21bu hpos[1] !
-//wire [7:0] bk2;
-reg [7:0] bk2;
 
 always @(posedge S2CLLT) begin 
     bk2_code_latch <= bk2_code[3:0];
