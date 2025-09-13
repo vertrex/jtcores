@@ -20,13 +20,13 @@ always @(posedge clk) begin
    if (rst_n == 1'b0) 
       scroll <= 9'b0;
 
-   if (cs_n == 1'b0 && low == 1'b1) //scroll_cs  
+   if (~cs_n & low) //scroll_cs  
       scroll <= { 1'b0, data[6:0], data[7] }; 
-   if (cs_n && high == 1'b1) 
+   if (~cs_n & high) 
       scroll <= { data[4],  scroll[7:0] };
  
    // update in sel_n && high ?  
-   scrolled[8:0] <= {1'b0, pos[7:0]}  + scroll[8:0];
+   scrolled[8:0] <= {1'b0, pos[7:0]} + scroll[8:0];
 
    //sync 
    if (pos[1:0] + scroll[1:0] == 2'b11)
