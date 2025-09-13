@@ -174,13 +174,10 @@ fx68k fx68k (
 );
 
 // 74LS244P 17K,17P, 22K
-//wire [17:1] MAB;
-
 assign MAB[17:1] = { cpu_a[17], (BUSOPN == 1'b0) ? cpu_a[16:1] : 16'bz };
 
 // 74LS246
 // bidrectional bus
-
 assign MDB_IN[15:0] = cpu_din;  //work on pocket but not on simulation ??  because of tristate ?
 //assign MDB_IN[15:0]  = { (!cpu_lds_n && !MEMDIR) ? cpu_din[7:0] : 8'bz ,  (!cpu_uds_n && !MEMDIR) ? cpu_din[15:8] : 8'bz }; //memory -> CPU // B-> A
 // // B → A
@@ -196,7 +193,6 @@ assign MDB_OUT[15:0] = {  (!cpu_lds_n && MEMDIR) ? cpu_dout[7:0] : 8'bz , (!cpu_
 // during dip-switch char ram is zero filled @vblank
 // ram drawing and filling is longer than vblank period 
 //
-
 wire int_clk;
 wire int_a, int_n; 
 
@@ -285,7 +281,7 @@ jtframe_68kdtack_cen  u_dtack(
 // 0x0c0004, 0x0c0005 : system port        (ro) 
 //
 //reg ram_cs, obj_cs, palette_cs, bk1_cs, bk2_cs, vram_cs, 
-reg obj_cs, scroll_cs;
+reg obj_cs;
 reg dsw_cs, inputs_cs, system_cs;
 reg sound_cs_3, sound_cs_5;
 
@@ -301,12 +297,9 @@ always @(*) begin
       //sound latch
       sound_cs_2 = ~cpu_as_n & (cpu_a[23:1] == 23'h40002);
       sound_cs_3 = ~cpu_as_n & (cpu_a[23:1] == 23'h40003);
-
       sound_cs_4 = ~cpu_as_n & (cpu_a[23:1] == 23'h40004);
       sound_cs_5 = ~cpu_as_n & (cpu_a[23:1] == 23'h40005);
       sound_cs_6 = ~cpu_as_n & (cpu_a[23:1] == 23'h40006);
-      //scroll 
-      scroll_cs  = ~cpu_as_n & (cpu_a[23:1] >= 23'h50000 && cpu_a[23:1] < 23'h5002f); //96 
       //divide it in sub cs & use it bg scroll 
       //IO
       dsw_cs     = ~cpu_as_n & (cpu_a[23:1] == 23'h60000); // && cpu_a[23:1] < 24'hc0001); //2 

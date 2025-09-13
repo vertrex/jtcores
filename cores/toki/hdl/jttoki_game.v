@@ -68,11 +68,6 @@ wire P6M, N6M;
 assign P6M = pxl_cen;
 assign N6M = ~pxl_cen;
 
-//wire vram_cs;
-//wire bk1_cs;
-//wire bk2_cs;
-//wire obj_cs;
-
 wire S1MASK;
 wire S2MASK;
 wire OBJMASK;
