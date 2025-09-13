@@ -68,6 +68,7 @@ module toki_main(
   output     [12:1] KDA,
   output     [17:1] MAB,
   output     [15:0] MDB,
+  output     [15:0] MDB_OUT,
   output            DMSL_S1,
   output            DMSL_S2,
   output            DMSL_S4,
@@ -186,21 +187,19 @@ assign MAB[17:1] = { cpu_a[17], (BUSOPN == 1'b0) ? cpu_a[16:1] : 16'bz };
 
 // 74LS246
 // bidrectional bus
-wire [15:0] MDB_out; 
+//wire [15:0] MDB_OUT; 
 wire [15:0] MDB_in; 
 
 assign MDB_in[7:0]  = (!cpu_lds_n && !MEMDIR) ? cpu_din[7:0] : 8'bz; //memory -> cpu 
 assign MDB_in[15:8] = (!cpu_uds_n && !MEMDIR) ? cpu_din[15:8] : 8'bz; // // B → A
 
-
-
-assign MDB_out[7:0]  = (!cpu_lds_n && MEMDIR) ? cpu_dout[7:0] : 8'bz;  //cpu  -> memory 
-assign MDB_out[15:8] = (!cpu_uds_n && MEMDIR) ? cpu_dout[15:8] : 8'bz; // ;  // A → B
-//assign MDB_out[7:0]  = (!cpu_lds_n && MEMDIR) ? ram_do[7:0] : 8'bz;  //cpu  -> memory 
-//assign MDB_out[15:8] = (!cpu_uds_n && MEMDIR) ? ram_do[15:8] : 8'bz; // ;  // A → B
+assign MDB_OUT[7:0]  = (!cpu_lds_n && MEMDIR) ? cpu_dout[7:0] : 8'bz;  //cpu  -> memory 
+assign MDB_OUT[15:8] = (!cpu_uds_n && MEMDIR) ? cpu_dout[15:8] : 8'bz; // ;  // A → B
+//assign MDB_OUT[7:0]  = (!cpu_lds_n && MEMDIR) ? ram_do[7:0] : 8'bz;  //cpu  -> memory 
+//assign MDB_OUT[15:8] = (!cpu_uds_n && MEMDIR) ? ram_do[15:8] : 8'bz; // ;  // A → B
 
 // XXX ! 
-//assign MDB[15:0] = MDB_out[15:0];
+//assign MDB[15:0] = MDB_OUT[15:0];
 //assign MDB[15:0] = ram_do[15:0];
 
 ///////// 68K interrupt ///////////////////////////
@@ -417,7 +416,7 @@ ADRS ADRS_u(
   .MWRLB(MWRLB),
   .MRDLB(MRDLB),
   .RESET_A(rst),
-  .MDB(MDB_out[15:0]),
+  .MDB(MDB_OUT[15:0]),
 
   .ROM0(ROM0),
   .ROM1(ROM1),
@@ -569,7 +568,7 @@ wire [15:0] ram_do;
 jtframe_ram16 #(.AW(15)) u_cpu_ram(
     .clk(clk),
     .addr(MAB[15:1]), 
-    .data(cpu_dout[15:0]), //MDB_out  // 
+    .data(cpu_dout[15:0]), //MDB_OUT  // 
     .we({~RAM & ~MWRMB, ~RAM & ~ MWRLB}),
     .q(ram_do[15:0])  //MDB_in ? //remove from data bus input if set here 
 );

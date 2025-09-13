@@ -13,7 +13,8 @@ module scrn_bk(
   input          [10:1] KDA,
   input                 DMSL,
   input          [17:1] MAB,
-  input          [15:0] MDB,
+  input          [15:0] MDB_IN,
+  input          [15:0] MDB_OUT,
 
   input                 RST_SH,
   input                 SEL_SH,
@@ -48,8 +49,8 @@ sei0021bu sei21bu_bk1_h(
    .pos(hpos[7:0]), //8 on board 
                       //SEL S1H or S2H
    .MAB(MAB[2:1]), // 2:1 ?
-   .MDB(MDB[7:0]),
-   //.scroll(scroll_x), // XXX MAB[1:0] ?  + MDB[0:7]
+   .MDB_OUT(MDB_OUT[7:0]),
+   .scroll(scroll_x), // XXX MAB[1:0] ?  + MDB[0:7]
  
    .sync(s21_hsync),
    .scrolled(scrolled_hpos)
@@ -62,8 +63,8 @@ sei0021bu sei21bu_bk1_v(
 
    .pos(vpos[7:0]), //7 + T8H on board ???
    .MAB(MAB[2:1]),
-   .MDB(MDB[7:0]),
-   //.scroll(scroll_y), //XXX MAB + MDB 
+   .MDB_OUT(MDB_OUT[7:0]),
+   .scroll(scroll_y), //XXX MAB + MDB 
    
    .sync(),
    .scrolled(scrolled_vpos)
@@ -73,7 +74,7 @@ assign sg_sync = scrolled_hpos[1];
 
 jtframe_dual_ram16 #(.AW(10)) u_bk1_ram(
   .clk0(WRN6M),
-  .data0(MDB[15:0]),
+  .data0(MDB_IN[15:0]),
   .addr0(KDA[10:1]),
   .we0({~DMSL, ~DMSL}),//DMSL S1
   .q0(),
