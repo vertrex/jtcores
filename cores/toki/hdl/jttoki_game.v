@@ -40,7 +40,6 @@ wire  [6:1] scroll_addr;
 wire [15:0] scroll_out;
 wire        bk1_hsync; 
 wire        bk2_hsync;
-wire        bg_order;
 
 wire m68k_sound_cs_2;
 wire m68k_sound_cs_4;
@@ -134,9 +133,6 @@ toki_main  u_main(
   //Shared video RAM 
   .obj_addr(obj_addr),
   .obj_out(obj_out),
-
-  //Scroll latch
-  .bg_order(bg_order),
 
   //Sound latch
   .sound_cs_2(m68k_sound_cs_2),

@@ -38,8 +38,6 @@ module toki_main(
   input      [10:1] obj_addr,
   output     [15:0] obj_out,
 
-  output  reg       bg_order,
-
   output reg        sound_cs_2, 
   output reg        sound_cs_4,
   output reg        sound_cs_6,
@@ -183,12 +181,12 @@ assign MAB[17:1] = { cpu_a[17], (BUSOPN == 1'b0) ? cpu_a[16:1] : 16'bz };
 // 74LS246
 // bidrectional bus
 
-assign MDB_IN[15:0] = cpu_din; 
-//assign MDB_IN[7:0]  = (!cpu_lds_n && !MEMDIR) ? cpu_din[7:0] : 8'bz; //memory -> cpu 
-//assign MDB_IN[15:8] = (!cpu_uds_n && !MEMDIR) ? cpu_din[15:8] : 8'bz; // // B → A
-
-assign MDB_OUT[7:0]  = (!cpu_lds_n && MEMDIR) ? cpu_dout[7:0] : 8'bz;  //cpu  -> memory 
-assign MDB_OUT[15:8] = (!cpu_uds_n && MEMDIR) ? cpu_dout[15:8] : 8'bz; // ;  // A → B
+assign MDB_IN[15:0] = cpu_din;  //work on pocket but not on simulation ??  because of tristate ?
+//assign MDB_IN[15:0]  = { (!cpu_lds_n && !MEMDIR) ? cpu_din[7:0] : 8'bz ,  (!cpu_uds_n && !MEMDIR) ? cpu_din[15:8] : 8'bz }; //memory -> CPU // B-> A
+// // B → A
+assign MDB_OUT[15:0] = {  (!cpu_lds_n && MEMDIR) ? cpu_dout[7:0] : 8'bz , (!cpu_uds_n && MEMDIR) ? cpu_dout[15:8] : 8'bz };
+//cpu -> memory
+// A → B
 
 ///////// 68K interrupt ///////////////////////////
 //
@@ -468,29 +466,6 @@ assign br_n = MBUSRQ;
 //                  '0b101  000'
 //                  scrollram[40]&  0x8000 -> bit 16 up ! 
 //flip_screen_set((m_scrollram[0x28]&0x8000)==0); 
-
-//////// Scroll /////////////////////////
-//
-// Scrolling register latch
-//
-
-// XXX do we need that ??
-always @(posedge clk, posedge rst) begin
-  if (rst) begin
-      bg_order <= 1'b0;
-      end
-  else if (clk) begin
-    if (scroll_cs == 'b1) begin
-
-      if (cpu_a[6:1] == 'h28) begin
-        if ((cpu_dout[15:0] & 16'h100) == 16'h0)
-          bg_order <= 1'b0;
-        else
-          bg_order <= 1'b1;
-        end
-    end
-  end
-end
 
 ///////// Sound ///////////////
 //
