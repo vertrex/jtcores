@@ -31,7 +31,7 @@ module CLUT(
   input      [7:0]  OOB,
   input      [10:1] KDA,
   input             DMSL_GL,
-  input      [15:0] MDB,
+  input      [15:0] MDB_IN,
   input             MASK,
 
   input      [7:0]  prom_27_data, // XXX 4 bit wide ! 
@@ -90,7 +90,7 @@ wire [15:0] palette_out;
 // populated by DMA 
 jtframe_dual_ram16 #(.AW(10)) u_palette_ram(
   .clk0(WRN6M),
-  .data0(MDB[15:0]),
+  .data0(MDB_IN[15:0]),
   .addr0(KDA[10:1]),
   .we0({~DMSL_GL, ~DMSL_GL}), //DSML GL
   .q0(),

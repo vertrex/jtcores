@@ -91,7 +91,7 @@ module toki_video(
 
   input       [12:1] KDA,
   input       [17:1] MAB,
-  input       [15:0] MDB,
+  input       [15:0] MDB_IN,
   input       [15:0] MDB_OUT,
   input              DMSL_S1,
   input              DMSL_S2,
@@ -189,7 +189,7 @@ scrn4 scrn4_u(
 
   .KDA(KDA[10:1]),
   .DMSL_S4(DMSL_S4),
-  .MDB(MDB),
+  .MDB_IN(MDB_IN),
   
   .hpos(hpos[7:0]),
   .vpos(vpos[7:0]),
@@ -224,7 +224,7 @@ scrn_bk bk1_u(
   .DMSL(DMSL_S1),
   .KDA(KDA[10:1]),
   .MAB(MAB),
-  .MDB_IN(MDB),
+  .MDB_IN(MDB_IN),
   .MDB_OUT(MDB_OUT),
   .RST_SH(RST_S1H),
   .SEL_SH(SEL_S1H),
@@ -259,7 +259,7 @@ scrn_bk bk2_u(
   .DMSL(DMSL_S2),
   .KDA(KDA[10:1]),
   .MAB(MAB),
-  .MDB_IN(MDB),
+  .MDB_IN(MDB_IN),
   .MDB_OUT(MDB_OUT),
 
   .RST_SH(RST_S2H),
@@ -357,7 +357,7 @@ CLUT CLUT_u(
   .OOB(obj[7:0]), //XXX
   .KDA(KDA[10:1]),
   .DMSL_GL(DMSL_GL),
-  .MDB(MDB[15:0]),
+  .MDB_IN(MDB_IN[15:0]),
   .MASK(MASK),
 
   .prom_27_data(prom_27_data),

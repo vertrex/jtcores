@@ -12,7 +12,7 @@ module ADRS(
 
     // 74LS273 18M 
     input           RESET_A,
-    input    [15:0] MDB,
+    input    [15:0] MDB_OUT,
 
     // PLD21 22M
     output  ROM0,
@@ -117,12 +117,12 @@ always @(posedge MASKS, posedge RESET_A) begin
        YREV <= 1'b0;
        end 
     else if (MASKS) begin  //scroll cs ? 
-       { S4MASK, OBJMASK, S2MASK, S1MASK } <= MDB[3:0];//cpu_dout[3:0];
+       { S4MASK, OBJMASK, S2MASK, S1MASK } <= MDB_OUT[3:0];
        // if ((cpu_dout[15:0] & 16'h100) == 16'h0) ??? 0b100_000_000
-       { PRIOR_B, PRIOR_A } <= MDB[9:8];//cpu_dout[9:8]; 
+       { PRIOR_B, PRIOR_A } <= MDB_OUT[9:8];
        // 74LS368 17M
-       HREV <= ~MDB[14];//~cpu_dout[14]; 
-       YREV <= ~MDB[15];//~cpu_dout[15];
+       HREV <= ~MDB_OUT[14];
+       YREV <= ~MDB_OUT[15];
        end 
 end 
 

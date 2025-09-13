@@ -84,7 +84,7 @@ wire HREV;
 wire YREV;
 wire [12:1] KDA;
 wire [17:1] MAB;
-wire [15:0] MDB;
+wire [15:0] MDB_IN;
 wire [15:0] MDB_OUT;
 wire DMSL_S1, DMSL_S2, DMSL_S4, DMSL_GL;
 wire RST_S1H, SEL_S1H, RST_S1Y, SEL_S1Y;
@@ -162,7 +162,7 @@ toki_main  u_main(
 
   .KDA(KDA),
   .MAB(MAB),
-  .MDB(MDB),
+  .MDB_IN(MDB_IN),
   .MDB_OUT(MDB_OUT),
   .DMSL_S1(DMSL_S1),
   .DMSL_S2(DMSL_S2),
@@ -271,7 +271,7 @@ toki_video u_video(
 
   .KDA(KDA),
   .MAB(MAB),
-  .MDB(MDB),
+  .MDB_IN(MDB_IN),
   .MDB_OUT(MDB_OUT),
 
   .DMSL_S1(DMSL_S1),
