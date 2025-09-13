@@ -38,11 +38,6 @@ module toki_main(
   input      [10:1] obj_addr,
   output     [15:0] obj_out,
 
-  output  reg signed [8:0] bk1_scroll_x,
-  output  reg signed [8:0] bk1_scroll_y,
-  output  reg signed [8:0] bk2_scroll_x,
-  output  reg signed [8:0] bk2_scroll_y,
-
   output  reg       bg_order,
 
   output reg        sound_cs_2, 
@@ -488,50 +483,15 @@ assign br_n = MBUSRQ;
 // Scrolling register latch
 //
 
-
-// XXX use sei021bu for scrollng check if cpu_address can be high both at same time 
-// durring 1 6mhz clk cycle or how does that work ???
-// bk1_scroll_x[8:0] <= { cpu_dout[4], bk1_scroll_x_lo[6:0], bk1_scroll_x_lo[7] };
-
-reg [15:0] bk1_scroll_x_lo = 0;
-reg [15:0] bk2_scroll_x_lo = 0;
-reg [15:0] bk1_scroll_y_lo = 0;
-reg [15:0] bk2_scroll_y_lo = 0;
-
+// XXX do we need that ??
 always @(posedge clk, posedge rst) begin
   if (rst) begin
       bg_order <= 1'b0;
-      bk1_scroll_x <= 9'b0;
-      bk1_scroll_y <= 9'b0;
-      bk2_scroll_x <= 9'b0;
-      bk2_scroll_y <= 9'b0;
       end
   else if (clk) begin
     if (scroll_cs == 'b1) begin
 
-      if      (cpu_a[6:1] == 'h6)
-        //get 8 byte 
-        bk1_scroll_x_lo[15:0] <= cpu_dout[15:0];
-      else if (cpu_a[6:1] == 'h5)
-        //add the 9th bit / sign bit ? 
-        bk1_scroll_x[8:0] <= { cpu_dout[4], bk1_scroll_x_lo[6:0], bk1_scroll_x_lo[7] };
-
-      else if (cpu_a[6:1] == 'he)
-        bk1_scroll_y_lo[15:0] <= cpu_dout[15:0];
-      else if (cpu_a[6:1] == 'hd) 
-        bk1_scroll_y[8:0] <= { cpu_dout[4], bk1_scroll_y_lo[6:0], bk1_scroll_y_lo[7] };
-
-      else if (cpu_a[6:1] == 'h16) 
-        bk2_scroll_x_lo[15:0] <= cpu_dout[15:0];
-      else if (cpu_a[6:1] == 'h15) 
-        bk2_scroll_x[8:0] <= { cpu_dout[4], bk2_scroll_x_lo[6:0], bk2_scroll_x_lo[7] };
-
-      else if (cpu_a[6:1] == 'h1e)
-        bk2_scroll_y_lo[15:0] <= cpu_dout[15:0];
-      else if (cpu_a[6:1] == 'h1d)
-         bk2_scroll_y[8:0] <= { cpu_dout[4], bk2_scroll_y_lo[6:0], bk2_scroll_y_lo[7] };
-
-      else if (cpu_a[6:1] == 'h28) begin
+      if (cpu_a[6:1] == 'h28) begin
         if ((cpu_dout[15:0] & 16'h100) == 16'h0)
           bg_order <= 1'b0;
         else

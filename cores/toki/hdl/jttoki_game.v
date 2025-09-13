@@ -38,12 +38,7 @@ wire [10:1] obj_addr;
 wire [15:0] obj_out;
 wire  [6:1] scroll_addr;
 wire [15:0] scroll_out;
-
-wire [8:0]  bk1_scroll_x;
-wire [8:0]  bk1_scroll_y;
 wire        bk1_hsync; 
-wire [8:0]  bk2_scroll_x;
-wire [8:0]  bk2_scroll_y;
 wire        bk2_hsync;
 wire        bg_order;
 
@@ -141,10 +136,6 @@ toki_main  u_main(
   .obj_out(obj_out),
 
   //Scroll latch
-  .bk1_scroll_x(bk1_scroll_x),
-  .bk1_scroll_y(bk1_scroll_y),
-  .bk2_scroll_x(bk2_scroll_x),
-  .bk2_scroll_y(bk2_scroll_y),
   .bg_order(bg_order),
 
   //Sound latch
@@ -256,7 +247,6 @@ toki_video u_video(
   .gfx4_rom_addr(gfx4_rom_addr),
   .gfx4_rom_cs(gfx4_rom_cs),
 
-  // scroll latch
   .prom_26_data(prom_26_data),
   .prom_26_ok(prom_26_ok),
   .prom_26_cs(prom_26_cs),
@@ -298,12 +288,7 @@ toki_video u_video(
   .RST_S2Y(RST_S2Y), 
   .SEL_S2Y(SEL_S2Y),
 
-  .WRN6M(WRN6M),
-
-  .bk1_scroll_x(bk1_scroll_x),
-  .bk2_scroll_x(bk2_scroll_x),
-  .bk1_scroll_y(bk1_scroll_y),
-  .bk2_scroll_y(bk2_scroll_y)
+  .WRN6M(WRN6M)
 );
 
 //////// SOUND ////////////

@@ -105,12 +105,7 @@ module toki_video(
   input              SEL_S2H, 
   input              RST_S2Y, 
   input              SEL_S2Y,
-  input              WRN6M,
-
-  input  signed      [8:0] bk1_scroll_x,
-  input  signed      [8:0] bk2_scroll_x,
-  input  signed      [8:0] bk1_scroll_y,
-  input  signed      [8:0] bk2_scroll_y
+  input              WRN6M
 );
 
 ////////// VIDEO SYNC /////////////
@@ -239,9 +234,6 @@ scrn_bk bk1_u(
   .hpos(hpos[7:0]),
   .vpos(vpos[7:0]),
 
-  .scroll_x(bk1_scroll_x),
-  .scroll_y(bk1_scroll_y),
-
   .gfx_rom_data(gfx3_rom_data),
   .gfx_rom_ok(gfx3_rom_ok),
   .gfx_rom_addr(gfx3_rom_addr),
@@ -277,9 +269,6 @@ scrn_bk bk2_u(
 
   .hpos(hpos[7:0]),
   .vpos(vpos[7:0]),
-
-  .scroll_x(bk2_scroll_x),
-  .scroll_y(bk2_scroll_y),
 
   .gfx_rom_data(gfx4_rom_data),
   .gfx_rom_ok(gfx4_rom_ok),

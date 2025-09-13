@@ -24,9 +24,6 @@ module scrn_bk(
   input           [7:0] hpos, 
   input           [7:0] vpos,
 
-  input    signed [8:0] scroll_x,
-  input    signed [8:0] scroll_y,
-
   input          [15:0] gfx_rom_data,
   input                 gfx_rom_ok,
   output         [18:1] gfx_rom_addr,
@@ -50,7 +47,6 @@ sei0021bu sei21bu_bk1_h(
                       //SEL S1H or S2H
    .MAB(MAB[2:1]), // 2:1 ?
    .MDB_OUT(MDB_OUT[7:0]),
-   .scroll(scroll_x), // XXX MAB[1:0] ?  + MDB[0:7]
  
    .sync(s21_hsync),
    .scrolled(scrolled_hpos)
@@ -64,7 +60,6 @@ sei0021bu sei21bu_bk1_v(
    .pos(vpos[7:0]), //7 + T8H on board ???
    .MAB(MAB[2:1]),
    .MDB_OUT(MDB_OUT[7:0]),
-   .scroll(scroll_y), //XXX MAB + MDB 
    
    .sync(),
    .scrolled(scrolled_vpos)
