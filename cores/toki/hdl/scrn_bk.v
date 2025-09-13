@@ -40,13 +40,15 @@ wire s21_hsync;
 
 sei0021bu sei21bu_bk1_h(
    .clk(N6M),
-   .rst(RST_SH),
-   .sel(SEL_SH),
+   .rst_n(RST_SH),
+   .cs_n(SEL_SH),
 
    .pos(hpos[7:0]), //8 on board 
                       //SEL S1H or S2H
-   .MAB(MAB[2:1]), // 2:1 ?
-   .MDB_OUT(MDB_OUT[7:0]),
+   .low(MAB[2]),
+   .high(MAB[1]),
+
+   .data(MDB_OUT[7:0]),
  
    .sync(s21_hsync),
    .scrolled(scrolled_hpos)
@@ -54,12 +56,15 @@ sei0021bu sei21bu_bk1_h(
 
 sei0021bu sei21bu_bk1_v(
    .clk(N6M),
-   .rst(RST_SY),
-   .sel(SEL_SY),
+   .rst_n(RST_SY),
+   .cs_n(SEL_SY),
 
    .pos(vpos[7:0]), //7 + T8H on board ???
-   .MAB(MAB[2:1]),
-   .MDB_OUT(MDB_OUT[7:0]),
+
+   .low(MAB[2]),
+   .high(MAB[1]),
+   
+   .data(MDB_OUT[7:0]),
    
    .sync(),
    .scrolled(scrolled_vpos)
