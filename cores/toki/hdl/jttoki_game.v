@@ -293,48 +293,6 @@ toki_video u_video(
 // - oki6295 / pcm 
 // - ym3812 / fm 
 // - coin input 
-// 
-music1 u_music1(
-  .rst(rst),
-  .clk(clk),
-
-  .oki_cen(oki_cen),
-
-  .coin_input(coin[1:0]),
-
-  .snd(snd),
-  .fxlevel(dip_fxlevel),
-  .enable_fm(enable_fm),
-  .enable_psg(enable_psg),
-
-  .z80_rom_addr(z80_rom_addr),
-  .z80_rom_data(z80_rom_data),
-  .z80_rom_ok(z80_rom_ok),
-  .z80_rom_cs(z80_rom_cs),
-
-  .bank_rom_addr(bank_rom_addr),
-  .bank_rom_data(bank_rom_data),
-  .bank_rom_ok(bank_rom_ok),
-  .bank_rom_cs(bank_rom_cs),
-
-  .pcm_rom_addr(pcm_rom_addr),
-  .pcm_rom_data(pcm_rom_data),
-  .pcm_rom_ok(pcm_rom_ok),
-  .pcm_rom_cs(pcm_rom_cs),
-
-  .MUSIC(MUSIC), //== sound_cs 
-
-  .m68k_sound_cs_2(m68k_sound_cs_2),
-  .m68k_sound_cs_4(m68k_sound_cs_4),
-  .m68k_sound_cs_6(m68k_sound_cs_6),
-
-  .m68k_sound_latch_0(m68k_sound_latch_0),
-  .m68k_sound_latch_1(m68k_sound_latch_1),
-  .z80_sound_latch_0(z80_sound_latch_0),
-  .z80_sound_latch_1(z80_sound_latch_1),
-  .z80_sound_latch_2(z80_sound_latch_2)
-);
-
 
 //music2 output 
 //XXX all to music 1 ? 
@@ -343,8 +301,69 @@ wire SEL6295;
 wire COUNTER1;
 wire COUNTER2; 
 wire CS3812;
+wire CLK_3_6;
+wire PRCLK1;
+wire SA;
+wire [7:0] SD;
+// OLD 
+wire [7:0] oki_dout;
+wire [7:0] z80_dout;
+wire oki_wr;
+wire cen_fm;
+wire ym_cs_0;
+wire ym_cs_1; 
+wire ym_wr; 
+wire [7:0] ym3812_dout;
+
+wire  RESET_A;  //from where not driven ?
+wire  IRQ3812;
+wire  N1H;  //from where not driven ?
+
+wire  ym3812_irq_n;
+
+music1 u_music1(
+  .CLK_3_6(CLK_3_6),
+  .CS3812(CS3812),
+  .SA(SA),
+  .SD(SD),
+  .RESET_A(RESET_A), // ??
+  .IRQ3812(IRQ3812),
+  .PRCLK1(PRCLK1),
+  .SRDB(SRDB),
+  .SWRB(SWRB),
+  .SEL6295(SEL6295),
+  //// 
+
+  .rst(rst),
+  .clk(clk),
+
+  .oki_cen(oki_cen),
+
+  .snd(snd),
+  .fxlevel(dip_fxlevel),
+  .enable_fm(enable_fm),
+  .enable_psg(enable_psg),
+
+  .pcm_rom_addr(pcm_rom_addr),
+  .pcm_rom_data(pcm_rom_data),
+  .pcm_rom_ok(pcm_rom_ok),
+  .pcm_rom_cs(pcm_rom_cs),
+
+  .oki_dout(oki_dout),
+  .z80_dout(z80_dout),
+  .oki_wr(oki_wr),
+  .cen_fm(cen_fm),
+  .ym_cs_0(ym_cs_0),
+  .ym_cs_1(ym_cs_1),
+  .ym_wr(ym_wr),
+  .ym3812_dout(ym3812_dout),
+  .ym3812_irq_n(ym3812_irq_n)
+);
+
 
 music2 u_music2(
+  .SYS_RESET(rst),
+
   .SRDB(SRDB),
   .SWRB(SWRB), 
 
@@ -364,7 +383,45 @@ music2 u_music2(
 
   .COUNTER1(COUNTER1), //to jamma ->  mister ? 
   .COUNTER2(COUNTER2), //to jamma -> mister 
-  .CS3812(CS3812)
+  .CS3812(CS3812),
+
+  .CLK_3_6(CLK_3_6),
+  .PRCLK1(PRCLK1),
+  .SA(SA),
+  .SD(SD),
+  ////////////////////////////////
+  .clk(clk),
+
+  .z80_rom_data(z80_rom_data),
+  .z80_rom_ok(z80_rom_ok),
+  .z80_rom_addr(z80_rom_addr),
+  .z80_rom_cs(z80_rom_cs),
+
+  .bank_rom_data(bank_rom_data),
+  .bank_rom_ok(bank_rom_ok),
+  .bank_rom_addr(bank_rom_addr),
+  .bank_rom_cs(bank_rom_cs),
+
+  .m68k_sound_cs_2(m68k_sound_cs_2),
+  .m68k_sound_cs_4(m68k_sound_cs_4),
+  .m68k_sound_cs_6(m68k_sound_cs_6),
+
+  .m68k_sound_latch_0(m68k_sound_latch_0),
+  .m68k_sound_latch_1(m68k_sound_latch_1),
+
+  .z80_sound_latch_0(z80_sound_latch_0),
+  .z80_sound_latch_1(z80_sound_latch_1),
+  .z80_sound_latch_2(z80_sound_latch_2),
+
+  .oki_dout(oki_dout),
+  .z80_dout(z80_dout),
+  .oki_wr(oki_wr),
+  .cen_fm(cen_fm),
+  .ym_cs_0(ym_cs_0),
+  .ym_cs_1(ym_cs_1),
+  .ym_wr(ym_wr),
+  .ym3812_dout(ym3812_dout),
+  .ym3812_irq_n(ym3812_irq_n)
 );
 
 endmodule
