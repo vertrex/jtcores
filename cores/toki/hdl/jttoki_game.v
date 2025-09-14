@@ -78,12 +78,13 @@ wire HREV;
 wire YREV;
 wire [12:1] KDA;
 wire [17:1] MAB;
-wire [15:0] MDB_IN;
-wire [15:0] MDB_OUT;
+wire [15:0] MDB;
+wire MWRLB, MRDLB; 
 wire DMSL_S1, DMSL_S2, DMSL_S4, DMSL_GL;
 wire RST_S1H, SEL_S1H, RST_S1Y, SEL_S1Y;
 wire RST_S2H, SEL_S2H, RST_S2Y, SEL_S2Y;
 wire WRN6M;
+wire MUSIC;
 
 //////// MAIN ////////////
 //
@@ -130,6 +131,7 @@ toki_main  u_main(
   .obj_out(obj_out),
 
   //Sound latch
+  .MUSIC(MUSIC),
   .sound_cs_2(m68k_sound_cs_2),
   .sound_cs_4(m68k_sound_cs_4),
   .sound_cs_6(m68k_sound_cs_6),
@@ -153,8 +155,9 @@ toki_main  u_main(
 
   .KDA(KDA),
   .MAB(MAB),
-  .MDB_IN(MDB_IN),
-  .MDB_OUT(MDB_OUT),
+  .MDB(MDB),
+  .MWRLB(MWRLB),
+  .MRDLB(MRDLB),
   .DMSL_S1(DMSL_S1),
   .DMSL_S2(DMSL_S2),
   .DMSL_S4(DMSL_S4),
@@ -262,8 +265,7 @@ toki_video u_video(
 
   .KDA(KDA),
   .MAB(MAB),
-  .MDB_IN(MDB_IN),
-  .MDB_OUT(MDB_OUT),
+  .MDB(MDB),
 
   .DMSL_S1(DMSL_S1),
   .DMSL_S2(DMSL_S2),
@@ -292,7 +294,7 @@ toki_video u_video(
 // - ym3812 / fm 
 // - coin input 
 // 
-toki_sound u_sound(
+music1 u_music1(
   .rst(rst),
   .clk(clk),
 
@@ -320,6 +322,8 @@ toki_sound u_sound(
   .pcm_rom_ok(pcm_rom_ok),
   .pcm_rom_cs(pcm_rom_cs),
 
+  .MUSIC(MUSIC), //== sound_cs 
+
   .m68k_sound_cs_2(m68k_sound_cs_2),
   .m68k_sound_cs_4(m68k_sound_cs_4),
   .m68k_sound_cs_6(m68k_sound_cs_6),
@@ -329,6 +333,38 @@ toki_sound u_sound(
   .z80_sound_latch_0(z80_sound_latch_0),
   .z80_sound_latch_1(z80_sound_latch_1),
   .z80_sound_latch_2(z80_sound_latch_2)
+);
+
+
+//music2 output 
+//XXX all to music 1 ? 
+wire SRDB, SWRB;
+wire SEL6295;
+wire COUNTER1;
+wire COUNTER2; 
+wire CS3812;
+
+music2 u_music2(
+  .SRDB(SRDB),
+  .SWRB(SWRB), 
+
+  .SEL6295(SEL6295),
+
+  .N1H(N1H), //from where ? video ? or output ?
+  .N6M(N6M),
+
+  .MUSIC(MUSIC),
+  .MWRLB(MWRLB),
+  .MRDLB(MRDLB),
+  .MAB(MAB[3:1]),
+  .MDB(MDB[7:0]),
+  .IRQ3812(IRQ3812),//XXX from music1 ? 
+  .COIN1(coin[0]), 
+  .COIN2(coin[1]),
+
+  .COUNTER1(COUNTER1), //to jamma ->  mister ? 
+  .COUNTER2(COUNTER2), //to jamma -> mister 
+  .CS3812(CS3812)
 );
 
 endmodule

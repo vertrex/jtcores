@@ -8,7 +8,7 @@ module sei0021bu(
    input            high,
    input      [7:0] data,
 
-   input      [7:0] pos,
+   input      [7:0] pos, //XXX [8:0]
 
    output reg       sync,
    output reg [8:0] scrolled 

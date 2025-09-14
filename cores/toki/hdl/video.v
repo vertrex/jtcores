@@ -91,8 +91,7 @@ module toki_video(
 
   input       [12:1] KDA,
   input       [17:1] MAB,
-  input       [15:0] MDB_IN,
-  input       [15:0] MDB_OUT,
+  input       [15:0] MDB,
   input              DMSL_S1,
   input              DMSL_S2,
   input              DMSL_S4,
@@ -189,7 +188,7 @@ scrn4 scrn4_u(
 
   .KDA(KDA[10:1]),
   .DMSL_S4(DMSL_S4),
-  .MDB_IN(MDB_IN),
+  .MDB(MDB),
   
   .hpos(hpos[7:0]),
   .vpos(vpos[7:0]),
@@ -224,8 +223,7 @@ scrn_bk bk1_u(
   .DMSL(DMSL_S1),
   .KDA(KDA[10:1]),
   .MAB(MAB),
-  .MDB_IN(MDB_IN),
-  .MDB_OUT(MDB_OUT),
+  .MDB(MDB),
   .RST_SH(RST_S1H),
   .SEL_SH(SEL_S1H),
   .RST_SY(RST_S1Y),
@@ -259,8 +257,7 @@ scrn_bk bk2_u(
   .DMSL(DMSL_S2),
   .KDA(KDA[10:1]),
   .MAB(MAB),
-  .MDB_IN(MDB_IN),
-  .MDB_OUT(MDB_OUT),
+  .MDB(MDB),
 
   .RST_SH(RST_S2H),
   .SEL_SH(SEL_S2H),
@@ -288,6 +285,7 @@ wire  [7:0] obj;
 reg   [8:0] obj_line_buffer_addr;
 
 wire swap = hpos[8:0] == 9'd383 ? 1'b0 : 1'b1; //+1 ? //swap a 10
+//wire swap = hpos[8:0] == 9'd10 ? 1'b0 : 1'b1; //+1 ? //swap a 10
 
 scan_obj_ram scan_obj_ram_u(
   .clk(clk),
@@ -357,7 +355,7 @@ CLUT CLUT_u(
   .OOB(obj[7:0]), //XXX
   .KDA(KDA[10:1]),
   .DMSL_GL(DMSL_GL),
-  .MDB_IN(MDB_IN[15:0]),
+  .MDB(MDB[15:0]),
   .MASK(MASK),
 
   .prom_27_data(prom_27_data),

@@ -36,7 +36,7 @@
 //                    | encrypted      |
 //                    \----------------/
 //
-module toki_sound(
+module music1(
   input             rst,
   input             clk,
 
@@ -64,6 +64,9 @@ module toki_sound(
   input             pcm_rom_ok, 
   output     [16:0] pcm_rom_addr,
   output            pcm_rom_cs,
+
+  // sound cs == sound_cs
+  input             MUSIC, // XXX use it
 
   input             m68k_sound_cs_2,
   input             m68k_sound_cs_4,
@@ -227,6 +230,9 @@ jtframe_z80 u_z80(
 //
 // sound latch
 //
+//
+
+//done by the controlelr ?
 reg oki6295_irq_n;
 reg sub2main_pending;
 
@@ -249,7 +255,7 @@ always @(posedge clk, posedge rst) begin //XXX speed must be same than 68k din ?
       z80_sound_latch_2 <= 16'b0;
       sub2main_pending <= 1'b1;
       end
-    else if (m68k_sound_cs_6 == 1'b1 || m68k_sound_cs_2 == 1'b1) begin
+    else if (m68k_sound_cs_6 == 1'b1 || m68k_sound_cs_2 == 1'b1) begin //? it's used as cpu din too
       z80_sound_latch_2 <= 16'b1;
       sub2main_pending <= 1'b0;
       end

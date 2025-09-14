@@ -26,7 +26,7 @@ module scrn4(
 
   input          [10:1] KDA,
   input                 DMSL_S4,
-  input          [15:0] MDB_IN,
+  input          [15:0] MDB,
 
   input           [7:0] hpos, //8:0
   input           [7:0] vpos, //8:0
@@ -75,7 +75,7 @@ wire [15:0] ram_out;
 jtframe_dual_ram16 #(.AW(10)) u_vram_ram(
   .clk0(WRN6M),
   //.data0(ram_do[15:0]), 
-  .data0(MDB_IN[15:0]), 
+  .data0(MDB[15:0]), 
   .addr0(KDA[10:1]),    // KDA [1,10]
   .we0({~DMSL_S4 , ~DMSL_S4}), //DSML S4  DMA Select ?
   .q0(),

@@ -38,6 +38,7 @@ module toki_main(
   input      [10:1] obj_addr,
   output     [15:0] obj_out,
 
+  output            MUSIC, //active low
   output reg        sound_cs_2, 
   output reg        sound_cs_4,
   output reg        sound_cs_6,
@@ -60,8 +61,9 @@ module toki_main(
 
   output     [12:1] KDA,
   output     [17:1] MAB,
-  output     [15:0] MDB_IN,
-  output     [15:0] MDB_OUT,
+  output     [15:0] MDB,
+  output            MWRLB,
+  output            MRDLB,
   output            DMSL_S1,
   output            DMSL_S2,
   output            DMSL_S4,
@@ -178,12 +180,19 @@ assign MAB[17:1] = { cpu_a[17], (BUSOPN == 1'b0) ? cpu_a[16:1] : 16'bz };
 
 // 74LS246
 // bidrectional bus
-assign MDB_IN[15:0] = cpu_din;  //work on pocket but not on simulation ??  because of tristate ?
-//assign MDB_IN[15:0]  = { (!cpu_lds_n && !MEMDIR) ? cpu_din[7:0] : 8'bz ,  (!cpu_uds_n && !MEMDIR) ? cpu_din[15:8] : 8'bz }; //memory -> CPU // B-> A
-// // B → A
-assign MDB_OUT[15:0] = {  (!cpu_lds_n && MEMDIR) ? cpu_dout[7:0] : 8'bz , (!cpu_uds_n && MEMDIR) ? cpu_dout[15:8] : 8'bz };
-//cpu -> memory
-// A → B
+//
+// XXX cpu_lds_n & memdir is that related to cpu DTACk ?
+assign MDB[7:0] = (!cpu_lds_n & !MEMDIR) ? cpu_dout[7:0] :
+                  //(!cpu_lds_n & MEMDIR)  ?  cpu_din[7:0] :
+                  cpu_din[7:0]; 
+//                  8'hZ;  // Z ? don't work well on real or sim 
+//memory -> CPU // B-> A
+assign MDB[15:8] = (!cpu_uds_n & !MEMDIR) ? cpu_dout[15:8] :
+                   //(!cpu_uds_n & MEMDIR)  ?  cpu_din[15:8] :
+                   cpu_din[15:8];
+//                  8'hZ;  // Z ? //don't work well on real or sim
+//cpu -> Memory
+
 
 ///////// 68K interrupt ///////////////////////////
 //
@@ -295,11 +304,13 @@ always @(*) begin
       //video 
       obj_cs  = ~cpu_as_n & (cpu_a[23:1] >= 23'h36c00 && cpu_a[23:1] < 23'h37000); //2048
       //sound latch
+      //== MUSIC but also IN < ?
+      sound_cs_4 = ~cpu_as_n & (cpu_a[23:1] == 23'h40004);
+      sound_cs_6 = ~cpu_as_n & (cpu_a[23:1] == 23'h40006);
+      
       sound_cs_2 = ~cpu_as_n & (cpu_a[23:1] == 23'h40002);
       sound_cs_3 = ~cpu_as_n & (cpu_a[23:1] == 23'h40003);
-      sound_cs_4 = ~cpu_as_n & (cpu_a[23:1] == 23'h40004);
       sound_cs_5 = ~cpu_as_n & (cpu_a[23:1] == 23'h40005);
-      sound_cs_6 = ~cpu_as_n & (cpu_a[23:1] == 23'h40006);
       //divide it in sub cs & use it bg scroll 
       //IO
       dsw_cs     = ~cpu_as_n & (cpu_a[23:1] == 23'h60000); // && cpu_a[23:1] < 24'hc0001); //2 
@@ -351,7 +362,7 @@ wire OBUSDIR = 1'b1; //OBJ bus direction page 14
 wire MBUSDIR;
 //PLD 20, 22M
 // BUSOPN : active low if bus is not use by Memory or Object DMA
-wire BUSOPN, MWRLB, MWRMB, MRDLB, MRDMB, BUSAK, bgack_n, vpa_n;
+wire BUSOPN, MWRMB, MRDMB, BUSAK, bgack_n, vpa_n;
 
 PLD20 PLD20_u(
   .AS_n(cpu_as_n),
@@ -377,7 +388,7 @@ PLD20 PLD20_u(
 
 //74LS244
 wire  MEMDIR = cpu_wr_n;
-wire  ROM0, ROM1, RAM, MUSIC, MBUFEN, MBUFDR;
+wire  ROM0, ROM1, RAM, MBUFEN, MBUFDR;
 //wire  RST_S1H, SEL_S1H, RST_S1Y, SEL_S1Y;
 //wire  RST_S2H, SEL_S2H, RST_S2Y, SEL_S2Y;
 wire  MDMARQ, ODMARQ;
@@ -393,7 +404,7 @@ ADRS ADRS_u(
   .MWRLB(MWRLB),
   .MRDLB(MRDLB),
   .RESET_A(rst),
-  .MDB_OUT(MDB_OUT[15:0]),
+  .MDB(MDB[15:0]),
 
   .ROM0(ROM0),
   .ROM1(ROM1),

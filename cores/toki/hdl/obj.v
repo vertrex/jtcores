@@ -184,8 +184,8 @@ always @(posedge clk, posedge rst) begin
         // XXX
         plane_color <= {rom_words[pix_index - (rom_words_index*4)+ 12], rom_words[pix_index - (rom_words_index*4) + 8], rom_words[pix_index - (rom_words_index*4) + 4], rom_words[pix_index - (rom_words_index*4)]};
         write_pixel <= 1'b0;
-        line_buffer_index <= flip_x ?  x[7:0] + 7'd15 - {4'b0, pix_index}  - 10:
-                                       x[7:0] + {4'b0, pix_index} - 10; //we had -10 because we start drawing a 10
+        line_buffer_index <= flip_x ?  x[7:0] + 8'd15 - {4'b0, pix_index} ://  - 10:
+                                       x[7:0] + {4'b0, pix_index};//;/ - 10; //we had -10 because we start drawing a 10
         state <= STATE_COPY_PIXEL;
       end 
 
