@@ -4,6 +4,9 @@
 // address is used as key to decrypt for rom data
 // decrypt rom opcode if m1 high or data if m1 low
 //
+
+//clk is 14Mhz ! 4x cpu clk
+
 module sei80bu(
   input             clk,
   input      [15:0] z80_rom_addr,

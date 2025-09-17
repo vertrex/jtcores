@@ -37,7 +37,8 @@ module music2
 ////////////// OLD IO ///////////
 /////////////////////////////////
   input             clk,
-
+  input             oki_cen,
+/// ROM 
   input       [7:0] z80_rom_data,
   input             z80_rom_ok, 
   output reg [12:0] z80_rom_addr,
@@ -47,6 +48,7 @@ module music2
   input             bank_rom_ok, 
   output reg [15:0] bank_rom_addr,
   output            bank_rom_cs,
+//// 
 
   input             m68k_sound_cs_2,
   input             m68k_sound_cs_4,
@@ -62,18 +64,19 @@ module music2
   output reg   [15:0] z80_sound_latch_2,
 
   input         [7:0] oki_dout,
-  output        [7:0] z80_dout,
-  output              oki_wr,
-  output              cen_fm,
-  output              ym_cs_0,
-  output              ym_cs_1,
-  output              ym_wr,
-  input         [7:0] ym3812_dout,
-  input               ym3812_irq_n
+  input         [7:0] ym3812_dout
 );
 
+/////// TEMPORARY TO MUSIC1 work 
+wire ym_cs_0, ym_cs_1;
+assign SA = ym_cs_1;
+wire ym_wr;
+assign CS3812 = ~ym_wr; //  ~(ym_cs_0 | ym_cs_1);
 
-
+// WRB is used for ym-wr & oki wr .. ????
+assign PRCLK1 = oki_cen;
+wire oki_wr;
+assign SEL6295 = ~oki_wr;
 //Z80
 
 //PLD 23
@@ -104,18 +107,17 @@ module music2
 //
 wire z80_ram_cs, //ym_cs_0, ym_cs_1, 
      m68k_latch0_cs, m68k_latch1_cs, main_data_pending_cs, 
-     read_coin_cs, z80_wr_n, 
+     read_coin_cs,  
      oki_rd;
 
 //wire [7:0]  ym3812_dout;
 wire [15:0] z80_addr;
-//wire [7:0]  z80_dout;
-wire        z80_rd_n;
+//wire [7:0]  SD;
 
 z80_cs u_z80cs(
   .z80_addr(z80_addr),
-  .z80_wr_n(z80_wr_n),
-  .z80_rd_n(z80_rd_n),
+  .z80_wr_n(SWRB),
+  .z80_rd_n(SRDB),
   .z80_rom_cs(z80_rom_cs),
   .bank_rom_cs(bank_rom_cs),
   .z80_ram_cs(z80_ram_cs),
@@ -147,6 +149,7 @@ wire       z80_mreq_n;
 wire       z80_wait_n;
 
 sei80bu u_sei80bu(
+    //N1H ?? ~hpos[0] ?/
   .clk(clk),
   .z80_rom_addr({3'd0, z80_rom_addr}),
   .z80_rom_data(z80_rom_data),
@@ -161,11 +164,11 @@ sei80bu u_sei80bu(
 //
 // Generate 3.579545 MHz clock
 //
-wire cen_fm2; // XXX replace by 3_6M
+wire cen_fm2;
 
 jtframe_cen3p57 u_fmcen(
     .clk(clk),      // 48 MHz
-    .cen_3p57(cen_fm),
+    .cen_3p57(CLK_3_6),
     .cen_1p78(cen_fm2)
 );
 
@@ -202,7 +205,7 @@ always @(posedge clk) begin
     // z80 address from 0x8000  to 0x10000 is read directly from the rom 
     // z80 address from 0x10000 to 0x18000 is read after switching bank
     if (z80_addr[15:0] == 16'h4007) // switch bank usage 
-      bank_selected <= z80_dout[0];
+      bank_selected <= SD[0];
     if (z80_addr[15:0] >= 16'h8000 && bank_selected == 1'b0)
       bank_rom_addr[15:0] <= (z80_addr[15:0] - 16'h8000); //0x2000 first bytes
     else if (z80_addr[15:0] >= 16'h8000 && bank_selected == 1'b1)
@@ -222,7 +225,7 @@ wire z80_busak_n;
 jtframe_z80 u_z80(
     .rst_n(~SYS_RESET),
     .clk(clk),
-    .cen(cen_fm),
+    .cen(CLK_3_6),
 
     .wait_n(wait_n),
     .int_n(~(irq_rst10|irq_rst18)), // sound interrupt
@@ -232,8 +235,8 @@ jtframe_z80 u_z80(
     .m1_n(z80_m1_n),
     .mreq_n(z80_mreq_n),
     .iorq_n(z80_iorq_n),
-    .rd_n(z80_rd_n), 
-    .wr_n(z80_wr_n),
+    .rd_n(SRDB), 
+    .wr_n(SWRB),
     .rfsh_n(),
     .halt_n(), 
     .busak_n(),
@@ -241,7 +244,7 @@ jtframe_z80 u_z80(
     .A(z80_addr[15:0]),
 
     .din(z80_din),
-    .dout(z80_dout) 
+    .dout(SD) 
 );
 
 ////// SOUND ////////////////////
@@ -264,9 +267,9 @@ always @(posedge clk, posedge SYS_RESET) begin //XXX speed must be same than 68k
   else begin
     // send z80 data to 68k cpu
     if (z80_addr[15:0] == 16'h4018) 
-      z80_sound_latch_0 <= {8'b0, z80_dout[7:0]};
+      z80_sound_latch_0 <= {8'b0, SD[7:0]};
     if (z80_addr[15:0] == 16'h4019)
-      z80_sound_latch_1 <= {8'b0, z80_dout[7:0]};
+      z80_sound_latch_1 <= {8'b0, SD[7:0]};
 
     // data from z80 is pending read from 68k
     if (z80_addr[15:0] == 16'h4000) begin
@@ -324,7 +327,7 @@ always @(posedge clk, posedge SYS_RESET) begin
         stop_irq_18 <= 1'b0;
         irq_rst18 <= 1'b0;
         end
-      else if (ym3812_irq_n == 1'b0)
+      else if (IRQ3812 == 1'b0)
         irq_rst10 <= 1'b1;
       else if (oki6295_irq_n == 1'b0) //~m68k_sound_cs_4
         irq_rst18 <= 1'b1;
@@ -338,7 +341,7 @@ always @(posedge clk, posedge SYS_RESET) begin
                  irq_ack & irq_rst18                      ? 8'hdf :
                  main_data_pending_cs &  sub2main_pending ? 8'b1  :
                  main_data_pending_cs & ~sub2main_pending ? 8'b0 :
-                 ym_cs_0 & ~z80_rd_n                      ? ym3812_dout :
+                 ym_cs_0 & ~SRDB                          ? ym3812_dout :  //0 onlyt ???it's rarrely used aslone CS3812 ? 
                  oki_rd                                   ? oki_dout :
                  bank_rom_cs                              ? bank_rom_data :
                  m68k_latch0_cs                           ? m68k_sound_latch_0[7:0] :
@@ -360,9 +363,9 @@ wire [7:0] z80_ram_dout;
 jtframe_ram #(.AW(11)) u_z80_cpu_ram(
     .clk(clk),
     .cen(1'b1),
-    .data(z80_dout[7:0]),
+    .data(SD[7:0]),
     .addr(z80_addr[10:0]), 
-    .we(z80_ram_cs & ~z80_wr_n), //& ~z80_mreq_n ?
+    .we(z80_ram_cs & ~SWRB), //& ~z80_mreq_n ?
     .q(z80_ram_dout[7:0])
 );
 

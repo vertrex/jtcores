@@ -85,6 +85,7 @@ wire RST_S1H, SEL_S1H, RST_S1Y, SEL_S1Y;
 wire RST_S2H, SEL_S2H, RST_S2Y, SEL_S2Y;
 wire WRN6M;
 wire MUSIC;
+wire N1H;
 
 //////// MAIN ////////////
 //
@@ -195,6 +196,7 @@ toki_video u_video(
   .LVBL(LVBL),
   .hpos(hpos),
   .vpos(vpos),
+  .N1H(N1H),
   .gfx_en(gfx_en),
 
   .r(red),
@@ -308,25 +310,19 @@ wire [7:0] SD;
 // OLD 
 wire [7:0] oki_dout;
 wire [7:0] z80_dout;
-wire oki_wr;
-wire cen_fm;
 wire ym_cs_0;
 wire ym_cs_1; 
-wire ym_wr; 
 wire [7:0] ym3812_dout;
 
 wire  RESET_A;  //from where not driven ?
 wire  IRQ3812;
-wire  N1H;  //from where not driven ?
-
-wire  ym3812_irq_n;
 
 music1 u_music1(
   .CLK_3_6(CLK_3_6),
   .CS3812(CS3812),
   .SA(SA),
   .SD(SD),
-  .RESET_A(RESET_A), // ??
+  .RESET_A(RESET_A), // ?? ~SYS_RESET or = SYS_RESET ?
   .IRQ3812(IRQ3812),
   .PRCLK1(PRCLK1),
   .SRDB(SRDB),
@@ -337,7 +333,6 @@ music1 u_music1(
   .rst(rst),
   .clk(clk),
 
-  .oki_cen(oki_cen),
 
   .snd(snd),
   .fxlevel(dip_fxlevel),
@@ -350,14 +345,7 @@ music1 u_music1(
   .pcm_rom_cs(pcm_rom_cs),
 
   .oki_dout(oki_dout),
-  .z80_dout(z80_dout),
-  .oki_wr(oki_wr),
-  .cen_fm(cen_fm),
-  .ym_cs_0(ym_cs_0),
-  .ym_cs_1(ym_cs_1),
-  .ym_wr(ym_wr),
-  .ym3812_dout(ym3812_dout),
-  .ym3812_irq_n(ym3812_irq_n)
+  .ym3812_dout(ym3812_dout)
 );
 
 
@@ -369,7 +357,7 @@ music2 u_music2(
 
   .SEL6295(SEL6295),
 
-  .N1H(N1H), //from where ? video ? or output ?
+  .N1H(N1H),
   .N6M(N6M),
 
   .MUSIC(MUSIC),
@@ -377,7 +365,7 @@ music2 u_music2(
   .MRDLB(MRDLB),
   .MAB(MAB[3:1]),
   .MDB(MDB[7:0]),
-  .IRQ3812(IRQ3812),//XXX from music1 ? 
+  .IRQ3812(IRQ3812),
   .COIN1(coin[0]), 
   .COIN2(coin[1]),
 
@@ -391,6 +379,7 @@ music2 u_music2(
   .SD(SD),
   ////////////////////////////////
   .clk(clk),
+  .oki_cen(oki_cen),
 
   .z80_rom_data(z80_rom_data),
   .z80_rom_ok(z80_rom_ok),
@@ -414,14 +403,7 @@ music2 u_music2(
   .z80_sound_latch_2(z80_sound_latch_2),
 
   .oki_dout(oki_dout),
-  .z80_dout(z80_dout),
-  .oki_wr(oki_wr),
-  .cen_fm(cen_fm),
-  .ym_cs_0(ym_cs_0),
-  .ym_cs_1(ym_cs_1),
-  .ym_wr(ym_wr),
-  .ym3812_dout(ym3812_dout),
-  .ym3812_irq_n(ym3812_irq_n)
+  .ym3812_dout(ym3812_dout)
 );
 
 endmodule

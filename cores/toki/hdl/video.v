@@ -21,6 +21,7 @@ module toki_video(
   output            LVBL,
   output      [8:0] hpos,
   output      [8:0] vpos, 
+  output            N1H,
 
   // RGB out
   output [3:0]      r,
@@ -149,6 +150,7 @@ SEI0050BU sei0050bu_u(
   .hpos(hpos),
   .vpos(vpos),
 
+  .N1H(N1H),
   .T8H(T8H), //char cen
   .HBL(HBL),
   .L3(L3),

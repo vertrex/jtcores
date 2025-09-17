@@ -14,7 +14,7 @@ module SEI0050BU(
   output reg [8:0] hpos, //128 to 511 (511-128 == 383) [0, 383] == 384  
   output reg [8:0] vpos, //250 to 511 (511-250 == 261) [0, 261] == 262 ? 
 
-
+  output N1H, 
   //output reg [8:0] hcnt,
   output T8H, //p22 CHAR_CEN
   output reg HBL, //p23 HSYNC 
@@ -112,6 +112,7 @@ assign T8H = (hpos[2:0] == 3'b000);// || (hcnt == HBLANK_END-1); // || hnct == H
 //assign T3F = (hpos[1:0] == 2'b01);
 //assign T4H = (hpos[2:0] == 3'b101);
 //assign T8H = (hpos[2:0] == 3'b001);
+assign N1H = ~hpos[0];
 
 //sei50bu generate only line and PROM26 generate Y / LVBL ?
 always @(posedge pxl_cen, posedge rst) begin 

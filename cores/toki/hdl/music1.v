@@ -58,8 +58,6 @@ module music1(
   input             rst,
   input             clk,
 
-  input             oki_cen,
-
   output     [15:0] snd,
   input       [1:0] fxlevel,
   input             enable_fm,
@@ -72,18 +70,33 @@ module music1(
   output            pcm_rom_cs,
 
   output     [7:0]  oki_dout,
-  input      [7:0]  z80_dout,
-  input             oki_wr,
-  input             cen_fm,
-  input             ym_cs_0,
-  input             ym_cs_1,
-  input             ym_wr,
-  output     [7:0]  ym3812_dout,
-  output            ym3812_irq_n
+  output     [7:0]  ym3812_dout
 );
 
 
-//YM3812 
+////////// YM3812 /////////////////////////////////// 
+//
+// MUSIC
+//
+reg ym3812_addr;
+wire signed [15:0] opl_snd;
+wire opl_sample;
+
+//type 1 ou 2?
+jtopl2   u_YM3812(
+    .rst(rst), //RESET A
+    .clk(CLK_3_6), //CLK_3_6 ? 
+    .cen(1'b1), //CLK_3_6 //1 if clk is CLK_3_6
+    .din(SD[7:0]),  //SD[0:7] 
+    .addr(SA), // cmd addr SA0 
+    .cs_n(CS3812), //CS3812
+    .wr_n(SWRB), //SWRB //NO RD ?  
+    .dout(ym3812_dout), // separate so keep it or put on shared SD bus ?  
+    .irq_n(IRQ3812), //IRQ3812
+    .snd(opl_snd[15:0]), //? 
+    .sample(opl_sample) //? 
+);
+
 //MSM6295GS 
 //6295 2MB MASK ROM
 
@@ -106,47 +119,29 @@ wire [17:0] adpcm_rom_addr;
 assign pcm_rom_cs = 1'b1;
 
 // pcm rom byte 13 and 15 are swapped, that could be a simple encryption 
+// XXX NOT ON THE SCHEMATICS ???
 assign pcm_rom_addr = { adpcm_rom_addr[16], adpcm_rom_addr[13], adpcm_rom_addr[14] ,adpcm_rom_addr[15] , adpcm_rom_addr[12:0]}; 
 
+/// XXX NOT WORKING ANYMORE 
 jt6295 #(.INTERPOL(1))  u_adpcm(
     .rst(rst),
-    .clk(clk),
-    .cen(oki_cen),
+    .clk(clk), //PRCLK1? 
+    .cen(PRCLK1),//1 
     .ss(1'b1), // pin7 high, select low sample rate
      //CPU interface
-    .wrn(~oki_wr),   // wr selected
-    .din(z80_dout),  // input data from z80 
-    .dout(oki_dout), // output data to z80
+    .wrn(SWRB | SEL6295),   // wr selected // XX there is norCS 
+    .din(SD[7:0]),  // input data from z80 
+    .dout(oki_dout), // output data to z80 // put on shared SD 
      //ROM interface
     .rom_addr(adpcm_rom_addr), // output 18 memory address to read
     .rom_data(pcm_rom_data),   // input  data read
-    .rom_ok(pcm_rom_ok),       // high when rom_data is valid and matches rom_addr
+    .rom_ok(pcm_rom_ok),       // high when rom_data is valid and matches rom_addr //SRDB ?
      //Sound output
     .sound(oki_snd[13:0]), // sound output 
     .sample(oki_sample)    // sample rate  
 );
 
-////////// YM3812 /////////////////////////////////// 
-//
-// MUSIC
-//
-reg ym3812_addr;
-wire signed [15:0] opl_snd;
-wire opl_sample;
 
-jtopl2   u_YM3812(
-    .rst(rst),
-    .clk(clk),
-    .cen(cen_fm),
-    .din(z80_dout),
-    .addr(ym_cs_1), // cmd addr 
-    .cs_n(~(ym_cs_0 | ym_cs_1)),
-    .wr_n(~ym_wr), 
-    .dout(ym3812_dout),
-    .irq_n(ym3812_irq_n),
-    .snd(opl_snd[15:0]),
-    .sample(opl_sample)
-);
 
 ///////// MIXING /////////////////
 //
