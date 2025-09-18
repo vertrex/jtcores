@@ -53,7 +53,7 @@ always @(*) begin
  
     // IO
     ym_cs_0 =  (z80_addr[15:0] == 16'h4008);
-    ym_cs_1 =  (z80_addr[15:0] == 16'h4009);
+    ym_cs_1 =  (z80_addr[15:0] == 16'h4009); //SA
     //same as CS ! 
     ym_wr = (z80_addr[15:0] == 16'h4008 || z80_addr[15:0] == 16'h4009);
 
