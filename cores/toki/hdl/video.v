@@ -310,9 +310,14 @@ scan_obj_ram scan_obj_ram_u(
   .line_buffer_out(obj)
 );
 
-wire obj_on = ~(obj[3] & obj[2] & obj[1] & obj[0]); //XXX:
-wire prior_c = 1'b0; //obj linebuf page 18  XXX 
-wire prior_d = 1'b0; //obj linebuf page 18  XXX
+//activcate obj wth mycode  
+//wire obj_on = ~(obj[3] & obj[2] & obj[1] & obj[0]); //check if != 'f if we use ny code
+//wire prior_c = 1'b1; //obj linebuf page 18  XXX   active low   ? 
+//wire prior_d = 1'b1; //obj linebuf page 18  XXX   active low   ? 
+//deactive obj with myt code 
+wire obj_on = 1'b0;// active high ? 
+wire prior_c = 1'b0; //obj linebuf page 18  XXX   active low  ? 
+wire prior_d = 1'b0; //obj linebuf page 18  XXX   active low  ?
 
 wire MASK =  HBLB & L3;//XXX; L3 IS NOT GOOD in sei50bu.v !
 

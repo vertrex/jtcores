@@ -63,6 +63,9 @@ always @(*) begin
     read_coin_cs =   (z80_addr[15:0] == 16'h4013);
 
     oki_rd = ((z80_addr[15:0] == 16'h6000) && (z80_rd_n == 1'b0));
+    // 0x6000 => '0b110_000_000_000_000'
+    //              432 109 876 543 210
+    //              13 & 14 high 15 low ~MEMRQ_n RDSH_n 
     oki_wr = ((z80_addr[15:0] == 16'h6000));
     bank_rom_cs = (z80_addr[15:0] >= 16'h8000);
 end 

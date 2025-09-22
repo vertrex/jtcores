@@ -5,7 +5,7 @@ module music2
     output          SRDB,
     output          SWRB, 
 
-    //PLD23 
+    //PLD238 
     output          SEL6295, 
 
     // SEI80BU 
@@ -77,7 +77,6 @@ assign CS3812 = ~ym_wr;
 // WRB is used for ym-wr & oki wr .. ????
 assign PRCLK1 = oki_cen;
 wire oki_wr;
-assign SEL6295 = ~oki_wr;
 
 ///////// Z80 CPU  /////////////////////// 
 // 
@@ -91,6 +90,8 @@ wire z80_busak_n;
 
 wire z80_int_n;
 assign z80_int_n = ~(irq_rst10|irq_rst18);
+
+wire RFSH_n;
 
 jtframe_z80 u_z80(
     .rst_n(~SYS_RESET),
@@ -107,7 +108,7 @@ jtframe_z80 u_z80(
     .iorq_n(z80_iorq_n),
     .rd_n(SRDB), 
     .wr_n(SWRB),
-    .rfsh_n(), //ram refresh
+    .rfsh_n(RFSH_n), //ram refresh
     .halt_n(), 
     .busak_n(),
 
@@ -117,7 +118,38 @@ jtframe_z80 u_z80(
     .dout(SD) 
 );
 
-//PLD 23
+///// PLD 23 //////////////////////////
+//
+//  Chip select 
+//
+
+wire irq_ack_n;
+//assign irq_ack_n = ~(~z80_iorq_n & ~z80_m1_n); // === PLD B3 !!!!!  
+
+wire B0, B1, B3, B4, B5, B6, B7;
+
+pld23 pld23_u(
+  .SA_3(SA[3]),
+  .SA_13(SA[13]),
+  .SA_14(SA[14]),
+  .SA_15(SA[15]),
+  .MEMRQ_n(z80_mreq_n),
+  .IORQ_n(z80_iorq_n),
+  .RD_n(SRDB),
+  .RFSH_n(RFSH_n),
+  .M1_n(z80_m1_n),
+
+  .B0(B0),
+  .B1(B1),
+  .SEL6295(SEL6295),
+  .irq_ack_n(irq_ack_n),
+  .B4(B4),
+  .B5(B5),
+  .B6(B6),
+  .B7(B7)
+);
+
+//assign SEL6295 = ~oki_wr;
 
 ////// Z80 RAM  ///////////////////////
 //
@@ -137,6 +169,7 @@ jtframe_ram #(.AW(11)) u_z80_cpu_ram(
 
 // SEI 01 ?? 
 // 2151/5205 controller 
+//SEI0100BU - Custom chip marked 'SEI0100BU YM3931' (SDIP64)
 
 // SEI0080 SCRAMBLER 
 
@@ -322,8 +355,6 @@ reg irq_rst10;
 reg irq_rst18;
 reg stop_irq_10; 
 reg stop_irq_18; 
-wire irq_ack;
-assign irq_ack = ~z80_iorq_n & ~z80_m1_n;
 
 always @(posedge clk, posedge SYS_RESET) begin
   if (SYS_RESET) begin
@@ -335,11 +366,11 @@ always @(posedge clk, posedge SYS_RESET) begin
     end
   else begin
     if (clk) begin
-      if (~irq_ack & stop_irq_10) begin
+      if (irq_ack_n & stop_irq_10) begin
         irq_rst10 <= 1'b0;
         stop_irq_10 <= 1'b0;
         end
-      else if (~irq_ack & stop_irq_18) begin
+      else if (irq_ack_n & stop_irq_18) begin
         stop_irq_18 <= 1'b0;
         irq_rst18 <= 1'b0;
         end
@@ -348,13 +379,13 @@ always @(posedge clk, posedge SYS_RESET) begin
       else if (oki6295_irq_n == 1'b0) //~m68k_sound_cs_4
         irq_rst18 <= 1'b1;
           
-      if (irq_ack & irq_rst10)
+      if (~irq_ack_n & irq_rst10)
         stop_irq_10 <= 1'b1;
-      else if (irq_ack & irq_rst18)
+      else if (~irq_ack_n & irq_rst18)
         stop_irq_18 <= 1'b1;
 
-      z80_din <= irq_ack & irq_rst10                      ? 8'hd7 : 
-                 irq_ack & irq_rst18                      ? 8'hdf :
+      z80_din <= ~irq_ack_n & irq_rst10                      ? 8'hd7 : 
+                 ~irq_ack_n & irq_rst18                      ? 8'hdf :
                  main_data_pending_cs &  sub2main_pending ? 8'b1  :
                  main_data_pending_cs & ~sub2main_pending ? 8'b0 :
                  ym_cs_0 & ~SRDB                          ? ym3812_dout :  //0 onlyt ???it's rarrely used aslone CS3812 ? 
