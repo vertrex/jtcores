@@ -7,9 +7,9 @@ module z80_cs
     input             z80_wr_n,
     input             z80_rd_n,
 
-    output reg        z80_rom_cs,
+    //output reg        z80_rom_cs,
     output reg        bank_rom_cs,
-    output reg        z80_ram_cs,
+    //output reg        z80_ram_cs,
 
     output reg        ym_cs_0,
     output reg        ym_cs_1,
@@ -48,8 +48,8 @@ module z80_cs
 
 always @(*) begin
     // RAM & ROM
-    z80_rom_cs = (z80_addr[15:0] < 16'h2000);
-    z80_ram_cs = (z80_addr[15:0] >= 16'h2000 && z80_addr[15:0] < 16'h2800);
+    //z80_rom_cs = (z80_addr[15:0] < 16'h2000);
+    //z80_ram_cs = (z80_addr[15:0] >= 16'h2000 && z80_addr[15:0] < 16'h2800);
  
     // IO
     ym_cs_0 =  (z80_addr[15:0] == 16'h4008);

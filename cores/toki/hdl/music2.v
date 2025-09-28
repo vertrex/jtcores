@@ -42,7 +42,7 @@ module music2
   input       [7:0] z80_rom_data,
   input             z80_rom_ok, 
   output reg [12:0] z80_rom_addr,
-  output            z80_rom_cs,
+  output            z80_rom_cs_n,
 
   input       [7:0] bank_rom_data,
   input             bank_rom_ok, 
@@ -126,7 +126,7 @@ jtframe_z80 u_z80(
 wire irq_ack_n;
 //assign irq_ack_n = ~(~z80_iorq_n & ~z80_m1_n); // === PLD B3 !!!!!  
 
-wire B0, B1, B3, B4, B5, B6, B7;
+wire B0, B1, B3, B4, z80_ram_cs_n;
 
 pld23 pld23_u(
   .SA_3(SA[3]),
@@ -139,14 +139,14 @@ pld23 pld23_u(
   .RFSH_n(RFSH_n),
   .M1_n(z80_m1_n),
 
-  .B0(B0),
-  .B1(B1),
+  .B0(B0), //-> SEI0100BU addrs ? XXX 41 
+  .B1(B1), // -> SEU100BU addrs ? XXX 48 
   .SEL6295(SEL6295),
-  .irq_ack_n(irq_ack_n),
-  .B4(B4),
-  .B5(B5),
-  .B6(B6),
-  .B7(B7)
+  .irq_ack_n(irq_ack_n), // SEI0100BU ? XXX 54 
+  .B4(B4), // EPROM CE Z80 64k / (CS) 
+  .z80_ram_cs_n(z80_ram_cs_n), // Z80 RAM CS      
+  .z80_rom_cs_n(z80_rom_cs_n) // SEI080 BU ? XXX addrs cs ? 
+  //.B7(B7)  // Z80 8KX8 EPROM  OE (CS) addrs SPRC0 / SRPG0 ?? (SELECT ROM ? CPU 0)
 );
 
 //assign SEL6295 = ~oki_wr;
@@ -157,12 +157,15 @@ pld23 pld23_u(
 //
 wire [7:0] SD_OUT;
 
-jtframe_ram #(.AW(11)) u_z80_cpu_ram(
+jtframe_ram #(.AW(11), .CEN_RD(1)) u_z80_cpu_ram(
     .clk(clk),
-    .cen(1'b1),
+    //.cen(~z80_ram_cs_n), //~SRDB & ~SWRB ?
+    .cen(1'b1), //~SRDB & ~SWRB ?
     .data(SD[7:0]),
     .addr(SA[10:0]), 
-    .we(z80_ram_cs & ~SWRB), //PLD23 19
+    .we(~z80_ram_cs_n & ~SWRB), //PLD23 19
+//    .we(~SWRB), //PLD23 17 XXX DO THAT 
+    //XXX DO THAT 
     .q(SD_OUT[7:0])
 );
 
@@ -171,7 +174,11 @@ jtframe_ram #(.AW(11)) u_z80_cpu_ram(
 // 2151/5205 controller 
 //SEI0100BU - Custom chip marked 'SEI0100BU YM3931' (SDIP64)
 
+//XXX MOVE CODE HERE / CREATE MODULE 
+
 // SEI0080 SCRAMBLER 
+
+// XXX MOVE TO MODUEL 
 
 // 74HC74
 // -> clk 3.6M
@@ -187,8 +194,8 @@ jtframe_ram #(.AW(11)) u_z80_cpu_ram(
 
 /////// Z80 address bus ///////////////////////////////////
 //
-wire z80_ram_cs, //ym_cs_0, ym_cs_1, 
-     m68k_latch0_cs, m68k_latch1_cs, main_data_pending_cs, 
+//wire z80_ram_cs_n, //ym_cs_0, ym_cs_1, 
+wire m68k_latch0_cs, m68k_latch1_cs, main_data_pending_cs, 
      read_coin_cs,  
      oki_rd;
 
@@ -200,9 +207,9 @@ z80_cs u_z80cs(
   .z80_addr(SA),
   .z80_wr_n(SWRB),
   .z80_rd_n(SRDB),
-  .z80_rom_cs(z80_rom_cs),
+  //.z80_rom_cs(z80_rom_cs),
   .bank_rom_cs(bank_rom_cs),
-  .z80_ram_cs(z80_ram_cs),
+  //.z80_ram_cs(~z80_ram_cs_n),
 
   .ym_cs_0(ym_cs_0),
   .ym_cs_1(ym_cs_1),
@@ -235,7 +242,7 @@ sei80bu u_sei80bu(
   .z80_rom_addr({3'd0, z80_rom_addr}),
   .z80_rom_data(z80_rom_data),
   .z80_rom_ok(z80_rom_ok), 
-  .z80_rom_cs(z80_rom_cs),
+  .z80_rom_cs(~z80_rom_cs_n),
   .z80_m1(~z80_m1_n),
   .decrypt_rom_data(decrypt_rom_data),
   .decrypt_rom_ok(decrypt_rom_ok)
@@ -247,6 +254,7 @@ sei80bu u_sei80bu(
 //
 wire cen_fm2;
 
+// XXX MOVE TO SEI80BU ! 
 jtframe_cen3p57 u_fmcen(
     .clk(clk),      // 48 MHz
     .cen_3p57(CLK_3_6),
@@ -260,13 +268,14 @@ jtframe_cen3p57 u_fmcen(
 // 
 //
 
+/// XXX NEEDED ONLY BECAUE OF SDRAM ? NOT ON ORIGINAL BOARD
 reg wait_n;
 
 always @(posedge CLK_3_6, posedge SYS_RESET) begin
   if (SYS_RESET)
     wait_n <= 1'b1;
   else begin
-    if (z80_rom_cs & ~z80_rom_ok)
+    if (~z80_rom_cs_n & ~z80_rom_ok)
       wait_n <= 1'b0;
     else if (bank_rom_cs & ~bank_rom_ok)
       wait_n <= 1'b0;
@@ -280,6 +289,7 @@ end
 //
 reg bank_selected = 1'b0; // switch to data bank
 
+/// XXX ? HADNLED BY PLD ? 
 always @(posedge clk) begin
     // ROM & bank handling
     if (SA[15:0] < 16'h2000)
@@ -302,9 +312,10 @@ end
 //
 //
 
-//done by the controlelr ?
+// XXX done by the controlelr ?
 reg oki6295_irq_n;
 reg sub2main_pending;
+
 
 always @(posedge clk, posedge SYS_RESET) begin //XXX speed must be same than 68k din ?
   if (SYS_RESET) begin
@@ -356,6 +367,8 @@ reg irq_rst18;
 reg stop_irq_10; 
 reg stop_irq_18; 
 
+// XXX ??? BUS SHARED ? + CONTROLLER ?
+
 always @(posedge clk, posedge SYS_RESET) begin
   if (SYS_RESET) begin
     z80_din     <= 8'hff;
@@ -386,16 +399,16 @@ always @(posedge clk, posedge SYS_RESET) begin
 
       z80_din <= ~irq_ack_n & irq_rst10                      ? 8'hd7 : 
                  ~irq_ack_n & irq_rst18                      ? 8'hdf :
-                 main_data_pending_cs &  sub2main_pending ? 8'b1  :
-                 main_data_pending_cs & ~sub2main_pending ? 8'b0 :
+                 main_data_pending_cs &  sub2main_pending ? 8'b1  :  //MWRLB  + DATA BUS ?
+                 main_data_pending_cs & ~sub2main_pending ? 8'b0 :   //MRLB + DATA BUS ? 
                  ym_cs_0 & ~SRDB                          ? ym3812_dout :  //0 onlyt ???it's rarrely used aslone CS3812 ? 
                  oki_rd                                   ? oki_dout :
                  bank_rom_cs                              ? bank_rom_data :
                  m68k_latch0_cs                           ? m68k_sound_latch_0[7:0] :
                  m68k_latch1_cs                           ? m68k_sound_latch_1[7:0] :
                  read_coin_cs                             ? {6'b0, ~COIN2, ~COIN1} :
-                 z80_ram_cs                               ? SD_OUT :
-                 z80_rom_cs                               ? decrypt_rom_data :
+                 ~z80_ram_cs_n                            ? SD_OUT :
+                 ~z80_rom_cs_n                            ? decrypt_rom_data :
                                                             8'hff;
     end 
   end
