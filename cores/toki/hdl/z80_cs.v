@@ -4,11 +4,6 @@
 module z80_cs 
 (
     input [15:0]      z80_addr,
-    //input             z80_rd_n,
-
-    //output reg        z80_rom_cs,
-    //output reg        bank_rom_cs,
-    //output reg        z80_ram_cs,
 
     output reg        ym_cs_0,
     output reg        ym_cs_1,
@@ -44,25 +39,14 @@ module z80_cs
 //
 
 always @(*) begin
-    // RAM & ROM
-    //z80_rom_cs = (z80_addr[15:0] < 16'h2000);
-    //z80_ram_cs = (z80_addr[15:0] >= 16'h2000 && z80_addr[15:0] < 16'h2800);
- 
     // IO
     ym_cs_0 =  (z80_addr[15:0] == 16'h4008);
     ym_cs_1 =  (z80_addr[15:0] == 16'h4009); //SA
-    //same as CS ! 
     ym_wr = (z80_addr[15:0] == 16'h4008 || z80_addr[15:0] == 16'h4009);
-
     m68k_latch0_cs =  (z80_addr[15:0] == 16'h4010);
     m68k_latch1_cs =  (z80_addr[15:0] == 16'h4011);
     main_data_pending_cs =   (z80_addr[15:0] == 16'h4012);
     read_coin_cs =   (z80_addr[15:0] == 16'h4013);
-
-    // 0x6000 => '0b110_000_000_000_000'
-    //              432 109 876 543 210
-    //              13 & 14 high 15 low ~MEMRQ_n RDSH_n 
-    //bank_rom_cs = (z80_addr[15:0] >= 16'h8000);
 end 
 
 endmodule

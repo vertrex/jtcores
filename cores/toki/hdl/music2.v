@@ -161,21 +161,44 @@ jtframe_ram #(.AW(11), .CEN_RD(1)) u_z80_cpu_ram(
     .data(SD[7:0]),
     .addr(SA[10:0]), 
     .we(~z80_ram_cs_n & ~SWRB), //PLD23 19
-//    .we(~SWRB), //PLD23 17 XXX DO THAT 
-    //XXX DO THAT 
+//  .we(~SWRB), //PLD23 17 XXX DO THAT 
     .q(SD_OUT[7:0])
 );
 
-
-// SEI 01 ?? 
+///// SEI0100BU ////////////////////////////
+//
 // 2151/5205 controller 
-//SEI0100BU - Custom chip marked 'SEI0100BU YM3931' (SDIP64)
+// YM3931 (SDIP64)
+// 
+sei0100bu sei0100bu_u(
+  .SYS_RST(),
+  .MUSIC(),
+  .MWRLB(),
+  .MRDLB(),
+  .MAB(),  
+  .MDB(),
+  .irq_ack_n(),
+  .IQR3812(),
+  .CLK_3_6(),
+  .COIN1(),
+  .COIN2(),
+  .SEI0100_CS(),
+  .SWRB(),
+  .B1(),
+  .SA(),
 
-//XXX MOVE CODE HERE / CREATE MODULE 
+  .pin35(), 
+  .COUNTER1(),
+  .COUNTER2(),
+  .Z80_INT(),
+  .CS3812(),
+  .SD()
+); 
+
+
+
 
 // SEI0080 SCRAMBLER 
-
-// XXX MOVE TO MODUEL 
 
 // 74HC74
 // -> clk 3.6M

@@ -1,3 +1,22 @@
+///////// z80 bus mapping  ////////////////////
+//
+// 0x0000, 0x1fff : rom (decrypted by sei80bu)
+// 0x2000, 0x27ff : ram (2048) 8bits SRAM (rw)
+// 0x4000, 0x4000 : pending data for 68k (w)
+// 0x4001, 0x4001 : irq clear (wo) ?
+// 0x4002, 0x4002 : rst10 ack (wo) ?
+// 0x4003, 0x4003 : rst18 ack (wo) ?
+// 0x4007, 0x4007 : switch bank (wo) 
+// 0x4008, 0x4009 : ym3812 read / write  
+// 0x4010, 0x4011 : 68k sound latch (ro) 
+// 0x4012, 0x4012 : 68k data pending (ro) 
+// 0x4013, 0x4013 : coin inserted (ro) 
+// 0x4018, 0x4019 : z80 sound latch (wo)
+// 0x401b, 0x401b : write coin inserted ? (wo) 
+// 0x6000, 0x6000 : okim6295 (rw)
+// 0x8000, 0xffff : bank rom data start (ro)
+// if bank switch :
+// 0x0000, 0x8000 : bank rom data (starting at 0x2000 from bank file) 
 module pld23(
     //XXX list port for info
     input  wire SA_3,
