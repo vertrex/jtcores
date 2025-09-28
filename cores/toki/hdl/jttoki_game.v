@@ -348,7 +348,10 @@ music1 u_music1(
   .ym3812_dout(ym3812_dout)
 );
 
+wire z80_rom_cs_n;
 assign z80_rom_cs = ~z80_rom_cs_n;
+wire bank_rom_cs_n; 
+assign bank_rom_cs = ~bank_rom_cs_n;
 
 music2 u_music2(
   .SYS_RESET(rst),
@@ -390,7 +393,7 @@ music2 u_music2(
   .bank_rom_data(bank_rom_data),
   .bank_rom_ok(bank_rom_ok),
   .bank_rom_addr(bank_rom_addr),
-  .bank_rom_cs(bank_rom_cs),
+  .bank_rom_cs_n(bank_rom_cs_n),
 
   .m68k_sound_cs_2(m68k_sound_cs_2),
   .m68k_sound_cs_4(m68k_sound_cs_4),

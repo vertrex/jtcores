@@ -47,7 +47,7 @@ module music2
   input       [7:0] bank_rom_data,
   input             bank_rom_ok, 
   output reg [15:0] bank_rom_addr,
-  output            bank_rom_cs,
+  output            bank_rom_cs_n,
 //// 
 
   input             m68k_sound_cs_2,
@@ -76,7 +76,6 @@ assign CS3812 = ~ym_wr;
 
 // WRB is used for ym-wr & oki wr .. ????
 assign PRCLK1 = oki_cen;
-wire oki_wr;
 
 ///////// Z80 CPU  /////////////////////// 
 // 
@@ -143,13 +142,11 @@ pld23 pld23_u(
   .B1(B1), // -> SEU100BU addrs ? XXX 48 
   .SEL6295(SEL6295),
   .irq_ack_n(irq_ack_n), // SEI0100BU ? XXX 54 
-  .B4(B4), // EPROM CE Z80 64k / (CS) 
+  .bank_rom_cs_n(bank_rom_cs_n), // EPROM CE Z80 64k / (CS) 
   .z80_ram_cs_n(z80_ram_cs_n), // Z80 RAM CS      
   .z80_rom_cs_n(z80_rom_cs_n) // SEI080 BU ? XXX addrs cs ? 
   //.B7(B7)  // Z80 8KX8 EPROM  OE (CS) addrs SPRC0 / SRPG0 ?? (SELECT ROM ? CPU 0)
 );
-
-//assign SEL6295 = ~oki_wr;
 
 ////// Z80 RAM  ///////////////////////
 //
@@ -196,8 +193,7 @@ jtframe_ram #(.AW(11), .CEN_RD(1)) u_z80_cpu_ram(
 //
 //wire z80_ram_cs_n, //ym_cs_0, ym_cs_1, 
 wire m68k_latch0_cs, m68k_latch1_cs, main_data_pending_cs, 
-     read_coin_cs,  
-     oki_rd;
+     read_coin_cs; 
 
 //wire [7:0]  ym3812_dout;
 wire [15:0] SA;
@@ -205,10 +201,9 @@ wire [15:0] SA;
 
 z80_cs u_z80cs(
   .z80_addr(SA),
-  .z80_wr_n(SWRB),
-  .z80_rd_n(SRDB),
+  //.z80_rd_n(SRDB),
   //.z80_rom_cs(z80_rom_cs),
-  .bank_rom_cs(bank_rom_cs),
+  //.bank_rom_cs(bank_rom_cs),
   //.z80_ram_cs(~z80_ram_cs_n),
 
   .ym_cs_0(ym_cs_0),
@@ -220,9 +215,7 @@ z80_cs u_z80cs(
   .main_data_pending_cs(main_data_pending_cs),
   .read_coin_cs(read_coin_cs),
 
-  .ym_wr(ym_wr),
-  .oki_wr(oki_wr),
-  .oki_rd(oki_rd)
+  .ym_wr(ym_wr)
 );
 
 ///////// SEIBU80 //////////
@@ -277,7 +270,7 @@ always @(posedge CLK_3_6, posedge SYS_RESET) begin
   else begin
     if (~z80_rom_cs_n & ~z80_rom_ok)
       wait_n <= 1'b0;
-    else if (bank_rom_cs & ~bank_rom_ok)
+    else if (~bank_rom_cs_n & ~bank_rom_ok)
       wait_n <= 1'b0;
     else 
       wait_n <= 1'b1;
@@ -402,8 +395,8 @@ always @(posedge clk, posedge SYS_RESET) begin
                  main_data_pending_cs &  sub2main_pending ? 8'b1  :  //MWRLB  + DATA BUS ?
                  main_data_pending_cs & ~sub2main_pending ? 8'b0 :   //MRLB + DATA BUS ? 
                  ym_cs_0 & ~SRDB                          ? ym3812_dout :  //0 onlyt ???it's rarrely used aslone CS3812 ? 
-                 oki_rd                                   ? oki_dout :
-                 bank_rom_cs                              ? bank_rom_data :
+                 ~SEL6295 & ~SRDB                         ? oki_dout :
+                 ~bank_rom_cs_n                              ? bank_rom_data :
                  m68k_latch0_cs                           ? m68k_sound_latch_0[7:0] :
                  m68k_latch1_cs                           ? m68k_sound_latch_1[7:0] :
                  read_coin_cs                             ? {6'b0, ~COIN2, ~COIN1} :
