@@ -289,6 +289,8 @@ reg   [8:0] obj_line_buffer_addr;
 wire swap = hpos[8:0] == 9'd383 ? 1'b0 : 1'b1; //+1 ? //swap a 10
 //wire swap = hpos[8:0] == 9'd10 ? 1'b0 : 1'b1; //+1 ? //swap a 10
 
+/*
+* PUT BACK OR REWRITE PROPERLY
 scan_obj_ram scan_obj_ram_u(
   .clk(clk),
   .rst(rst),
@@ -309,6 +311,7 @@ scan_obj_ram scan_obj_ram_u(
   .line_buffer_addr(hpos[7:0] + 1), //+ 1 to latch the pixel ? 
   .line_buffer_out(obj)
 );
+*/
 
 //activcate obj wth mycode  
 //wire obj_on = ~(obj[3] & obj[2] & obj[1] & obj[0]); //check if != 'f if we use ny code

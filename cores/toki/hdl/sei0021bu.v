@@ -14,12 +14,12 @@ module sei0021bu(
    output reg [8:0] scrolled 
 );
 
-reg [8:0] scroll = 9'b0;
+reg [8:0] scroll;
 
-always @(posedge clk) begin 
+always @(posedge clk, negedge rst_n) begin 
    if (rst_n == 1'b0) 
       scroll <= 9'b0;
-
+   else begin 
    if (~cs_n & low) //scroll_cs  
       scroll <= { 1'b0, data[6:0], data[7] }; 
    if (~cs_n & high) 
@@ -33,6 +33,7 @@ always @(posedge clk) begin
       sync <= 1;
    else 
       sync <= 0;
+   end 
 end
 
 endmodule 

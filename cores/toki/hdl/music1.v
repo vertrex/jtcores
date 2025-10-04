@@ -41,7 +41,7 @@ module music1(
   input             CS3812,
   
   input             SA0, // Sound Address
-  input       [7:0] SD, // Sound data 
+  input       [7:0] SD_OUT, // Sound data 
 
   input        RESET_A, //active low
   output       IRQ3812, //active low
@@ -87,7 +87,7 @@ jtopl2   u_YM3812(
     .rst(rst), //RESET A
     .clk(CLK_3_6), //CLK_3_6 ? 
     .cen(1'b1), //CLK_3_6 //1 if clk is CLK_3_6
-    .din(SD[7:0]),  //SD[0:7] 
+    .din(SD_OUT[7:0]),  //SD[0:7] 
     .addr(SA0), // cmd addr SA0 
     .cs_n(CS3812), //CS3812
     .wr_n(SWRB), //SWRB //NO RD ?  
@@ -130,7 +130,7 @@ jt6295 #(.INTERPOL(1))  u_adpcm(
     .ss(1'b1), // pin7 high, select low sample rate
      //CPU interface
     .wrn(SWRB | SEL6295),   // wr selected // XX there is norCS 
-    .din(SD[7:0]),  // input data from z80 
+    .din(SD_OUT[7:0]),  // input data from z80 
     .dout(oki_dout), // output data to z80 // put on shared SD 
      //ROM interface
     .rom_addr(adpcm_rom_addr), // output 18 memory address to read

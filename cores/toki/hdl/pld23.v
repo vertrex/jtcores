@@ -1,7 +1,8 @@
 ///////// z80 bus mapping  ////////////////////
-//
+// z80 
 // 0x0000, 0x1fff : rom (decrypted by sei80bu)
 // 0x2000, 0x27ff : ram (2048) 8bits SRAM (rw)
+// sei0100bu 
 // 0x4000, 0x4000 : pending data for 68k (w)
 // 0x4001, 0x4001 : irq clear (wo) ?
 // 0x4002, 0x4002 : rst10 ack (wo) ?
@@ -13,7 +14,9 @@
 // 0x4013, 0x4013 : coin inserted (ro) 
 // 0x4018, 0x4019 : z80 sound latch (wo)
 // 0x401b, 0x401b : write coin inserted ? (wo) 
+// oki 
 // 0x6000, 0x6000 : okim6295 (rw)
+// bank rom address 
 // 0x8000, 0xffff : bank rom data start (ro)
 // if bank switch :
 // 0x0000, 0x8000 : bank rom data (starting at 0x2000 from bank file) 
@@ -29,7 +32,7 @@ module pld23(
     input  wire RFSH_n,
     input  wire M1_n,
 
-    output wire B0, // active-low
+    output wire SEI0100_CS_N, // active-low
     output wire B1, // active-low
     output wire SEL6295, // active-low
     output wire irq_ack_n, // active-low
@@ -67,7 +70,7 @@ module pld23(
     wire t_B6  = (~SA_13) & (~SA_14) & (~SA_15) & (~MEMRQ_n) & (~RD_n) & RFSH_n;
     //wire t_B7  = (~SA_13) & (~SA_14) & (~SA_15) & (~MEMRQ_n) & (~RD_n) & RFSH_n; // same as B6 per JED
 
-    assign B0 = ~t_B0;
+    assign SEI0100_CS_N = ~t_B0;
     assign B1 = ~t_B1;
     assign SEL6295 = ~t_SEL6295;
     assign irq_ack_n = ~t_irq_ack_n;

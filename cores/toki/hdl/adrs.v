@@ -1,4 +1,5 @@
 module ADRS(
+    input           clk,
     // PLD21 22M
     input   [23:17] A,
     input           MBUSDIR,
@@ -109,21 +110,22 @@ LS138 LS138_16M_u(
 );
 
 //74LS273 18M 
-always @(posedge MASKS, posedge RESET_A) begin 
-    if (RESET_A) begin 
+//always @(posedge clk) begin 
+always @(posedge clk, negedge RESET_A) begin 
+    if (~RESET_A) begin  //reset_a is low
        { S4MASK, OBJMASK, S2MASK, S1MASK } <= 4'b0;
        { PRIOR_B, PRIOR_A } <= 2'b0;
        HREV <= 1'b0;
        YREV <= 1'b0;
        end 
-    else if (MASKS) begin  //scroll cs ? 
+     else if (MASKS == 1'b0)  begin 
        { S4MASK, OBJMASK, S2MASK, S1MASK } <= MDB[3:0];
        // if ((cpu_dout[15:0] & 16'h100) == 16'h0) ??? 0b100_000_000
-       { PRIOR_B, PRIOR_A } <= MDB[9:8];
+       { PRIOR_B, PRIOR_A } <= MDB[9:8]; //XXX DON'T WORK WELL ON POCKET 
        // 74LS368 17M
        HREV <= ~MDB[14];
        YREV <= ~MDB[15];
-       end 
+      end
 end 
 
 endmodule 

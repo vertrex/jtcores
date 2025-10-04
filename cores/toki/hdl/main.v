@@ -39,16 +39,16 @@ module toki_main(
   output     [15:0] obj_out,
 
   output            MUSIC, //active low
-  output reg        sound_cs_2, 
-  output reg        sound_cs_4,
-  output reg        sound_cs_6,
+  //output reg        sound_cs_2, 
+  //output reg        sound_cs_4,
+  //output reg        sound_cs_6,
 
-  output reg [15:0] m68k_sound_latch_0,
-  output reg [15:0] m68k_sound_latch_1,
+  //output reg [15:0] m68k_sound_latch_0,
+  //output reg [15:0] m68k_sound_latch_1,
 
-  input      [15:0] z80_sound_latch_0,
-  input      [15:0] z80_sound_latch_1,
-  input      [15:0] z80_sound_latch_2,
+  //input      [15:0] z80_sound_latch_0,
+  //input      [15:0] z80_sound_latch_1,
+  //input      [15:0] z80_sound_latch_2,
 
   output            S1MASK,
   output            S2MASK,
@@ -61,7 +61,8 @@ module toki_main(
 
   output     [12:1] KDA,
   output     [17:1] MAB,
-  output     [15:0] MDB,
+  output     [15:0] MDB_OUT,
+  input       [7:0] SEI0100_MDB_IN,
   output            MWRLB,
   output            MRDLB,
   output            DMSL_S1,
@@ -130,7 +131,7 @@ fx68k fx68k (
 
     .extReset(rst),
     .pwrUp(rst),
-    .HALTn(dip_pause),
+    .HALTn(dip_pause), //rst
 
     //SYSTEM CONTROL 
     .BERRn(1'b1),
@@ -176,20 +177,37 @@ fx68k fx68k (
 );
 
 // 74LS244P 17K,17P, 22K
-assign MAB[17:1] = { cpu_a[17], (BUSOPN == 1'b0) ? cpu_a[16:1] : 16'bz };
+//assign MAB[17:1] = { cpu_a[17], (BUSOPN == 1'b0) ? cpu_a[16:1] : 16'bz };
+
+assign MAB[17:1] = BUSOPN == 1'b0 ? cpu_a[17:1] : 
+                  MBUSDIR == 1'b0 ? {2'b0, 3'b111, KDA[12:1]} :
+                  { cpu_a[17], 16'b0 } ;
+
+
+// XXX DMARD IS USED ON RAM ENABLE WE MUST STOP RAM WHEN DMARD IS USED OR
+// (SELECCT IT TO READ IT? ) ROMRAM PAGE 2 ! 
+//assign {DMARD , MAB[15:1]} = (MBUSDIR == 1'b0) ? { 1'b0 ,3'b111,  KDA[12:1]} : 16'bz;
 
 // 74LS246
 // bidrectional bus
 //
 // XXX cpu_lds_n & memdir is that related to cpu DTACk ?
-assign MDB[7:0] = (!cpu_lds_n & !MEMDIR) ? cpu_dout[7:0] :
+//should also get from sei0100bu from music and others ? 
+//as cpu_din ? 
+
+//XXX why cpu_din ??
+assign MDB_OUT[7:0] =  (!cpu_lds_n & !MEMDIR) ? cpu_dout[7:0] :
+                       //8'h0; 
                   //(!cpu_lds_n & MEMDIR)  ?  cpu_din[7:0] :
-                  cpu_din[7:0]; 
+                   ram_do[7:0] ;  //& BUSOPN ??
+                  //cpu_din[7:0]; 
 //                  8'hZ;  // Z ? don't work well on real or sim 
 //memory -> CPU // B-> A
-assign MDB[15:8] = (!cpu_uds_n & !MEMDIR) ? cpu_dout[15:8] :
+assign MDB_OUT[15:8] = (!cpu_uds_n & !MEMDIR) ? cpu_dout[15:8] :
+                       //8'h0;
                    //(!cpu_uds_n & MEMDIR)  ?  cpu_din[15:8] :
-                   cpu_din[15:8];
+                   //cpu_din[15:8];
+                   ram_do[15:8];
 //                  8'hZ;  // Z ? //don't work well on real or sim
 //cpu -> Memory
 
@@ -305,12 +323,12 @@ always @(*) begin
       obj_cs  = ~cpu_as_n & (cpu_a[23:1] >= 23'h36c00 && cpu_a[23:1] < 23'h37000); //2048
       //sound latch
       //== MUSIC but also IN < ?
-      sound_cs_4 = ~cpu_as_n & (cpu_a[23:1] == 23'h40004);
-      sound_cs_6 = ~cpu_as_n & (cpu_a[23:1] == 23'h40006);
+      //sound_cs_4 = ~cpu_as_n & (cpu_a[23:1] == 23'h40004);
+      //sound_cs_6 = ~cpu_as_n & (cpu_a[23:1] == 23'h40006);
       
-      sound_cs_2 = ~cpu_as_n & (cpu_a[23:1] == 23'h40002);
-      sound_cs_3 = ~cpu_as_n & (cpu_a[23:1] == 23'h40003);
-      sound_cs_5 = ~cpu_as_n & (cpu_a[23:1] == 23'h40005);
+      //sound_cs_2 = ~cpu_as_n & (cpu_a[23:1] == 23'h40002);
+      //sound_cs_3 = ~cpu_as_n & (cpu_a[23:1] == 23'h40003);
+      //sound_cs_5 = ~cpu_as_n & (cpu_a[23:1] == 23'h40005);
       //divide it in sub cs & use it bg scroll 
       //IO
       dsw_cs     = ~cpu_as_n & (cpu_a[23:1] == 23'h60000); // && cpu_a[23:1] < 24'hc0001); //2 
@@ -342,9 +360,13 @@ always @(posedge clk, posedge rst) begin
                                1'b1,1'b1,p1_button2,p1_button1,p1_right,p1_left,p1_down,p1_up} :
                  system_cs  ? {1'b1,1'b1,1'b1,1'b1,1'b1,1'b1,1'b1,1'b1,
                                1'b1,1'b1,1'b1,p2_start,p1_start,1'b1,1'b1,1'b1} : 
-                 sound_cs_2 ? z80_sound_latch_0 : 
-                 sound_cs_3 ? z80_sound_latch_1 :
-                 sound_cs_5 ? z80_sound_latch_2 :
+                 //WRITE TO MDB by sei0100bu
+                 //XXX & WWRLB ?
+                 ~MUSIC     ? {8'd0, SEI0100_MDB_IN} : 
+                 //should we share bus ?
+                 //sound_cs_2 ? z80_sound_latch_0 : 
+                 //sound_cs_3 ? z80_sound_latch_1 :
+                 //sound_cs_5 ? z80_sound_latch_2 :
                  16'd0;
              end
            end
@@ -356,7 +378,8 @@ wire OBUSRQ = 1'b0;
 //BR is set to 0 to make a cpu BUS request and grant (bg bus grant will be set when cpu is ready for dma) 
 
 // ACTIVE LOW , 0  if DMA is run and obj and CPU must be stopped 
-wire OBUSDIR = 1'b1; //OBJ bus direction page 14
+// XXX ? 
+wire OBUSDIR = 1'b1; //OBJ bus direction page 14 -> make change masks -> make change PRIOR_A & PRIOR_B ! 
 // pld21 need it high or nothing will be output as everything check MBUSDIR  & OBUSDIR ?
 
 wire MBUSDIR;
@@ -394,7 +417,10 @@ wire  ROM0, ROM1, RAM, MBUFEN, MBUFDR;
 wire  MDMARQ, ODMARQ;
 wire  RD_DISPW, RD_PLYER, RD_EXTIF;
 
+wire RESET_A = ~rst;
+
 ADRS ADRS_u(
+  .clk(clk),
   .A(cpu_a[23:17]),
   .MBUSDIR(MBUSDIR),
   .OBUSDIR(OBUSDIR),
@@ -403,8 +429,8 @@ ADRS ADRS_u(
   .MAB(MAB[6:1]),
   .MWRLB(MWRLB),
   .MRDLB(MRDLB),
-  .RESET_A(rst),
-  .MDB(MDB[15:0]),
+  .RESET_A(RESET_A),
+  .MDB(MDB_OUT[15:0]),
 
   .ROM0(ROM0),
   .ROM1(ROM1),
@@ -445,6 +471,8 @@ ADRS ADRS_u(
 //ODMARQ : Object DMA Request 
 
 wire EXH_4_n, MBUSRQ, DMARD; //MBUSDIR
+//XXX where is used DMARD ? it's unused  
+//MAB is zz state work in simu not in pocket
 
 MDMA mdma_u(
   .P6M(P6M),
@@ -462,7 +490,7 @@ MDMA mdma_u(
   .DMSL_S2(DMSL_S2),
   .DMSL_S4(DMSL_S4),
   .KDA(KDA[12:1]),
-  .MAB(MAB[15:1]),
+  //.MAB(MAB[15:1]),
   .DMARD(DMARD)
 );
 
@@ -475,6 +503,7 @@ assign br_n = MBUSRQ;
 //
 // Sound register latch
 //
+/*
 always @(posedge clk, posedge rst) begin
   if (rst) begin
     m68k_sound_latch_0 <= 16'b0;
@@ -487,6 +516,7 @@ always @(posedge clk, posedge rst) begin
       m68k_sound_latch_1[15:0] <= cpu_dout[15:0];
   end
 end
+*/ 
 
 //////// RAM //////////////////////////
 //
@@ -497,7 +527,7 @@ wire [15:0] ram_do;
 
 jtframe_ram16 #(.AW(15)) u_cpu_ram(
     .clk(clk),
-    .addr(MAB[15:1]), 
+    .addr(MAB[15:1]),  //ENABLE VIA DMARD ? 
     .data(cpu_dout[15:0]), //MDB_OUT  // 
     .we({~RAM & ~MWRMB, ~RAM & ~ MWRLB}),
     .q(ram_do[15:0])  //MDB_in ? //remove from data bus input if set here 

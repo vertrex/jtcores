@@ -41,15 +41,15 @@ wire [15:0] scroll_out;
 wire        bk1_hsync; 
 wire        bk2_hsync;
 
-wire m68k_sound_cs_2;
-wire m68k_sound_cs_4;
-wire m68k_sound_cs_6;
+//wire m68k_sound_cs_2;
+//wire m68k_sound_cs_4;
+//wire m68k_sound_cs_6;
 
-wire [15:0] m68k_sound_latch_0;
-wire [15:0] m68k_sound_latch_1;
-wire [15:0] z80_sound_latch_0; 
-wire [15:0] z80_sound_latch_1;
-wire [15:0] z80_sound_latch_2;
+//wire [15:0] m68k_sound_latch_0;
+//wire [15:0] m68k_sound_latch_1;
+//wire [15:0] z80_sound_latch_0; 
+//wire [15:0] z80_sound_latch_1;
+//wire [15:0] z80_sound_latch_2;
 
 assign debug_view = 0;
 assign sample     = 0;
@@ -78,7 +78,7 @@ wire HREV;
 wire YREV;
 wire [12:1] KDA;
 wire [17:1] MAB;
-wire [15:0] MDB;
+wire [15:0] MDB_OUT;
 wire MWRLB, MRDLB; 
 wire DMSL_S1, DMSL_S2, DMSL_S4, DMSL_GL;
 wire RST_S1H, SEL_S1H, RST_S1Y, SEL_S1Y;
@@ -133,17 +133,17 @@ toki_main  u_main(
 
   //Sound latch
   .MUSIC(MUSIC),
-  .sound_cs_2(m68k_sound_cs_2),
-  .sound_cs_4(m68k_sound_cs_4),
-  .sound_cs_6(m68k_sound_cs_6),
+  //.sound_cs_2(m68k_sound_cs_2),
+  //.sound_cs_4(m68k_sound_cs_4),
+  //.sound_cs_6(m68k_sound_cs_6),
 
-  .m68k_sound_latch_0(m68k_sound_latch_0),
-  .m68k_sound_latch_1(m68k_sound_latch_1),
+  //.m68k_sound_latch_0(m68k_sound_latch_0),
+  //.m68k_sound_latch_1(m68k_sound_latch_1),
 
   //Sound input from z80
-  .z80_sound_latch_0(z80_sound_latch_0),
-  .z80_sound_latch_1(z80_sound_latch_1),
-  .z80_sound_latch_2(z80_sound_latch_2),
+  //.z80_sound_latch_0(z80_sound_latch_0),
+  //.z80_sound_latch_1(z80_sound_latch_1),
+  //.z80_sound_latch_2(z80_sound_latch_2),
 
   .S1MASK(S1MASK),
   .S2MASK(S2MASK),
@@ -156,7 +156,8 @@ toki_main  u_main(
 
   .KDA(KDA),
   .MAB(MAB),
-  .MDB(MDB),
+  .MDB_OUT(MDB_OUT),
+  .SEI0100_MDB_IN(SEI0100_MDB_IN),
   .MWRLB(MWRLB),
   .MRDLB(MRDLB),
   .DMSL_S1(DMSL_S1),
@@ -267,7 +268,7 @@ toki_video u_video(
 
   .KDA(KDA),
   .MAB(MAB),
-  .MDB(MDB),
+  .MDB(MDB_OUT),
 
   .DMSL_S1(DMSL_S1),
   .DMSL_S2(DMSL_S2),
@@ -306,7 +307,7 @@ wire CS3812;
 wire CLK_3_6;
 wire PRCLK1;
 wire SA0; //should be on SA bus 
-wire [7:0] SD;
+wire [7:0] SD_OUT;
 // OLD 
 wire [7:0] oki_dout;
 wire [7:0] z80_dout;
@@ -321,7 +322,7 @@ music1 u_music1(
   .CLK_3_6(CLK_3_6),
   .CS3812(CS3812),
   .SA0(SA0),
-  .SD(SD),
+  .SD_OUT(SD_OUT),
   .RESET_A(RESET_A), // ?? ~SYS_RESET or = SYS_RESET ?
   .IRQ3812(IRQ3812),
   .PRCLK1(PRCLK1),
@@ -353,6 +354,8 @@ assign z80_rom_cs = ~z80_rom_cs_n;
 wire bank_rom_cs_n; 
 assign bank_rom_cs = ~bank_rom_cs_n;
 
+wire [7:0] SEI0100_MDB_IN;
+
 music2 u_music2(
   .SYS_RESET(rst),
 
@@ -368,7 +371,8 @@ music2 u_music2(
   .MWRLB(MWRLB),
   .MRDLB(MRDLB),
   .MAB(MAB[3:1]),
-  .MDB(MDB[7:0]),
+  .MDB_OUT(MDB_OUT[7:0]),
+  .MDB_IN(SEI0100_MDB_IN[7:0]),
   .IRQ3812(IRQ3812),
   .COIN1(coin[0]), 
   .COIN2(coin[1]),
@@ -380,7 +384,7 @@ music2 u_music2(
   .CLK_3_6(CLK_3_6),
   .PRCLK1(PRCLK1),
   .SA0(SA0),
-  .SD(SD),
+  .SD_OUT(SD_OUT),
   ////////////////////////////////
   .clk(clk),
   .oki_cen(oki_cen),
@@ -395,16 +399,16 @@ music2 u_music2(
   .bank_rom_addr(bank_rom_addr),
   .bank_rom_cs_n(bank_rom_cs_n),
 
-  .m68k_sound_cs_2(m68k_sound_cs_2),
-  .m68k_sound_cs_4(m68k_sound_cs_4),
-  .m68k_sound_cs_6(m68k_sound_cs_6),
+  //.m68k_sound_cs_2(m68k_sound_cs_2),
+  //.m68k_sound_cs_4(m68k_sound_cs_4),
+  //.m68k_sound_cs_6(m68k_sound_cs_6),
 
-  .m68k_sound_latch_0(m68k_sound_latch_0),
-  .m68k_sound_latch_1(m68k_sound_latch_1),
+  //.m68k_sound_latch_0(m68k_sound_latch_0),
+  //.m68k_sound_latch_1(m68k_sound_latch_1),
 
-  .z80_sound_latch_0(z80_sound_latch_0),
-  .z80_sound_latch_1(z80_sound_latch_1),
-  .z80_sound_latch_2(z80_sound_latch_2),
+  //.z80_sound_latch_0(z80_sound_latch_0),
+  //.z80_sound_latch_1(z80_sound_latch_1),
+  //.z80_sound_latch_2(z80_sound_latch_2),
 
   .oki_dout(oki_dout),
   .ym3812_dout(ym3812_dout)

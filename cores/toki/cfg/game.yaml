@@ -13,7 +13,6 @@ game:
       - sei0021bu.v
       - sg0140.v
       - sei80bu.v
-      - z80_cs.v
       - dual_ram_buffer.v
       - sis6091.v
       - 74LS74.v
