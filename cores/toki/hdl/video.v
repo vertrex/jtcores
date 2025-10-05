@@ -167,7 +167,8 @@ assign LVBL = VBL_ROM;
 assign LHBL = HBL; // ?
 
 //CHAR_CEN IS T3F
-always @(posedge T8H) begin 
+always @(clk) begin 
+  if (N6M & T8H)
    HBLB <= HBL; //HBL sei50bu pin 23 
 end 
 
