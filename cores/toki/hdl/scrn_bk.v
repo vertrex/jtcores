@@ -39,7 +39,8 @@ wire [8:0] scrolled_vpos;
 wire s21_hsync; 
 
 sei0021bu sei21bu_bk1_h(
-   .clk(N6M),
+   .clk(clk),
+   .cen(N6M),
    .rst_n(RST_SH),
    .cs_n(SEL_SH),
 
@@ -55,7 +56,8 @@ sei0021bu sei21bu_bk1_h(
 );
 
 sei0021bu sei21bu_bk1_v(
-   .clk(N6M),
+   .clk(clk),
+   .cen(N6M),
    .rst_n(RST_SY),
    .cs_n(SEL_SY),
 
@@ -73,18 +75,23 @@ sei0021bu sei21bu_bk1_v(
 assign sg_sync = scrolled_hpos[1];
 
 jtframe_dual_ram16 #(.AW(10)) u_bk1_ram(
-  .clk0(WRN6M),
+  .clk0(WRN6M),  //XXX NOT A REAL CLOCK ! 
   .data0(MDB[15:0]),
   .addr0(KDA[10:1]),
   .we0({~DMSL, ~DMSL}),//DMSL S1
   .q0(),
 
-  .clk1(scrolled_hpos[0]),
+  .clk1(scrolled_hpos[0]), //XXX NOT A REAL CLOCK 
   .data1(),
   .addr1({scrolled_vpos[8:4], scrolled_hpos[8:4]}),  
   .we1(),
   .q1(ram_out)
 );
+
+// ??? CLOCK HERE  ? alwyas @ 
+ //always @(clk)
+   //if (scrolled_hpos[0])
+     //...
 
 assign gfx_rom_cs = 1'b1;
 assign gfx_rom_addr[18:1] = {ram_out[11:0], scrolled_hpos[3], scrolled_vpos[3:0], scrolled_hpos[2]}; 

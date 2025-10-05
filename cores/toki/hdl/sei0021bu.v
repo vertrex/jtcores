@@ -1,6 +1,7 @@
 // scroll controller 
 module sei0021bu(
    input            clk,
+   input            cen,
    input            rst_n,
    input            cs_n,
 
@@ -19,7 +20,7 @@ reg [8:0] scroll;
 always @(posedge clk, negedge rst_n) begin 
    if (rst_n == 1'b0) 
       scroll <= 9'b0;
-   else begin 
+   else if (cen) begin
       if (~cs_n & low) //scroll_cs  
          scroll <= { 1'b0, data[6:0], data[7] }; 
       if (~cs_n & high) 
