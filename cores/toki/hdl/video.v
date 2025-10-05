@@ -167,9 +167,9 @@ assign LVBL = VBL_ROM;
 assign LHBL = HBL; // ?
 
 //CHAR_CEN IS T3F
-always @(clk) begin 
-  if (N6M & T8H)
-   HBLB <= HBL; //HBL sei50bu pin 23 
+always @(posedge clk) begin 
+  if (T8H)
+     HBLB <= HBL; //HBL sei50bu pin 23 
 end 
 
 ///////// SCREEN 4 : char tile //////////
