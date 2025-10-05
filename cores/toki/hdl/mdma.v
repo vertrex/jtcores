@@ -3,8 +3,10 @@
 //
 //
 module MDMA(
+    input clk,
     // 6MHZ clock
-    input P6M, 
+    input P6M,
+    input N6M,
     // System reset 
     input SYS_RESET,
 
@@ -55,7 +57,7 @@ wire dma_end_n;
 //this mean we can replace most of the CS and we got the MDMARQ !!!
 assign MBUSDIR = ~qn_6k1;
 assign EXH_4_n = ~EXH_4;
-assign WRN6M = ~P6M;
+assign WRN6M = N6M;
 assign dma_end_n = ~copy_end; // XXX OUTPUT OF RCO COUNTER HIGH 4*3 bits  1 when dma is finished 
 
 //MBUSRQ should be 1 by default et 0 when up 
@@ -63,7 +65,8 @@ assign dma_end_n = ~copy_end; // XXX OUTPUT OF RCO COUNTER HIGH 4*3 bits  1 when
 //5K 
 //M_DMA_RQ : start DMA request 
 LS74 _5K1_u(
-   .CLK(MDMARQ), // GET Memory DMA Request 
+   .CLK(MDMARQ),
+   .CEN(MDMARQ), // GET Memory DMA Request 
    .D(1'b0),
    .PRE(q_6k1), // stop counter  
    .CLR(1'b1),
@@ -78,6 +81,7 @@ wire q_5k2;
 
 LS74 _5K2_u(
    .CLK(WRN6M),
+   .CEN(WRN6M),
    .D(qn_6k2),
    .PRE(dma_end_n), 
    .CLR(1'b1),
@@ -88,6 +92,7 @@ LS74 _5K2_u(
 // 6K 
 LS74 _6k1_u(
    .CLK(WRN6M),
+   .CEN(WRN6M),
    .D(q_5k2),
    .PRE(1'b1),
    .CLR(1'b1),
@@ -101,6 +106,7 @@ assign busak_rq = (MBUSRQ | BUSAK);
 // 6K 2 
 LS74 _6K2_u(
    .CLK(1'b0),
+   .CEN(1'b0),
    .D(1'b0),
    .PRE(busak_rq), 
    .CLR(dma_end_n),
@@ -116,7 +122,8 @@ LS74 _6K2_u(
 wire rco_1;
 
 LS161 LS161_7K_u(
-  .CLK(WRN6M),
+  .clk(clk),
+  .CEN(WRN6M),
   .CLR_n(~SYS_RESET),
   .LOAD_n(qn_6k1), //load /reset to 4'b0
   .ENP(dma_end_n),  // 1 ? 0 if end ? 
@@ -130,7 +137,8 @@ LS161 LS161_7K_u(
 wire rco_2;
 
 LS161 LS161_8K_u(
-  .CLK(WRN6M),
+  .clk(clk),
+  .CEN(WRN6M),
   .CLR_n(~SYS_RESET),
   .LOAD_n(qn_6k1),
   .ENP(dma_end_n),
@@ -141,7 +149,8 @@ LS161 LS161_8K_u(
 );
 
 LS161 LS161_9K_u(
-  .CLK(WRN6M),
+  .clk(clk),
+  .CEN(WRN6M),
   .CLR_n(~SYS_RESET),
   .LOAD_n(qn_6k1),
   .ENP(dma_end_n),

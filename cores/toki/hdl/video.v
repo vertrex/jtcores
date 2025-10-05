@@ -142,8 +142,8 @@ assign VBL_ROM = prom_26_data[7];
 wire T8H, T3F;
 
 SEI0050BU sei0050bu_u(
-  //.clk(clk),
-  .pxl_cen(N6M),
+  .clk(clk),
+  .N6M(N6M),
   .rst(rst),
 
   .VBL_ROM(VBL_ROM),
@@ -181,8 +181,9 @@ wire [3:0] char_color;
 wire [3:0] char_code;
 
 scrn4 scrn4_u(
-  .clk(N6M),
+  .clk(clk),
   .rst(rst),
+  .N6M(N6M),
   .WRN6M(WRN6M),
   .T4H(T4H),
   .T8H(T8H), //char_cen T8H

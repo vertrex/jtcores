@@ -20,19 +20,19 @@ always @(posedge clk, negedge rst_n) begin
    if (rst_n == 1'b0) 
       scroll <= 9'b0;
    else begin 
-   if (~cs_n & low) //scroll_cs  
-      scroll <= { 1'b0, data[6:0], data[7] }; 
-   if (~cs_n & high) 
-      scroll <= { data[4],  scroll[7:0] };
- 
-   // update in sel_n && high ?  
-   scrolled[8:0] <= {1'b0, pos[7:0]} + scroll[8:0];
+      if (~cs_n & low) //scroll_cs  
+         scroll <= { 1'b0, data[6:0], data[7] }; 
+      if (~cs_n & high) 
+         scroll <= { data[4],  scroll[7:0] };
+    
+      // update in sel_n && high ?  
+      scrolled[8:0] <= {1'b0, pos[7:0]} + scroll[8:0];
 
-   //sync 
-   if (pos[1:0] + scroll[1:0] == 2'b11)
-      sync <= 1;
-   else 
-      sync <= 0;
+      //sync 
+      if (pos[1:0] + scroll[1:0] == 2'b11)
+         sync <= 1;
+      else 
+         sync <= 0;
    end 
 end
 

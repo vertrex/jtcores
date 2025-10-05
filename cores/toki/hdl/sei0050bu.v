@@ -2,7 +2,8 @@
 //
 //
 module SEI0050BU(
-  input pxl_cen, //pin 9  CLK 
+  input clk, // CLK 
+  input N6M, //pin 9  CLK 
 
   input rst, //pin 8
   input VBL_ROM, //pin33 prom26 rom d7 
@@ -115,7 +116,7 @@ assign T8H = (hpos[2:0] == 3'b000);// || (hcnt == HBLANK_END-1); // || hnct == H
 assign N1H = ~hpos[0];
 
 //sei50bu generate only line and PROM26 generate Y / LVBL ?
-always @(posedge pxl_cen, posedge rst) begin 
+always @(posedge clk, posedge rst) begin 
     if (rst) begin 
     	vcnt  <= 9'b0;
       hpos  <= 9'b0; //recalc size for 1st iteration H_TOTAL - 138 -1 ?
@@ -125,7 +126,7 @@ always @(posedge pxl_cen, posedge rst) begin
       //LVBL  <= 1'b1;
       HS    <= 1'b0;
       VS    <= 1'b0;
-    end else if (pxl_cen) begin 
+    end else if (N6M) begin 
       if (hcnt == H_TOTAL - 1) begin  //256 ? 
         if (vcnt  == V_TOTAL - 1) begin
           vcnt <= 0;

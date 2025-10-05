@@ -19,6 +19,7 @@
 module scrn4(
   input                 clk,
   input                 rst,
+  input                 N6M,
   input                 WRN6M,
   input                 T4H,
   input                 T8H,  //T8H char_cen 
@@ -109,7 +110,7 @@ assign char_rom_2_addr[15:0] =  {ram_out[11:0], vpos_latch[2:0], ~hpos[2]} ;
 
 // latch / serialize pixel
 sei0010bu sei0010bu_u(
-  .clk(clk),
+  .clk(N6M),
   .rst(rst),
   .load(T3F), //load new pixel
   .rev(),

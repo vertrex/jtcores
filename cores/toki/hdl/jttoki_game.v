@@ -41,15 +41,19 @@ wire [15:0] scroll_out;
 wire        bk1_hsync; 
 wire        bk2_hsync;
 
-//wire m68k_sound_cs_2;
-//wire m68k_sound_cs_4;
-//wire m68k_sound_cs_6;
+wire P6M, N6M;
 
-//wire [15:0] m68k_sound_latch_0;
-//wire [15:0] m68k_sound_latch_1;
-//wire [15:0] z80_sound_latch_0; 
-//wire [15:0] z80_sound_latch_1;
-//wire [15:0] z80_sound_latch_2;
+/* verilator lint_off PINMISSING */
+jtframe_cen48 u_cen(
+    .clk    ( clk       ),
+    .cen12  (           ),
+    .cen12b (           ),
+    .cen8   (           ),
+    .cen6   ( P6M       ),
+    .cen6b  ( N6M       ),
+    .cen3   (            ),
+    .cen1p5 (     )
+);
 
 assign debug_view = 0;
 assign sample     = 0;
@@ -63,10 +67,6 @@ wire [8:0] bk2_vpos;
 wire HBLB;
 wire INT_T;
 wire T4H;
-
-wire P6M, N6M;
-assign P6M = pxl_cen;
-assign N6M = ~pxl_cen;
 
 wire S1MASK;
 wire S2MASK;
@@ -184,9 +184,8 @@ toki_main  u_main(
 // - vga sync 
 //
 toki_video u_video(
-  .rst(rst),
-
   .clk(clk),
+  .rst(rst),
   .P6M(P6M),
   .N6M(N6M),
 

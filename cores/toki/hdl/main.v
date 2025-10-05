@@ -224,7 +224,8 @@ wire int_clk;
 wire int_a, int_n; 
 
 LS74 u_21R_1(
-  .CLK(HBLB), //HBLB ? 
+  .CLK(clk),
+  .CEN(HBLB), //HBLB ? 
   .D(INT_T),  //INT_T VBLANK BEFORE IS THAT EQUAL ?
   .PRE(1'b1),
   .CLR(1'b1),
@@ -233,7 +234,8 @@ LS74 u_21R_1(
 );
 
 LS74 u_21R_2(
-  .CLK(int_clk),
+  .CLK(clk),
+  .CEN(int_clk),
   .D(1'b0),
   .PRE(vpa_n),
   .CLR(1'b1),
@@ -475,7 +477,9 @@ wire EXH_4_n, MBUSRQ, DMARD; //MBUSDIR
 //MAB is zz state work in simu not in pocket
 
 MDMA mdma_u(
+  .clk(clk),
   .P6M(P6M),
+  .N6M(N6M),
   .SYS_RESET(rst),
   .MDMARQ(MDMARQ), // Request DMA, start DMA 
   .BUSAK(BUSAK),
