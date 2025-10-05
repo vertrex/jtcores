@@ -190,14 +190,14 @@ reg sub2main_pending;
       //sound_cs_6 <= (cpu_a[23:0] == 24'h8000c);
 
 
-always @(posedge CLK_3_6, posedge SYS_RST) begin //XXX speed must be same than 68k din ?
+always @(posedge clk, posedge SYS_RST) begin //XXX speed must be same than 68k din ?
   if (SYS_RST) begin
     //z80_sound_latch_0 <= 16'b0;
     //z80_sound_latch_1 <= 16'b0;
     sub2main_pending  <= 1'b0;
     oki6295_irq_n     <= 1'b1;
     end
-  else begin
+  else if (CLK_3_6) begin // ?
     // send z80 data to 68k cpu
     if (~SEI0100_CS_N && (SA[4:0] == 5'h18)) 
       //z80_sound_latch_0 <= {8'b0, SD_OUT[7:0]};
