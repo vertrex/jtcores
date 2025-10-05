@@ -70,7 +70,7 @@ jtframe_dual_ram16 #(.AW(10)) u_vram_ram(
 // SEI50BU -> RAM (sis6091) -> ROM -> SEI10BU -> SG0140 -> PALETTE RAM -> UEC51 
 reg [2:0] vpos_latch;
 
-always @(clk) begin 
+always @(posedge clk) begin 
   if (N6M & T8H)
      vpos_latch[2:0] <= vpos[2:0];
 end

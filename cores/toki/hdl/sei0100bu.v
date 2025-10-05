@@ -201,23 +201,23 @@ always @(posedge clk, posedge SYS_RST) begin //XXX speed must be same than 68k d
     // send z80 data to 68k cpu
     if (~SEI0100_CS_N && (SA[4:0] == 5'h18)) 
       //z80_sound_latch_0 <= {8'b0, SD_OUT[7:0]};
-      //MDB_IN[7:0] <= SD_OUT[7:0]; //xxx put back or use latch + cs ?
+      MDB_IN[7:0] <= SD_OUT[7:0]; //xxx put back or use latch + cs ?
 
     if (~SEI0100_CS_N && (SA[4:0] == 5'h19))
       //z80_sound_latch_1 <= {8'b0, SD_OUT[7:0]};
-      //MDB_IN[7:0] <= SD_OUT[7:0]; //XXX put back
+      MDB_IN[7:0] <= SD_OUT[7:0]; //XXX put back
 
     // data from z80 is pending read from 68k
     if (~SEI0100_CS_N && (SA[4:0] == 5'h00)) begin
       //z80_sound_latch_2 <= 16'b0;
-      //MDB_IN[7:0] <= 8'b0; //XXX put back ?
+      MDB_IN[7:0] <= 8'b0; //XXX put back ?
       sub2main_pending <= 1'b1;
       end
 
     //else if (m68k_sound_cs_6 == 1'b1 || m68k_sound_cs_2 == 1'b1) begin //? it's used as cpu din too
     else if (~MUSIC & (MAB[3:1] == 3'd6 || MAB[3:1] == 3'd2)) begin //? it's used as cpu din too
       //z80_sound_latch_2 <= 16'b1;
-      //MDB_IN[7:0] <= 8'b1; // XXX put back 
+      MDB_IN[7:0] <= 8'b1; // XXX put back 
       sub2main_pending <= 1'b0;
       end
 
