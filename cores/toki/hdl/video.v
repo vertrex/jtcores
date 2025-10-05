@@ -349,6 +349,7 @@ wire s2on = ~(bk2[3] & bk2[2] & bk2[1] & bk2[0]); //sch page 8 XXX
 
 // COLOR OUTPUT
 CLUT CLUT_u(
+  .clk(clk),
   .N6M(N6M),
   .P6M(P6M),
   .WRN6M(WRN6M),

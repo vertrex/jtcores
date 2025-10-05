@@ -10,6 +10,7 @@
 // output the pixel to the screen
 //
 module CLUT(
+  input             clk,
   input             N6M,
   input             P6M,
   input             WRN6M,
@@ -50,8 +51,9 @@ wire [7:0] s1_s4_out;
 wire S4ON, S1ON;
 
 sg0140    sg0140_u(
+  .clk(clk),
+  .cen(N6M), 
   .MODE(2'b00), //  ABSEL
-  .clk(N6M), 
 
   .PIC_A(S1PIC),
   .COL_A(S1COL), 
@@ -90,13 +92,13 @@ wire [15:0] palette_out;
 // palette ram (2048)
 // populated by DMA 
 jtframe_dual_ram16 #(.AW(10)) u_palette_ram(
-  .clk0(WRN6M),
+  .clk0(WRN6M), //XXX pass real clock or cen ? 
   .data0(MDB[15:0]),
   .addr0(KDA[10:1]),
   .we0({~DMSL_GL, ~DMSL_GL}), //DSML GL
   .q0(),
 
-  .clk1(P6M), 
+  .clk1(P6M),  //XXX CEN NOT CLOCK ! 
   .data1(),
   .addr1(palette_addr[10:1]),
   .we1(),

@@ -25,11 +25,19 @@ module jttoki_game(
     `include "jtframe_game_ports.inc" // see $JTFRAME/hdl/inc/jtframe_game_ports.inc
   );
 
-//wire hblank;
-//wire vblank;
+wire P6M, N6M;
 
-//assign LHBL = ~hblank;
-//assign LVBL = ~vblank;
+/* verilator lint_off PINMISSING */
+jtframe_cen48 u_cen(
+    .clk(clk),
+    .cen12(),
+    .cen12b(),
+    .cen8(),
+    .cen6(P6M),
+    .cen6b(N6M),
+    .cen3(),
+    .cen1p5()
+);
 
 wire  [8:0] hpos;
 wire  [8:0] vpos;
@@ -41,19 +49,6 @@ wire [15:0] scroll_out;
 wire        bk1_hsync; 
 wire        bk2_hsync;
 
-wire P6M, N6M;
-
-/* verilator lint_off PINMISSING */
-jtframe_cen48 u_cen(
-    .clk    ( clk       ),
-    .cen12  (           ),
-    .cen12b (           ),
-    .cen8   (           ),
-    .cen6   ( P6M       ),
-    .cen6b  ( N6M       ),
-    .cen3   (            ),
-    .cen1p5 (     )
-);
 
 assign debug_view = 0;
 assign sample     = 0;

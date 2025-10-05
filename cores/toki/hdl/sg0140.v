@@ -11,8 +11,9 @@
 // MODE == 11 OHMAX   ? 
 
 module sg0140(
+  input       clk,
+  input       cen, //n6m 
   input [1:0] MODE,
-  input clk, //n6m 
 
   //BK1 
   input [3:0] PIC_A, 
@@ -43,17 +44,19 @@ reg [3:0] COL_A_LATCH;
 reg [3:0] COL_B_LATCH; 
 
 always @(posedge clk) begin 
-  if (COL_B_EN)
-     COL_B_LATCH[3:0] <= COL_B[3:0];
+  if (cen) begin 
+    if (COL_B_EN)
+       COL_B_LATCH[3:0] <= COL_B[3:0];
 
-  if (COL_A_EN)
-     COL_A_LATCH[3:0] <= COL_A[3:0];
+    if (COL_A_EN)
+       COL_A_LATCH[3:0] <= COL_A[3:0];
 
-  ON_A <= PIC_A[3:0] == 'hf ? 1'b0 : 1'b1;
-  ON_B <= PIC_B[3:0] == 'hf ? 1'b0 : 1'b1;
+    ON_A <= PIC_A[3:0] == 'hf ? 1'b0 : 1'b1;
+    ON_B <= PIC_B[3:0] == 'hf ? 1'b0 : 1'b1;
 
-  Q[7:0] <= PIC_B[3:0] != 'hf ?  {COL_B_LATCH[3:0], PIC_B[3:0]} :
-                                 {COL_A_LATCH[3:0], PIC_A[3:0]};
+    Q[7:0] <= PIC_B[3:0] != 'hf ?  {COL_B_LATCH[3:0], PIC_B[3:0]} :
+                                   {COL_A_LATCH[3:0], PIC_A[3:0]};
+  end
 end
 
 endmodule
