@@ -220,6 +220,7 @@ wire [3:0] bk1_code;
 wire S1CLLT; //S1 col latch 
 
 scrn_bk bk1_u(
+  .clk(clk),
   .N6M(N6M),
   .WRN6M(WRN6M),
   .rst(rst),
@@ -254,6 +255,7 @@ wire [3:0] bk2_code;
 wire S2CLLT; // S2 COL latch
 
 scrn_bk bk2_u(
+  .clk(clk),
   .N6M(N6M),
   .WRN6M(WRN6M),
   .rst(rst),
@@ -331,14 +333,15 @@ reg  [3:0] bk2_code_latch;
 reg  [7:0] bk2;
 reg  [7:0] bk2_r;//clock is output of sei21bu hpos[1] !
 
-always @(posedge S2CLLT) begin 
+always @(posedge clk) begin 
+  if (S2CLLT & N6M)
     bk2_code_latch <= bk2_code[3:0];
 end
 
 //74LS374 7FH page 8
-always @(posedge P6M) 
-    if (~S2MASK) 
-     bk2[7:0] <= { bk2_code_latch[3:0], bk2_color[3:0] };
+always @(posedge clk) 
+    if (~S2MASK & P6M) 
+      bk2[7:0] <= { bk2_code_latch[3:0], bk2_color[3:0] };
 
 //assign bk2 = S2MASK ? 8'bz : bk2_r; //XXX ????
 wire s2on = ~(bk2[3] & bk2[2] & bk2[1] & bk2[0]); //sch page 8 XXX

@@ -74,7 +74,7 @@ module scrn4(
 wire [15:0] ram_out;
 
 jtframe_dual_ram16 #(.AW(10)) u_vram_ram(
-  .clk0(WRN6M),
+  .clk0(WRN6M), // XXX NOT REAL CLOCK 
   //.data0(ram_do[15:0]), 
   .data0(MDB[15:0]), 
   .addr0(KDA[10:1]),    // KDA [1,10]
@@ -93,7 +93,7 @@ jtframe_dual_ram16 #(.AW(10)) u_vram_ram(
 reg [2:0] vpos_latch;
 
 //74LS74 8B clock T8H
-always @(posedge T8H) begin
+always @(posedge T8H) begin //NOT REAL CLOCK ! 
    vpos_latch[2:0] <= vpos[2:0];
 end
 //hpos2 is latched too ? (hpos/4)
@@ -110,7 +110,7 @@ assign char_rom_2_addr[15:0] =  {ram_out[11:0], vpos_latch[2:0], ~hpos[2]} ;
 
 // latch / serialize pixel
 sei0010bu sei0010bu_u(
-  .clk(N6M),
+  .clk(N6M), //NOT REAL CLOCK !
   .rst(rst),
   .load(T3F), //load new pixel
   .rev(),

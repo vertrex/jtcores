@@ -6,6 +6,7 @@
 // by scroll_x & scroll_y register
 //
 module scrn_bk(
+  input                 clk,
   input                 N6M,
   input                 WRN6M,
   input                 rst,
