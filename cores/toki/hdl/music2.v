@@ -1,5 +1,6 @@
 module music2
 (
+    input           clk,
     input           SYS_RESET, //SYS_RESET
     // Z80 
     output          SRDB,
@@ -37,7 +38,6 @@ module music2
 /////////////////////////////////
 ////////////// OLD IO ///////////
 /////////////////////////////////
-  input             clk,
   input             oki_cen,
 /// ROM 
   input       [7:0] z80_rom_data,

@@ -110,9 +110,8 @@ LS138 LS138_16M_u(
 );
 
 //74LS273 18M 
-//always @(posedge clk) begin 
 always @(posedge clk, negedge RESET_A) begin 
-    if (~RESET_A) begin  //reset_a is low
+    if (~RESET_A) begin 
        { S4MASK, OBJMASK, S2MASK, S1MASK } <= 4'b0;
        { PRIOR_B, PRIOR_A } <= 2'b0;
        HREV <= 1'b0;
@@ -121,7 +120,7 @@ always @(posedge clk, negedge RESET_A) begin
      else if (MASKS == 1'b0)  begin 
        { S4MASK, OBJMASK, S2MASK, S1MASK } <= MDB[3:0];
        // if ((cpu_dout[15:0] & 16'h100) == 16'h0) ??? 0b100_000_000
-       { PRIOR_B, PRIOR_A } <= MDB[9:8]; //XXX DON'T WORK WELL ON POCKET 
+       { PRIOR_B, PRIOR_A } <= MDB[9:8];
        // 74LS368 17M
        HREV <= ~MDB[14];
        YREV <= ~MDB[15];

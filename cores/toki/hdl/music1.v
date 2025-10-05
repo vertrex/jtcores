@@ -37,6 +37,7 @@
 //                    \----------------/
 //
 module music1(
+  input             clk,
   input             CLK_3_6,
   input             CS3812,
   
@@ -56,7 +57,6 @@ module music1(
 ////////////// OLD IO ///////////
 /////////////////////////////////
   input             rst,
-  input             clk,
 
   output     [15:0] snd,
   input       [1:0] fxlevel,
@@ -85,8 +85,8 @@ wire opl_sample;
 //type 1 ou 2?
 jtopl2   u_YM3812(
     .rst(rst), //RESET A
-    .clk(CLK_3_6), //CLK_3_6 ? 
-    .cen(1'b1), //CLK_3_6 //1 if clk is CLK_3_6
+    .clk(clk), //CLK_3_6 ? 
+    .cen(CLK_3_6), //CLK_3_6 //1 if clk is CLK_3_6
     .din(SD_OUT[7:0]),  //SD[0:7] 
     .addr(SA0), // cmd addr SA0 
     .cs_n(CS3812), //CS3812
@@ -156,6 +156,7 @@ jt6295 #(.INTERPOL(1))  u_adpcm(
 reg [7:0] fx_volume;
 reg [7:0] fm_volume;
 
+//always @(*) ? assign directly ?
 always @(posedge clk)  begin //posedge clk ?
   if (clk) begin
    fm_volume <=  ~enable_fm ? 8'h00 : 8'h10; 
@@ -169,8 +170,8 @@ end
 
 jtframe_mixer #(.W1(14)) u_mixer(
     .rst(rst),
-    .clk(clk),
-    .cen(1'b1),
+    .clk(clk), 
+    .cen(1'b1), //3_6 ?
     // input signals
     .ch0(opl_snd[15:0]), // fm 
     .ch1(oki_snd[13:0]), // fx

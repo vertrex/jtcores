@@ -313,6 +313,7 @@ wire  RESET_A;  //from where not driven ?
 wire  IRQ3812;
 
 music1 u_music1(
+  .clk(clk),
   .CLK_3_6(CLK_3_6),
   .CS3812(CS3812),
   .SA0(SA0),
@@ -324,10 +325,7 @@ music1 u_music1(
   .SWRB(SWRB),
   .SEL6295(SEL6295),
   //// 
-
   .rst(rst),
-  .clk(clk),
-
 
   .snd(snd),
   .fxlevel(dip_fxlevel),
@@ -351,6 +349,7 @@ assign bank_rom_cs = ~bank_rom_cs_n;
 wire [7:0] SEI0100_MDB_IN;
 
 music2 u_music2(
+  .clk(clk),
   .SYS_RESET(rst),
 
   .SRDB(SRDB),
@@ -380,7 +379,6 @@ music2 u_music2(
   .SA0(SA0),
   .SD_OUT(SD_OUT),
   ////////////////////////////////
-  .clk(clk),
   .oki_cen(oki_cen),
 
   .z80_rom_data(z80_rom_data),
