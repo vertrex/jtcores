@@ -88,11 +88,6 @@ jtframe_dual_ram16 #(.AW(10)) u_bk1_ram(
   .q1(ram_out)
 );
 
-// ??? CLOCK HERE  ? alwyas @ 
- //always @(clk)
-   //if (scrolled_hpos[0])
-     //...
-
 assign gfx_rom_cs = 1'b1;
 assign gfx_rom_addr[18:1] = {ram_out[11:0], scrolled_hpos[3], scrolled_vpos[3:0], scrolled_hpos[2]}; 
 

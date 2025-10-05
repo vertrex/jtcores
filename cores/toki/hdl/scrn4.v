@@ -50,27 +50,6 @@ module scrn4(
 );
 
 ///////// VIDEO RAM //////////
-// 
-// video ram (2048)
-// we use special ram that copy content @vblank
-// because during dipswitch (only) vram is reset at each frame
-// that make cpu write to vram longer than a vblank period
-// C1 on PCB
-//wire [15:0] vram_do;
-
-//clk port 31 N6M / OBJN6M /WR6M
-//sis6091 #(.W(10)) u_vram_ram(
-  //.clk(clk),
-  //.trigger_n(INT_T),
-  //.we({vram_cs && !cpu_wr && !cpu_uds_n , vram_cs && !cpu_wr && !cpu_lds_n}),
-  //.addr_in(cpu_a[10:1]), // if we lower cpu addr in we don't have the shift
-  //.data(cpu_dout[15:0]),
-  //.q_in(vram_do),
-
-  //.addr_out({vpos[7:3], hpos[7:3]}),
-  //.q(vram_out[15:0])
-//); 
-
 wire [15:0] ram_out;
 
 jtframe_dual_ram16 #(.AW(10)) u_vram_ram(
@@ -81,20 +60,19 @@ jtframe_dual_ram16 #(.AW(10)) u_vram_ram(
   .we0({~DMSL_S4 , ~DMSL_S4}), //DSML S4  DMA Select ?
   .q0(),
 
-  .clk1(T4H), // XXX T4H
+  .clk1(T4H), // XXX NOT REAL CLOCK T4H
   .data1(),
   .addr1({vpos[7:3], hpos[7:3]}),
   .we1(),
   .q1(ram_out[15:0])
 );
 
-
 // SEI50BU -> RAM (sis6091) -> ROM -> SEI10BU -> SG0140 -> PALETTE RAM -> UEC51 
 reg [2:0] vpos_latch;
 
-//74LS74 8B clock T8H
-always @(posedge T8H) begin //NOT REAL CLOCK ! 
-   vpos_latch[2:0] <= vpos[2:0];
+always @(clk) begin 
+  if (N6M & T8H)
+     vpos_latch[2:0] <= vpos[2:0];
 end
 //hpos2 is latched too ? (hpos/4)
 
@@ -105,14 +83,11 @@ assign char_rom_2_cs = 1'b1;
 //74LS368  exh<4> -> exh<4>/4
 assign char_rom_1_addr[15:0] =  {ram_out[11:0], vpos_latch[2:0], ~hpos[2]} ;  
 assign char_rom_2_addr[15:0] =  {ram_out[11:0], vpos_latch[2:0], ~hpos[2]} ; 
-//assign char_rom_1_addr[15:0] =  {ram_out[11:0], vpos_latch[2:0], hpos[2]} ;  
-//assign char_rom_2_addr[15:0] =  {ram_out[11:0], vpos_latch[2:0], hpos[2]} ; 
 
-// latch / serialize pixel
 sei0010bu sei0010bu_u(
   .clk(clk), 
-  .cen(N6M), //NOT REAL CLOCK !
   .rst(rst),
+  .cen(N6M),
   .load(T3F), //load new pixel
   .rev(1'b0),
   .rom_data({char_rom_2_data[7:0], char_rom_1_data[7:0]}),
