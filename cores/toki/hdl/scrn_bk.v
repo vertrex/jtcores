@@ -97,11 +97,11 @@ assign gfx_rom_cs = 1'b1;
 assign gfx_rom_addr[18:1] = {ram_out[11:0], scrolled_hpos[3], scrolled_vpos[3:0], scrolled_hpos[2]}; 
 
 wire [15:0] ram_out;
-wire s21_sync;
 
 sei0010bu sei0010bu_u(
-  .clk(N6M),
+  .clk(clk),
   .rst(rst),
+  .cen(N6M),
   .load(s21_hsync),
   .rev(1'b0),
   .rom_data(gfx_rom_data),

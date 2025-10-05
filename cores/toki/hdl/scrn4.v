@@ -110,10 +110,11 @@ assign char_rom_2_addr[15:0] =  {ram_out[11:0], vpos_latch[2:0], ~hpos[2]} ;
 
 // latch / serialize pixel
 sei0010bu sei0010bu_u(
-  .clk(N6M), //NOT REAL CLOCK !
+  .clk(clk), 
+  .cen(N6M), //NOT REAL CLOCK !
   .rst(rst),
   .load(T3F), //load new pixel
-  .rev(),
+  .rev(1'b0),
   .rom_data({char_rom_2_data[7:0], char_rom_1_data[7:0]}),
   .color(char_color)
 );
