@@ -91,9 +91,9 @@ wire RFSH_n, Z80_INT;
 wire [15:0] SA;
 
 jtframe_z80 u_z80(
-    .rst_n(~SYS_RESET),
     .clk(clk),
     .cen(CLK_3_6),
+    .rst_n(~SYS_RESET),
 
     .wait_n(wait_n), //XXX was wait_n because of ROM like for 68k  
     .int_n(Z80_INT), //DRIVE BY CONTROLER PIN 23  // sound interrupt
@@ -171,6 +171,7 @@ jtframe_ram #(.AW(11), .CEN_RD(1)) u_z80_cpu_ram(
 wire [7:0] SEI0100_SD_IN;
 
 sei0100bu sei0100bu_u(
+  .clk(clk),
   .SYS_RST(SYS_RESET),
   .MUSIC(MUSIC),
   .MWRLB(MWRLB),
@@ -238,6 +239,7 @@ wire       z80_mreq_n;
 sei80bu u_sei80bu(
     //N1H ?? ~hpos[0] ?/
   .clk(clk),
+  //cen ?
   .z80_rom_addr({3'd0, z80_rom_addr}),
   .z80_rom_data(z80_rom_data),
   .z80_rom_ok(z80_rom_ok), 
@@ -270,10 +272,10 @@ jtframe_cen3p57 u_fmcen(
 /// XXX NEEDED ONLY BECAUE OF SDRAM ? NOT ON ORIGINAL BOARD
 reg wait_n;
 
-always @(posedge CLK_3_6, posedge SYS_RESET) begin
+always @(posedge clk, posedge SYS_RESET) begin
   if (SYS_RESET)
     wait_n <= 1'b1;
-  else begin
+  else if (CLK_3_6) begin
     if (~z80_rom_cs_n & ~z80_rom_ok)
       wait_n <= 1'b0;
     else if (~bank_rom_cs_n & ~bank_rom_ok)

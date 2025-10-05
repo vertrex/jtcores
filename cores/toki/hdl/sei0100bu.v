@@ -3,6 +3,7 @@
 
 module sei0100bu
 (
+  input         clk,
   input         SYS_RST, //pin 33
   input         MUSIC,   //pin 56   
   input         MWRLB,   //pin 59 
@@ -76,7 +77,7 @@ reg stop_irq_18;
 //assign z80_int_n = ~(irq_rst10|irq_rst18);
 assign Z80_INT = ~(irq_rst10|irq_rst18);
 
-always @(posedge CLK_3_6, posedge SYS_RST) begin
+always @(posedge clk, posedge SYS_RST) begin
   if (SYS_RST) begin
     irq_rst10 <= 1'b0;
     irq_rst18 <= 1'b0;
@@ -123,12 +124,12 @@ reg [7:0] m68k_sound_latch_1;
 //   _9876_5432_1098_7654_3210
 //  0b1000_0000_0000_0000_0000' //is 80000 ! 
 //  is that lateched ?? 
-always @(posedge CLK_3_6, posedge SYS_RST) begin
+always @(posedge clk, posedge SYS_RST) begin
   if (SYS_RST) begin
     m68k_sound_latch_0 <= 8'b0;
     m68k_sound_latch_1 <= 8'b0;
     end
-  else begin
+  else if (CLK_3_6) begin //@clk we read from cpu ? what could be the clock on the original there is no cpu clk
     //MUSIC ? ?MWRLB MRDB ? 
     //0b1000_0000_0000_0000_0000'
     //8000
@@ -188,6 +189,7 @@ reg sub2main_pending;
       //sound_cs_5 <= (cpu_a[23:0] == 24'h8000a);
       //sound_cs_6 <= (cpu_a[23:0] == 24'h8000c);
 
+
 always @(posedge CLK_3_6, posedge SYS_RST) begin //XXX speed must be same than 68k din ?
   if (SYS_RST) begin
     //z80_sound_latch_0 <= 16'b0;
@@ -199,23 +201,23 @@ always @(posedge CLK_3_6, posedge SYS_RST) begin //XXX speed must be same than 6
     // send z80 data to 68k cpu
     if (~SEI0100_CS_N && (SA[4:0] == 5'h18)) 
       //z80_sound_latch_0 <= {8'b0, SD_OUT[7:0]};
-      MDB_IN[7:0] <= SD_OUT[7:0];
+      //MDB_IN[7:0] <= SD_OUT[7:0]; //xxx put back or use latch + cs ?
 
     if (~SEI0100_CS_N && (SA[4:0] == 5'h19))
       //z80_sound_latch_1 <= {8'b0, SD_OUT[7:0]};
-      MDB_IN[7:0] <= SD_OUT[7:0];
+      //MDB_IN[7:0] <= SD_OUT[7:0]; //XXX put back
 
     // data from z80 is pending read from 68k
     if (~SEI0100_CS_N && (SA[4:0] == 5'h00)) begin
       //z80_sound_latch_2 <= 16'b0;
-      MDB_IN[7:0] <= 8'b0;
+      //MDB_IN[7:0] <= 8'b0; //XXX put back ?
       sub2main_pending <= 1'b1;
       end
 
     //else if (m68k_sound_cs_6 == 1'b1 || m68k_sound_cs_2 == 1'b1) begin //? it's used as cpu din too
     else if (~MUSIC & (MAB[3:1] == 3'd6 || MAB[3:1] == 3'd2)) begin //? it's used as cpu din too
       //z80_sound_latch_2 <= 16'b1;
-      MDB_IN[7:0] <= 8'b1;
+      //MDB_IN[7:0] <= 8'b1; // XXX put back 
       sub2main_pending <= 1'b0;
       end
 
