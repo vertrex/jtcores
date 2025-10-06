@@ -233,7 +233,7 @@ LS74_CEN u_21R_1(
   .QN(int_n)
 );
 
-LS74 u_21R_2(
+LS74_CEN u_21R_2(
   .CLK(clk),
   .CEN(int_clk),
   .D(1'b0),
