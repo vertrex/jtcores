@@ -28,6 +28,7 @@ game:
       - scrn4.v
       - scrn_bk.v
       - clut.v
+      - ram_dma.v
 jtframe:
   - from: ram
     get:

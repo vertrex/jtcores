@@ -31,7 +31,7 @@ module sis6091
 
 
 
-module sis6091 #(parameter W=10) 
+module ram_dma #(parameter W=10) 
 (
 	input         clk,
   input         trigger_n, // trigger high to copy ram content 

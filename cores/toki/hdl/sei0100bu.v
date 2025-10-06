@@ -31,7 +31,7 @@ module sei0100bu
   output        CS3812, //pin 61
   //SD_OUT !
   input       [7:0] SD_OUT, //read data from CPU ! 
-  output      [7:0] SD_IN//19,50,20,51,21,52,22,53  //reg?
+  output  reg    [7:0] SD_IN//19,50,20,51,21,52,22,53  //reg?
 
 );
 
@@ -144,9 +144,12 @@ always @(posedge clk, posedge SYS_RST) begin
 end
 
    
-
+//REG ?
+//
+always @(*) begin
+  //@ Clock ?
 // XXX FROM MDB/ MAB 
-assign  SD_IN = ~irq_ack_n & irq_rst10                    ? 8'hd7 : 
+         SD_IN = ~irq_ack_n & irq_rst10                  ? 8'hd7 : 
                  ~irq_ack_n & irq_rst18                   ? 8'hdf :
                  main_data_pending_cs &  sub2main_pending ? 8'b1  :  //MWRLB  + DATA BUS ?
                  main_data_pending_cs & ~sub2main_pending ? 8'b0 :   //MRLB + DATA BUS ? 
@@ -157,6 +160,7 @@ assign  SD_IN = ~irq_ack_n & irq_rst10                    ? 8'hd7 :
                  m68k_latch1_cs                           ? m68k_sound_latch_1[7:0] ://MDB MAB 
                  read_coin_cs                             ? {6'b0, ~COIN2, ~COIN1} : //COIN 
                                                             8'hff;
+end 
 
 ////// SOUND ////////////////////
 //
@@ -227,6 +231,7 @@ always @(posedge clk, posedge SYS_RST) begin //XXX speed must be same than 68k d
       oki6295_irq_n <= 1'b0; 
     else
       oki6295_irq_n <= 1'b1;
+
     end
 end
 

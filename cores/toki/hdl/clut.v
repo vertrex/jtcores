@@ -91,14 +91,16 @@ wire [15:0] palette_out;
 ///////// PALETTE RAM //////////
 // palette ram (2048)
 // populated by DMA 
-jtframe_dual_ram16 #(.AW(10)) u_palette_ram(
-  .clk0(WRN6M), //XXX pass real clock or cen ? 
+sis6091 #(.AW(10)) u_palette_ram(
+  .clk0(clk),
+  .cen0(WRN6M),
   .data0(MDB[15:0]),
   .addr0(KDA[10:1]),
   .we0({~DMSL_GL, ~DMSL_GL}), //DSML GL
   .q0(),
 
-  .clk1(P6M),  //XXX CEN NOT CLOCK ! 
+  .clk1(clk),
+  .cen1(P6M), 
   .data1(),
   .addr1(palette_addr[10:1]),
   .we1(),

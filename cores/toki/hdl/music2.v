@@ -202,6 +202,7 @@ sei0100bu sei0100bu_u(
 //XXX IN AND OUT HERE MUST BE MORE CLEART ! AND HOW TO SEND ALL IN IN CPU ?
 //selected by the PLD finally ?
 // we need to simulate a bus 
+
 assign SD_IN = (~irq_ack_n | ~SEI0100_CS_N)  ? SEI0100_SD_IN : 
                ~z80_ram_cs_n                 ? RAM_SD_IN : 
                ~z80_rom_cs_n                 ? decrypt_rom_data :

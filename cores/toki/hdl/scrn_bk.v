@@ -74,14 +74,16 @@ sei0021bu sei21bu_bk1_v(
 
 assign sg_sync = scrolled_hpos[1];
 
-jtframe_dual_ram16 #(.AW(10)) u_bk1_ram(
-  .clk0(WRN6M),  //XXX NOT A REAL CLOCK ! 
+sis6091 #(.AW(10)) u_bk1_ram(
+  .clk0(clk),
+  .cen0(WRN6M),  //XXX NOT A REAL CLOCK ! 
   .data0(MDB[15:0]),
   .addr0(KDA[10:1]),
   .we0({~DMSL, ~DMSL}),//DMSL S1
   .q0(),
 
-  .clk1(scrolled_hpos[0]), //XXX NOT A REAL CLOCK 
+  .clk1(clk),
+  .cen1(scrolled_hpos[0]), //XXX NOT A REAL CLOCK 
   .data1(),
   .addr1({scrolled_vpos[8:4], scrolled_hpos[8:4]}),  
   .we1(),

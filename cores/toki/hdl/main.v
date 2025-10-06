@@ -364,7 +364,9 @@ always @(posedge clk, posedge rst) begin
                                1'b1,1'b1,1'b1,p2_start,p1_start,1'b1,1'b1,1'b1} : 
                  //WRITE TO MDB by sei0100bu
                  //XXX & WWRLB ?
-                 ~MUSIC     ? {8'd0, SEI0100_MDB_IN} : 
+                 //MWRLB ?
+                 //(~cpu_as_n & ~MUSIC & (MAB[3:1] == 3'd2 | MAB[3:1] == 3'd3 | MAB[3:1] == 3'd5))  ? {8'd0, SEI0100_MDB_IN} : 
+                 ~MUSIC  ? {8'd0, SEI0100_MDB_IN} : 
                  //should we share bus ?
                  //sound_cs_2 ? z80_sound_latch_0 : 
                  //sound_cs_3 ? z80_sound_latch_1 :
@@ -567,7 +569,7 @@ jtframe_dual_ram16 #(.AW(10)) u_obj_ram(
 
 wire [15:0] sprite_do;
 
-sis6091 #(.W(10)) u_sprite_ram(
+ram_dma #(.W(10)) u_sprite_ram(
   .clk(clk),
   .trigger_n(INT_T),
   .we({obj_cs && !cpu_wr_n && !cpu_uds_n, obj_cs && !cpu_wr_n && !cpu_lds_n}),

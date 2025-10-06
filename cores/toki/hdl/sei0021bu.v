@@ -30,7 +30,7 @@ always @(posedge clk, negedge rst_n) begin
       scrolled[8:0] <= {1'b0, pos[7:0]} + scroll[8:0];
 
       //sync 
-      if (pos[1:0] + scroll[1:0] == 2'b11)
+      if (pos[1:0] + scroll[1:0] == 2'b11) //11
          sync <= 1;
       else 
          sync <= 0;

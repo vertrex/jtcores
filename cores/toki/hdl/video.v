@@ -110,7 +110,6 @@ module toki_video(
 
 ////////// VIDEO SYNC /////////////
 //
-wire T4H;
 wire HBL; 
 wire L3;
 wire HD;
@@ -139,7 +138,7 @@ assign INT_T =   prom_26_data[4];
 //nc 
 assign VBL_ROM = prom_26_data[7];
 // HV SYNC
-wire T8H, T3F;
+wire T8H, T3F, T4H;
 
 SEI0050BU sei0050bu_u(
   .clk(clk),
@@ -326,6 +325,7 @@ wire obj_on = 1'b0;// active high ?
 wire prior_c = 1'b0; //obj linebuf page 18  XXX   active low  ? 
 wire prior_d = 1'b0; //obj linebuf page 18  XXX   active low  ?
 
+// XXX @ ... ?
 wire MASK =  HBLB & L3;//XXX; L3 IS NOT GOOD in sei50bu.v !
 
 reg  [3:0] bk2_code_latch;

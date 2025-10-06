@@ -52,15 +52,17 @@ module scrn4(
 ///////// VIDEO RAM //////////
 wire [15:0] ram_out;
 
-jtframe_dual_ram16 #(.AW(10)) u_vram_ram(
-  .clk0(WRN6M), // XXX NOT REAL CLOCK 
+sis6091 #(.AW(10)) u_vram_ram(
+  .clk0(clk),
+  .cen0(WRN6M),
   //.data0(ram_do[15:0]), 
   .data0(MDB[15:0]), 
   .addr0(KDA[10:1]),    // KDA [1,10]
   .we0({~DMSL_S4 , ~DMSL_S4}), //DSML S4  DMA Select ?
   .q0(),
 
-  .clk1(T4H), // XXX NOT REAL CLOCK T4H
+  .clk1(clk),
+  .cen1(T4H),
   .data1(),
   .addr1({vpos[7:3], hpos[7:3]}),
   .we1(),
