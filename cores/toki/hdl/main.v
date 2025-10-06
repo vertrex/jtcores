@@ -421,10 +421,11 @@ wire  ROM0, ROM1, RAM, MBUFEN, MBUFDR;
 wire  MDMARQ, ODMARQ;
 wire  RD_DISPW, RD_PLYER, RD_EXTIF;
 
-wire RESET_A = ~rst;
+//wire RESET_A = ~rst;
 
 ADRS ADRS_u(
   .clk(clk),
+  .rst(rst),
   .A(cpu_a[23:17]),
   .MBUSDIR(MBUSDIR),
   .OBUSDIR(OBUSDIR),
@@ -433,7 +434,7 @@ ADRS ADRS_u(
   .MAB(MAB[6:1]),
   .MWRLB(MWRLB),
   .MRDLB(MRDLB),
-  .RESET_A(RESET_A),
+  //.RESET_A(RESET_A),
   .MDB(MDB_OUT[15:0]),
 
   .ROM0(ROM0),
@@ -480,9 +481,10 @@ wire EXH_4_n, MBUSRQ, DMARD; //MBUSDIR
 
 MDMA mdma_u(
   .clk(clk),
+  .rst(rst),
   .P6M(P6M),
   .N6M(N6M),
-  .SYS_RESET(rst),
+  //.SYS_RESET(rst),
   .MDMARQ(MDMARQ), // Request DMA, start DMA 
   .BUSAK(BUSAK),
   .EXH_4(hpos[2]), //hpos XXX rev version 

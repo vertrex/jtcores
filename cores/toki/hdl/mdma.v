@@ -4,11 +4,12 @@
 //
 module MDMA(
     input clk,
+    input rst,
     // 6MHZ clock
     input P6M,
     input N6M,
     // System reset 
-    input SYS_RESET,
+    //input SYS_RESET,
 
     // Memory DMA Request 
     input MDMARQ,
@@ -123,11 +124,12 @@ wire rco_1;
 
 LS161 LS161_7K_u(
   .clk(clk),
+  .rst(rst),
   .CEN(WRN6M),
-  .CLR_n(~SYS_RESET),
+  //.CLR_n(rst),
   .LOAD_n(qn_6k1), //load /reset to 4'b0
   .ENP(dma_end_n),  // 1 ? 0 if end ? 
-  .ENT(~SYS_RESET),  //~rst ? XXX 
+  .ENT(~rst),  //~rst ? XXX 
   .D(4'b0),
   .Q(KDA[4:1]),
   .RCO(rco_1)
@@ -138,8 +140,9 @@ wire rco_2;
 
 LS161 LS161_8K_u(
   .clk(clk),
+  .rst(rst),
   .CEN(WRN6M),
-  .CLR_n(~SYS_RESET),
+  //.CLR_n(~SYS_RESET),
   .LOAD_n(qn_6k1),
   .ENP(dma_end_n),
   .ENT(rco_1),
@@ -150,8 +153,9 @@ LS161 LS161_8K_u(
 
 LS161 LS161_9K_u(
   .clk(clk),
+  .rst(rst),
   .CEN(WRN6M),
-  .CLR_n(~SYS_RESET),
+  //.CLR_n(~SYS_RESET),
   .LOAD_n(qn_6k1),
   .ENP(dma_end_n),
   .ENT(rco_2),

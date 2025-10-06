@@ -4,7 +4,7 @@
 module sei0100bu
 (
   input         clk,
-  input         SYS_RST, //pin 33
+  input         rst, //pin 33
   input         MUSIC,   //pin 56   
   input         MWRLB,   //pin 59 
   input         MRDLB,   //pin 60 ?
@@ -77,8 +77,8 @@ reg stop_irq_18;
 //assign z80_int_n = ~(irq_rst10|irq_rst18);
 assign Z80_INT = ~(irq_rst10|irq_rst18);
 
-always @(posedge clk, posedge SYS_RST) begin
-  if (SYS_RST) begin
+always @(posedge clk) begin
+  if (rst) begin
     irq_rst10 <= 1'b0;
     irq_rst18 <= 1'b0;
     stop_irq_10 <= 1'b0;
@@ -124,8 +124,8 @@ reg [7:0] m68k_sound_latch_1;
 //   _9876_5432_1098_7654_3210
 //  0b1000_0000_0000_0000_0000' //is 80000 ! 
 //  is that lateched ?? 
-always @(posedge clk, posedge SYS_RST) begin
-  if (SYS_RST) begin
+always @(posedge clk) begin
+  if (rst) begin
     m68k_sound_latch_0 <= 8'b0;
     m68k_sound_latch_1 <= 8'b0;
     end
@@ -194,8 +194,8 @@ reg sub2main_pending;
       //sound_cs_6 <= (cpu_a[23:0] == 24'h8000c);
 
 
-always @(posedge clk, posedge SYS_RST) begin //XXX speed must be same than 68k din ?
-  if (SYS_RST) begin
+always @(posedge clk) begin //XXX speed must be same than 68k din ?
+  if (rst) begin
     //z80_sound_latch_0 <= 16'b0;
     //z80_sound_latch_1 <= 16'b0;
     sub2main_pending  <= 1'b0;

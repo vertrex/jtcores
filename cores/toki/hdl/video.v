@@ -142,8 +142,8 @@ wire T8H, T3F, T4H;
 
 SEI0050BU sei0050bu_u(
   .clk(clk),
-  .N6M(N6M),
   .rst(rst),
+  .N6M(N6M),
 
   .VBL_ROM(VBL_ROM),
   .hpos(hpos),
@@ -221,9 +221,9 @@ wire S1CLLT; //S1 col latch
 
 scrn_bk bk1_u(
   .clk(clk),
+  .rst(rst),
   .N6M(N6M),
   .WRN6M(WRN6M),
-  .rst(rst),
   .DMSL(DMSL_S1),
   .KDA(KDA[10:1]),
   .MAB(MAB),
@@ -256,9 +256,9 @@ wire S2CLLT; // S2 COL latch
 
 scrn_bk bk2_u(
   .clk(clk),
+  .rst(rst),
   .N6M(N6M),
   .WRN6M(WRN6M),
-  .rst(rst),
   .DMSL(DMSL_S2),
   .KDA(KDA[10:1]),
   .MAB(MAB),

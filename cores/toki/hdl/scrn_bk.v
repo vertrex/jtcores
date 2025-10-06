@@ -7,9 +7,9 @@
 //
 module scrn_bk(
   input                 clk,
+  input                 rst,
   input                 N6M,
   input                 WRN6M,
-  input                 rst,
 
   input          [10:1] KDA,
   input                 DMSL,

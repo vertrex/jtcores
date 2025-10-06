@@ -116,7 +116,7 @@ assign T8H = (hpos[2:0] == 3'b000);// || (hcnt == HBLANK_END-1); // || hnct == H
 assign N1H = ~hpos[0];
 
 //sei50bu generate only line and PROM26 generate Y / LVBL ?
-always @(posedge clk, posedge rst) begin 
+always @(posedge clk) begin 
     if (rst) begin 
     	vcnt  <= 9'b0;
       hpos  <= 9'b0; //recalc size for 1st iteration H_TOTAL - 138 -1 ?

@@ -38,6 +38,7 @@
 //
 module music1(
   input             clk,
+  input             rst,
   input             CLK_3_6,
   input             CS3812,
   
@@ -56,7 +57,6 @@ module music1(
 /////////////////////////////////
 ////////////// OLD IO ///////////
 /////////////////////////////////
-  input             rst,
 
   output     [15:0] snd,
   input       [1:0] fxlevel,

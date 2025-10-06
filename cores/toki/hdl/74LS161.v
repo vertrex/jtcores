@@ -1,7 +1,8 @@
 module LS161 (
     input             clk,
+    input             rst,
     input             CEN,      // Clock input
-    input             CLR_n,    // Asynchronous clear (active low)
+    //input             CLR_n,    // Asynchronous clear (active low)
     input             LOAD_n,   // Synchronous load (active low)
     input             ENP,      // Count enable P
     input             ENT,      // Count enable T
@@ -13,12 +14,12 @@ module LS161 (
     // Asynchronous clear
     //always @(posedge CLK or negedge CLR_n) begin
     always @(posedge clk) begin
-        if (!CLR_n)
+        if (rst)
             Q <= 4'b0000;
-        else if (CEN) begin
-            if (!LOAD_n)
+        else if (!LOAD_n)
                 Q <= D;
-            else if (ENP && ENT) 
+        else if (CEN && ENP && ENT) begin
+            //else if (ENP && ENT) 
                 Q <= Q + 4'b1;
         end
     end

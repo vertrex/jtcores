@@ -309,23 +309,23 @@ wire ym_cs_0;
 wire ym_cs_1; 
 wire [7:0] ym3812_dout;
 
-wire  RESET_A;  //from where not driven ?
+//wire  RESET_A;  //from where not driven ?
 wire  IRQ3812;
 
 music1 u_music1(
   .clk(clk),
+  .rst(rst),
   .CLK_3_6(CLK_3_6),
   .CS3812(CS3812),
   .SA0(SA0),
   .SD_OUT(SD_OUT),
-  .RESET_A(RESET_A), // ?? ~SYS_RESET or = SYS_RESET ?
+  //.RESET_A(RESET_A), // ?? ~SYS_RESET or = SYS_RESET ?
   .IRQ3812(IRQ3812),
   .PRCLK1(PRCLK1),
   .SRDB(SRDB),
   .SWRB(SWRB),
   .SEL6295(SEL6295),
   //// 
-  .rst(rst),
 
   .snd(snd),
   .fxlevel(dip_fxlevel),
@@ -350,7 +350,8 @@ wire [7:0] SEI0100_MDB_IN;
 
 music2 u_music2(
   .clk(clk),
-  .SYS_RESET(rst),
+  .rst(rst),
+  //.SYS_RESET(rst),
 
   .SRDB(SRDB),
   .SWRB(SWRB), 

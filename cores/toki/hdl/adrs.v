@@ -1,5 +1,6 @@
 module ADRS(
     input           clk,
+    input           rst,
     // PLD21 22M
     input   [23:17] A,
     input           MBUSDIR,
@@ -12,7 +13,7 @@ module ADRS(
     input           MRDLB,
 
     // 74LS273 18M 
-    input           RESET_A,
+    //input           RESET_A,
     input    [15:0] MDB,
 
     // PLD21 22M
@@ -110,8 +111,8 @@ LS138 LS138_16M_u(
 );
 
 //74LS273 18M 
-always @(posedge clk, negedge RESET_A) begin 
-    if (~RESET_A) begin 
+always @(posedge clk) begin 
+    if (rst) begin 
        { S4MASK, OBJMASK, S2MASK, S1MASK } <= 4'b0;
        { PRIOR_B, PRIOR_A } <= 2'b0;
        HREV <= 1'b0;

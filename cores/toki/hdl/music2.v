@@ -1,7 +1,7 @@
 module music2
 (
     input           clk,
-    input           SYS_RESET, //SYS_RESET
+    input           rst, //SYS_RESET
     // Z80 
     output          SRDB,
     output          SWRB, 
@@ -93,7 +93,7 @@ wire [15:0] SA;
 jtframe_z80 u_z80(
     .clk(clk),
     .cen(CLK_3_6),
-    .rst_n(~SYS_RESET),
+    .rst_n(~rst),
 
     .wait_n(wait_n), //XXX was wait_n because of ROM like for 68k  
     .int_n(Z80_INT), //DRIVE BY CONTROLER PIN 23  // sound interrupt
@@ -172,7 +172,7 @@ wire [7:0] SEI0100_SD_IN;
 
 sei0100bu sei0100bu_u(
   .clk(clk),
-  .SYS_RST(SYS_RESET),
+  .rst(rst),
   .MUSIC(MUSIC),
   .MWRLB(MWRLB),
   .MRDLB(MRDLB),
@@ -273,8 +273,8 @@ jtframe_cen3p57 u_fmcen(
 /// XXX NEEDED ONLY BECAUE OF SDRAM ? NOT ON ORIGINAL BOARD
 reg wait_n;
 
-always @(posedge clk, posedge SYS_RESET) begin
-  if (SYS_RESET)
+always @(posedge clk) begin
+  if (rst)
     wait_n <= 1'b1;
   else if (CLK_3_6) begin
     if (~z80_rom_cs_n & ~z80_rom_ok)
