@@ -64,7 +64,7 @@ assign dma_end_n = ~copy_end; // XXX OUTPUT OF RCO COUNTER HIGH 4*3 bits  1 when
 
 //5K 
 //M_DMA_RQ : start DMA request 
-LS74 _5K1_u(
+LS74 _5K1_u( //CEN NE MARCHE PAS !
    .CLK(MDMARQ),
    .CEN(MDMARQ), // GET Memory DMA Request 
    .D(1'b0),
@@ -79,8 +79,8 @@ LS74 _5K1_u(
 wire qn_6k2;
 wire q_5k2;
 
-LS74 _5K2_u(
-   .CLK(WRN6M),
+LS74_CEN _5K2_u(
+   .CLK(clk),
    .CEN(WRN6M),
    .D(qn_6k2),
    .PRE(dma_end_n), 
@@ -90,8 +90,8 @@ LS74 _5K2_u(
 );
 
 // 6K 
-LS74 _6k1_u(
-   .CLK(WRN6M),
+LS74_CEN  _6k1_u(
+   .CLK(clk),
    .CEN(WRN6M),
    .D(q_5k2),
    .PRE(1'b1),
