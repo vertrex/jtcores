@@ -65,7 +65,7 @@ assign dma_end_n = ~copy_end; // XXX OUTPUT OF RCO COUNTER HIGH 4*3 bits  1 when
 
 //5K 
 //M_DMA_RQ : start DMA request 
-LS74 _5K1_u( //CEN NE MARCHE PAS !
+LS74 _5K1_u( //XXX VERSION CEN NE MARCHE PAS !
    .CLK(MDMARQ),
    .CEN(MDMARQ), // GET Memory DMA Request 
    .D(1'b0),

@@ -223,7 +223,7 @@ assign MDB_OUT[15:8] = (!cpu_uds_n & !MEMDIR) ? cpu_dout[15:8] :
 wire int_clk;
 wire int_a, int_n; 
 
-LS74 u_21R_1(
+LS74_CEN u_21R_1(
   .CLK(clk),
   .CEN(HBLB), //HBLB ? 
   .D(INT_T),  //INT_T VBLANK BEFORE IS THAT EQUAL ?
