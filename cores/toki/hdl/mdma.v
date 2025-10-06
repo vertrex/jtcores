@@ -104,8 +104,8 @@ wire busak_rq;
 assign busak_rq = (MBUSRQ | BUSAK);
 
 // 6K 2 
-LS74 _6K2_u(
-   .CLK(1'b0),
+LS74_CEN _6K2_u(
+   .CLK(clk),
    .CEN(1'b0),
    .D(1'b0),
    .PRE(busak_rq), 

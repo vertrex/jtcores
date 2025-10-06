@@ -40,7 +40,6 @@ module LS74_CEN (
         else if (!PRE)
             Q <= 1'b1;
         else if (CEN)
-        //else 
             Q <= D;
     end
 
