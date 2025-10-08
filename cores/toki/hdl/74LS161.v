@@ -12,28 +12,29 @@ module LS161 (
 );
 
     // Asynchronous clear
-    //always @(posedge CLK or negedge CLR_n) begin
+    always @(posedge clk or negedge LOAD_n or posedge rst) begin
     //always @(posedge clk) begin
+        if (rst)
+            Q <= 4'b0000;
+        else if (!LOAD_n)
+           Q <= D;
+        else if (CEN && ENP && ENT) begin
+            //else if (ENP && ENT) 
+           Q <= Q + 4'b1;
+        end
+    end
+    
+
+    //always @(posedge clk) begin 
         //if (rst)
-            //Q <= 4'b0000;
-        //else if (!LOAD_n)
+            //Q <= 4'b000;
+        //else if (CEN) begin   
+            //if (!LOAD_n) //XXX 
                 //Q <= D;
-        //else if (CEN && ENP && ENT) begin
             //else if (ENP && ENT) 
                 //Q <= Q + 4'b1;
-        //end
-    //end
-    
-    always @(posedge clk) begin 
-        if (rst)
-            Q <= 4'b000;
-        else if (CEN) begin   
-            if (!LOAD_n) //XXX 
-                Q <= D;
-            else if (ENP && ENT) 
-                Q <= Q + 4'b1;
-            end 
-    end 
+            //end 
+    //end 
 
     // Ripple Carry Output: high when Q == 4'b1111 and ENT == 1 and ENP == 1
     //assign RCO = (Q == 4'b1111); // && ENT && ENP;

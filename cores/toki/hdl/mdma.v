@@ -61,7 +61,6 @@ assign EXH_4_n = ~EXH_4;
 assign WRN6M = N6M;
 assign dma_end_n = ~copy_end; // XXX OUTPUT OF RCO COUNTER HIGH 4*3 bits  1 when dma is finished 
 
-//
 reg previous_MDMARQ;
 
 always @(posedge clk) begin
@@ -75,10 +74,8 @@ always @(posedge clk) begin
       MBUSRQ <= 1'b0;
 end 
 
-
 /*
-* 
-LS74   _5K1_u( //XXX VERSION CEN NE MARCHE PAS !
+LS74  _5K1_u( //XXX VERSION CEN NE MARCHE PAS !
    .CLK(MDMARQ),
    .CEN(MDMARQ), // GET Memory DMA Request 
    .D(1'b0),
