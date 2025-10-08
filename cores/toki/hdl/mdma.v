@@ -106,7 +106,7 @@ LS74 _5K2_u(
 );
 
 // 6K 
-LS74_CEN  _6k1_u(
+LS74  _6k1_u(
    .CLK(clk),
    .CEN(WRN6M),
    .D(q_5k2),
