@@ -23,7 +23,7 @@ module MDMA(
     // ~ P6M 
     output WRN6M,
     // Memory Bus Request, active low ?
-    output MBUSRQ,
+    output reg MBUSRQ,
 
     // Memory Bus Direction (R/W) , DMA Arbitration
     output MBUSDIR,
@@ -61,11 +61,24 @@ assign EXH_4_n = ~EXH_4;
 assign WRN6M = N6M;
 assign dma_end_n = ~copy_end; // XXX OUTPUT OF RCO COUNTER HIGH 4*3 bits  1 when dma is finished 
 
-//MBUSRQ should be 1 by default et 0 when up 
+//
+reg previous_MDMARQ;
 
-//5K 
-//M_DMA_RQ : start DMA request 
-LS74 _5K1_u( //XXX VERSION CEN NE MARCHE PAS !
+always @(posedge clk) begin
+    previous_MDMARQ <= MDMARQ; 
+
+    if (rst)
+      MBUSRQ <= 1'b1; 
+    else if (q_6k1 == 1'b0)
+      MBUSRQ <= 1'b1; 
+    else if (MDMARQ == 1'b1 && previous_MDMARQ == 1'b0)
+      MBUSRQ <= 1'b0;
+end 
+
+
+/*
+* 
+LS74   _5K1_u( //XXX VERSION CEN NE MARCHE PAS !
    .CLK(MDMARQ),
    .CEN(MDMARQ), // GET Memory DMA Request 
    .D(1'b0),
@@ -74,13 +87,15 @@ LS74 _5K1_u( //XXX VERSION CEN NE MARCHE PAS !
    .Q(MBUSRQ),  // START DMA BUS REQUEST 
    .QN()
 );
+*/
 
+//end 
 // 5K 2 
 //
 wire qn_6k2;
 wire q_5k2;
 
-LS74_CEN _5K2_u(
+LS74 _5K2_u(
    .CLK(clk),
    .CEN(WRN6M),
    .D(qn_6k2),
@@ -105,7 +120,7 @@ wire busak_rq;
 assign busak_rq = (MBUSRQ | BUSAK);
 
 // 6K 2 
-LS74_CEN _6K2_u(
+LS74 _6K2_u(
    .CLK(clk),
    .CEN(1'b0),
    .D(1'b0),
