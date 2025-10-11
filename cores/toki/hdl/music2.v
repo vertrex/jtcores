@@ -82,7 +82,7 @@ assign PRCLK1 = oki_cen;
 // 
 //
 //
-reg [7:0] SD_IN; //reg ?
+wire [7:0] SD_IN; //reg ?
 wire z80_iorq_n;
 wire z80_cen;
 wire z80_busak_n;
@@ -122,14 +122,11 @@ jtframe_z80 u_z80(
 //
 //  Chip select 
 //
-
-reg z80_rom_cs, oki_rd, oki_wr;
+reg z80_rom_cs;
 
 always @(*) begin
     // RAM & ROM
     z80_rom_cs = (SA[15:0] < 16'h2000);
-    oki_rd = ((SA[15:0] == 16'h6000) && (SRDB == 1'b0));
-    oki_wr = ((SA[15:0] == 16'h6000) && (SWRB == 1'b0));
 end 
 
 ///////
@@ -219,6 +216,7 @@ sei0100bu sei0100bu_u(
   .SD_OUT(SD_OUT),
   .SD_IN(SEI0100_SD_IN),
 
+  //XXX
   .z80_sound_latch_0(z80_sound_latch_0),
   .z80_sound_latch_1(z80_sound_latch_1),
   .z80_sound_latch_2(z80_sound_latch_2),
@@ -252,21 +250,14 @@ assign z80_rom_cs_n = ~z80_rom_cs;
 // we need to simulate a bus 
 
 //try with assign ?   
-//assign SD_IN = (~irq_ack_n | ~SEI0100_CS_N)  ? SEI0100_SD_IN :
-always @(posedge clk) begin
-  if (rst)
-     SD_IN <= 8'hff;
-  else if (clk) begin 
-  // XXX
-     SD_IN <=
-            //(~irq_ack_n | ~SEI0100_CS_N)  ? SEI0100_SD_IN : 
-                 CS3812_IN & ~SRDB                       ? ym3812_dout :  //0 onlyt ???it's rarrely used aslone CS3812 ? 
+assign SD_IN = 
+              //(~irq_ack_n | ~SEI0100_CS_N)  ? SEI0100_SD_IN :
                  ~irq_ack_n & irq_rst10                   ? 8'hd7 : 
                  ~irq_ack_n & irq_rst18                   ? 8'hdf :
+                 CS3812_IN & ~SRDB                       ? ym3812_dout :  //0 onlyt ???it's rarrely used aslone CS3812 ? 
                  main_data_pending_cs &  sub2main_pending ? 8'b1  :  //MWRLB  + DATA BUS ?
                  main_data_pending_cs & ~sub2main_pending ? 8'b0  :   //MRLB + DATA BUS ? 
-               //~SEL6295 & ~SRDB              ? oki_dout :
-                 oki_rd                                   ? oki_dout :
+                 ~SEL6295 & ~SRDB                         ? oki_dout :
                  ~bank_rom_cs_n                             ? bank_rom_data :
                  //read directly or from a latch ?? 
                  m68k_latch0_cs                           ? m68k_sound_latch_0[7:0] : //MDB //MAB 
@@ -276,8 +267,6 @@ always @(posedge clk) begin
                  z80_rom_cs                               ? decrypt_rom_data :
 
                                                8'hff;
-  end 
-end 
 
 
 // SEI0080 SCRAMBLER 
