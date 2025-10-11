@@ -38,7 +38,7 @@ module CLUT(
   input      [7:0]  prom_27_data, // XXX 4 bit wide ! 
   input             prom_27_ok,
 
-  output     [7:0]  prom_27_addr,
+  output reg [7:0]  prom_27_addr,
   output            prom_27_cs,
 
   output      [3:0] R,
@@ -75,6 +75,7 @@ sg0140    sg0140_u(
 assign prom_27_cs = 1'b1;
 // XXX PRIOR_A IS WRONG AT TLEAST ON THE POCKET THAT MAKE STRANGE THINGS 
 // IT's some time 0 when it should be 1 (it's active low) 
+/* 
 assign prom_27_addr[7:0] = { PRIOR_D, PRIOR_C, PRIOR_B, PRIOR_A, S2ON, 1'b0, S4ON, S1ON };
 
 // 74LS257 2H, 3H 
@@ -85,7 +86,22 @@ assign palette_addr[10:1] =  //OBJON ? { prom_27_data[3:2], OOB[7:0] } :
                              prom_27_data[1] == 1'b0 ?  { prom_27_data[3:2], s1_s4_out[7:0] } :
                                                         { prom_27_data[3:2], SCRN2[7:0] };
 // SIS6091 5H
-wire [10:1] palette_addr;
+//
+*/
+always @(posedge clk) begin 
+  prom_27_addr[7:0] <= { PRIOR_D, PRIOR_C, PRIOR_B, PRIOR_A, S2ON, 1'b0, S4ON, S1ON };
+// 74LS257 2H, 3H 
+// 74LS258 
+// 74LS246 1C 
+  palette_addr[10:1] <=  //OBJON ? { prom_27_data[3:2], OOB[7:0] } :
+//assign palette_addr[10:1] =  prom_27_data[0] == 1'b1 ?  { prom_27_data[3:2], OOB[7:0] } : 
+                             prom_27_data[1] == 1'b0 ?  { prom_27_data[3:2], s1_s4_out[7:0] } :
+                                                        { prom_27_data[3:2], SCRN2[7:0] };
+
+end 
+
+
+reg  [10:1] palette_addr;
 wire [15:0] palette_out;
 
 ///////// PALETTE RAM //////////
@@ -93,6 +109,7 @@ wire [15:0] palette_out;
 // populated by DMA 
 sis6091 #(.AW(10)) u_palette_ram(
   .clk0(clk),
+  //.cen0(WRN6M),
   .cen0(WRN6M),
   .data0(MDB[15:0]),
   .addr0(KDA[10:1]),
@@ -106,6 +123,8 @@ sis6091 #(.AW(10)) u_palette_ram(
   .we1(),
   .q1(palette_out[15:0])
 );
+
+//@laswys @?
 
 // UEC-51  6H
 assign R = palette_out[3:0];

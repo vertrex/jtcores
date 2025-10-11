@@ -29,28 +29,75 @@ module sei0100bu
   output        COUNTER2, //pin 40
   output        Z80_INT, //pin 23
   output        CS3812, //pin 61
+  output        CS3812_IN, //pin 61
   //SD_OUT !
   input       [7:0] SD_OUT, //read data from CPU ! 
-  output  reg    [7:0] SD_IN//19,50,20,51,21,52,22,53  //reg?
+  output  reg    [7:0] SD_IN,//19,50,20,51,21,52,22,53  //reg?
 
+  //XXX REMOVE 
+  output reg [15:0] z80_sound_latch_0,
+  output reg [15:0] z80_sound_latch_1,
+  output reg [15:0] z80_sound_latch_2,
+
+  input             m68k_sound_cs_2,
+  input             m68k_sound_cs_4,
+  input             m68k_sound_cs_6,
+
+  //SEIBU SOUND DEVICE MAIN READ
+  //READ FROM MDB
+  input      [15:0] m68k_sound_latch_0,
+  input      [15:0] m68k_sound_latch_1,
+
+ output reg ym_cs_1,
+ output reg irq_rst10,
+ output reg irq_rst18,
+ output reg main_data_pending_cs,
+ output reg sub2main_pending,
+ output reg read_coin_cs,
+ output reg m68k_latch0_cs,
+ output reg m68k_latch1_cs,
+ output reg ym_wr,
+ input  SRDB,
+ input  [15:0] SA_FULL
 );
 
-reg  ym_cs_0, ym_cs_1, ym_wr, 
-     m68k_latch0_cs, m68k_latch1_cs, 
-     main_data_pending_cs, read_coin_cs;
+reg  ym_cs_0; 
+     //ym_wr; 
+     //m68k_latch0_cs, m68k_latch1_cs, 
+     //main_data_pending_cs, read_coin_cs;
 
-assign CS3812 = ~ym_wr; //XXX ONLY 8 ??  on in one out ? one wqrite one read ?
+//assign CS3812 = ~ym_wr; //XXX ONLY 8 ??  on in one out ? one wqrite one read ?
+assign CS3812 = ~(ym_cs_0 | ym_cs_1);//~ym_wr; //XXX ONLY 8 ??  on in one out ? one wqrite one read ?
+assign CS3812_IN = ym_cs_0;
+
+reg ym_cs_0_new, ym_cs_1_new, ym_wr_new, m68k_latch0_cs_new, m68k_latch1_cs_new,
+     main_data_pending_cs_new, read_coin_cs_new;
 
 // old z80_cs.v 
 always @(*) begin
     // IO
-    ym_cs_0 =  (~SEI0100_CS_N &&  SA[4:0] == 5'h08);
-    ym_cs_1 =  (~SEI0100_CS_N &&  SA[4:0] == 5'h09); //SA
-    ym_wr = (~SEI0100_CS_N && (SA[4:0] == 5'h08 || SA[4:0] == 5'h09));
-    m68k_latch0_cs =  (~SEI0100_CS_N && (SA[4:0] == 5'h10));
-    m68k_latch1_cs =  (~SEI0100_CS_N && (SA[4:0] == 5'h11));
-    main_data_pending_cs =   (~SEI0100_CS_N && (SA[4:0] == 5'h12));
-    read_coin_cs =   (~SEI0100_CS_N && (SA[4:0] == 5'h13));
+    ym_cs_0_new =  (~SEI0100_CS_N &&  SA[4:0] == 5'h08);
+    ym_cs_1_new =  (~SEI0100_CS_N &&  SA[4:0] == 5'h09); //SA
+    ym_wr_new = (~SEI0100_CS_N && (SA[4:0] == 5'h08 || SA[4:0] == 5'h09));
+    m68k_latch0_cs_new =  (~SEI0100_CS_N && (SA[4:0] == 5'h10));
+    m68k_latch1_cs_new =  (~SEI0100_CS_N && (SA[4:0] == 5'h11));
+    main_data_pending_cs_new =   (~SEI0100_CS_N && (SA[4:0] == 5'h12));
+    read_coin_cs_new =   (~SEI0100_CS_N && (SA[4:0] == 5'h13));
+end 
+
+
+
+always @(*) begin
+    // RAM & ROM
+ 
+    // IO
+    ym_cs_0 =  (SA_FULL[15:0] == 16'h4008);
+    ym_cs_1 =  (SA_FULL[15:0] == 16'h4009);
+    m68k_latch0_cs =  (SA_FULL[15:0] == 16'h4010);
+    m68k_latch1_cs =  (SA_FULL[15:0] == 16'h4011);
+    main_data_pending_cs =   (SA_FULL[15:0] == 16'h4012);
+    read_coin_cs =   (SA_FULL[15:0] == 16'h4013);
+    ym_wr = ((SA_FULL[15:0] == 16'h4008 || SA_FULL[15:0] == 16'h4009)  && (SWRB == 1'b0));
 end 
 
 ////// Z80 databus input   /////////////////////// 
@@ -68,13 +115,11 @@ end
 //
 // XXX ??? BUS SHARED ? + CONTROLLER ?
 
-reg irq_rst10;
-reg irq_rst18;
+//reg irq_rst10;
+//reg irq_rst18;
 reg stop_irq_10; 
 reg stop_irq_18; 
 
-//wire z80_int_n;
-//assign z80_int_n = ~(irq_rst10|irq_rst18);
 assign Z80_INT = ~(irq_rst10|irq_rst18);
 
 always @(posedge clk) begin
@@ -85,7 +130,8 @@ always @(posedge clk) begin
     stop_irq_18 <= 1'b0;
     end
   else begin
-    if (CLK_3_6) begin
+    //if (CLK_3_6) begin
+    if (clk) begin
       if (irq_ack_n & stop_irq_10) begin
         irq_rst10 <= 1'b0;
         stop_irq_10 <= 1'b0;
@@ -108,8 +154,8 @@ always @(posedge clk) begin
 end
 
 
-reg [7:0] m68k_sound_latch_0;
-reg [7:0] m68k_sound_latch_1;
+//reg [7:0] m68k_sound_latch_0;
+//reg [7:0] m68k_sound_latch_1;
 //input   [3:1] MAB,     //pin 56-58
 //input   [7:0] MDB,  
 ///////// Sound ///////////////
@@ -123,7 +169,9 @@ reg [7:0] m68k_sound_latch_1;
 //000 100? ???? ???? ???? ????               
 //   _9876_5432_1098_7654_3210
 //  0b1000_0000_0000_0000_0000' //is 80000 ! 
-//  is that lateched ?? 
+//  is that lateched ??
+//  
+/*
 always @(posedge clk) begin
   if (rst) begin
     m68k_sound_latch_0 <= 8'b0;
@@ -142,25 +190,26 @@ always @(posedge clk) begin
       m68k_sound_latch_1[7:0] <= MDB_OUT[7:0];
   end
 end
-
+*/
    
 //REG ?
 //
-always @(*) begin
+//always @(*) begin
   //@ Clock ?
 // XXX FROM MDB/ MAB 
-         SD_IN = ~irq_ack_n & irq_rst10                  ? 8'hd7 : 
-                 ~irq_ack_n & irq_rst18                   ? 8'hdf :
-                 main_data_pending_cs &  sub2main_pending ? 8'b1  :  //MWRLB  + DATA BUS ?
-                 main_data_pending_cs & ~sub2main_pending ? 8'b0 :   //MRLB + DATA BUS ? 
-                 //ym_cs_0 & ~SRDB                          ? ym3812_dout :  //0 onlyt ???it's rarrely used aslone CS3812 ? 
+//always @(posedge clk) begin
+        //SD_IN <= ~irq_ack_n & irq_rst10                   ? 8'hd7 : 
+                 //~irq_ack_n & irq_rst18                   ? 8'hdf :
+                 //main_data_pending_cs &  sub2main_pending ? 8'b1  :  //MWRLB  + DATA BUS ?
+                 //main_data_pending_cs & ~sub2main_pending ? 8'b0  :   //MRLB + DATA BUS ? 
+                 //m_cs_0 & ~SRDB                          ? ym3812_dout :  //0 onlyt ???it's rarrely used aslone CS3812 ? 
                  //read directly or from a latch ?? 
                  //
-                 m68k_latch0_cs                           ? m68k_sound_latch_0[7:0] : //MDB //MAB 
-                 m68k_latch1_cs                           ? m68k_sound_latch_1[7:0] ://MDB MAB 
-                 read_coin_cs                             ? {6'b0, ~COIN2, ~COIN1} : //COIN 
-                                                            8'hff;
-end 
+                 //m68k_latch0_cs                           ? m68k_sound_latch_0[7:0] : //MDB //MAB 
+                 //m68k_latch1_cs                           ? m68k_sound_latch_1[7:0] ://MDB MAB 
+                 //read_coin_cs                             ? {6'b0, ~COIN2, ~COIN1} : //COIN 
+                                                            //8'hff;
+//end 
 
 ////// SOUND ////////////////////
 //
@@ -170,7 +219,7 @@ end
 
 // XXX done by the controlelr ?
 reg oki6295_irq_n;
-reg sub2main_pending;
+//reg sub2main_pending;
 
 // XXX WRITE TO MAIN CPU DATA BUS DIRECTLY! MDB ! 
 //reg [15:0] z80_sound_latch_0; 
@@ -196,32 +245,37 @@ reg sub2main_pending;
 
 always @(posedge clk) begin //XXX speed must be same than 68k din ?
   if (rst) begin
-    //z80_sound_latch_0 <= 16'b0;
-    //z80_sound_latch_1 <= 16'b0;
+    z80_sound_latch_0 <= 16'b0;
+    z80_sound_latch_1 <= 16'b0;
     sub2main_pending  <= 1'b0;
     oki6295_irq_n     <= 1'b1;
     end
-  else if (CLK_3_6) begin // ?
+  //else if (CLK_3_6) begin // ?
+  //else if (clk) begin // ?
+  else begin // ?
     // send z80 data to 68k cpu
     if (~SEI0100_CS_N && (SA[4:0] == 5'h18)) 
       //z80_sound_latch_0 <= {8'b0, SD_OUT[7:0]};
-      MDB_IN[7:0] <= SD_OUT[7:0]; //xxx put back or use latch + cs ?
+      //MDB_IN[7:0] <= SD_OUT[7:0]; //xxx put back or use latch + cs ?
+      z80_sound_latch_0 <= {8'b0, SD_OUT[7:0]}; //xxx put back or use latch + cs ?
 
     if (~SEI0100_CS_N && (SA[4:0] == 5'h19))
       //z80_sound_latch_1 <= {8'b0, SD_OUT[7:0]};
-      MDB_IN[7:0] <= SD_OUT[7:0]; //XXX put back
+      //MDB_IN[7:0] <= SD_OUT[7:0]; //XXX put back
+      z80_sound_latch_1 <= {8'b0, SD_OUT[7:0]}; //XXX put back
 
     // data from z80 is pending read from 68k
     if (~SEI0100_CS_N && (SA[4:0] == 5'h00)) begin
       //z80_sound_latch_2 <= 16'b0;
-      MDB_IN[7:0] <= 8'b0; //XXX put back ?
+      //MDB_IN[7:0] <= 8'b0; //XXX put back ?
+      z80_sound_latch_2  <= 16'b0; //XXX put back ?
       sub2main_pending <= 1'b1;
       end
 
     //else if (m68k_sound_cs_6 == 1'b1 || m68k_sound_cs_2 == 1'b1) begin //? it's used as cpu din too
     else if (~MUSIC & (MAB[3:1] == 3'd6 || MAB[3:1] == 3'd2)) begin //? it's used as cpu din too
-      //z80_sound_latch_2 <= 16'b1;
-      MDB_IN[7:0] <= 8'b1; // XXX put back 
+      z80_sound_latch_2 <= 16'b1;
+      //MDB_IN[7:0] <= 8'b1; // XXX put back 
       sub2main_pending <= 1'b0;
       end
 
@@ -231,7 +285,6 @@ always @(posedge clk) begin //XXX speed must be same than 68k din ?
       oki6295_irq_n <= 1'b0; 
     else
       oki6295_irq_n <= 1'b1;
-
     end
 end
 

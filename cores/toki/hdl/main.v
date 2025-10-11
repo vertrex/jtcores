@@ -32,23 +32,23 @@ module toki_main(
 
   input      [15:0] cpu_rom_data,
   input             cpu_rom_ok,
-  output     [18:1] cpu_rom_addr,
+  output reg [18:1] cpu_rom_addr,
   output reg        cpu_rom_cs,
 
   input      [10:1] obj_addr,
   output     [15:0] obj_out,
 
   output            MUSIC, //active low
-  //output reg        sound_cs_2, 
-  //output reg        sound_cs_4,
-  //output reg        sound_cs_6,
+  output reg        sound_cs_2, 
+  output reg        sound_cs_4,
+  output reg        sound_cs_6,
 
-  //output reg [15:0] m68k_sound_latch_0,
-  //output reg [15:0] m68k_sound_latch_1,
+  output reg [15:0] m68k_sound_latch_0,
+  output reg [15:0] m68k_sound_latch_1,
 
-  //input      [15:0] z80_sound_latch_0,
-  //input      [15:0] z80_sound_latch_1,
-  //input      [15:0] z80_sound_latch_2,
+  input      [15:0] z80_sound_latch_0,
+  input      [15:0] z80_sound_latch_1,
+  input      [15:0] z80_sound_latch_2,
 
   output            S1MASK,
   output            S2MASK,
@@ -312,11 +312,15 @@ jtframe_68kdtack_cen  u_dtack(
 //reg ram_cs, obj_cs, palette_cs, bk1_cs, bk2_cs, vram_cs, 
 reg obj_cs;
 reg dsw_cs, inputs_cs, system_cs;
-reg sound_cs_3, sound_cs_5;
+//wire sound_cs_2, sound_cs_3, sound_cs_5;
 
+reg sound_cs_3, sound_cs_5;
 //XXX  if <300000 or z ?
-assign cpu_rom_addr[18:1] = cpu_a[18:1];
+//assign cpu_rom_addr[18:1] = cpu_a[18:1];
+always @(posedge clk)
+    cpu_rom_addr[18:1] <= cpu_a[18:1];
 //assign cpu_rom_cs = ~ROM0 | ~ROM1; //1'b1 ? doesnt work
+
 
 // XXX page3 rev_y & rev_x etc 
 always @(*) begin
@@ -325,12 +329,12 @@ always @(*) begin
       obj_cs  = ~cpu_as_n & (cpu_a[23:1] >= 23'h36c00 && cpu_a[23:1] < 23'h37000); //2048
       //sound latch
       //== MUSIC but also IN < ?
-      //sound_cs_4 = ~cpu_as_n & (cpu_a[23:1] == 23'h40004);
-      //sound_cs_6 = ~cpu_as_n & (cpu_a[23:1] == 23'h40006);
+      sound_cs_4 = ~cpu_as_n & (cpu_a[23:1] == 23'h40004);
+      sound_cs_6 = ~cpu_as_n & (cpu_a[23:1] == 23'h40006);
       
-      //sound_cs_2 = ~cpu_as_n & (cpu_a[23:1] == 23'h40002);
-      //sound_cs_3 = ~cpu_as_n & (cpu_a[23:1] == 23'h40003);
-      //sound_cs_5 = ~cpu_as_n & (cpu_a[23:1] == 23'h40005);
+      sound_cs_2 = ~cpu_as_n & (cpu_a[23:1] == 23'h40002);
+      sound_cs_3 = ~cpu_as_n & (cpu_a[23:1] == 23'h40003);
+      sound_cs_5 = ~cpu_as_n & (cpu_a[23:1] == 23'h40005);
       //divide it in sub cs & use it bg scroll 
       //IO
       dsw_cs     = ~cpu_as_n & (cpu_a[23:1] == 23'h60000); // && cpu_a[23:1] < 24'hc0001); //2 
@@ -366,11 +370,11 @@ always @(posedge clk, posedge rst) begin
                  //XXX & WWRLB ?
                  //MWRLB ?
                  //(~cpu_as_n & ~MUSIC & (MAB[3:1] == 3'd2 | MAB[3:1] == 3'd3 | MAB[3:1] == 3'd5))  ? {8'd0, SEI0100_MDB_IN} : 
-                 ~MUSIC  ? {8'd0, SEI0100_MDB_IN} : 
+                 //~MUSIC  ? {8'd0, SEI0100_MDB_IN} : 
                  //should we share bus ?
-                 //sound_cs_2 ? z80_sound_latch_0 : 
-                 //sound_cs_3 ? z80_sound_latch_1 :
-                 //sound_cs_5 ? z80_sound_latch_2 :
+                 sound_cs_2 ? z80_sound_latch_0 : 
+                 sound_cs_3 ? z80_sound_latch_1 :
+                 sound_cs_5 ? z80_sound_latch_2 :
                  16'd0;
              end
            end
@@ -511,7 +515,7 @@ assign br_n = MBUSRQ;
 //
 // Sound register latch
 //
-/*
+
 always @(posedge clk, posedge rst) begin
   if (rst) begin
     m68k_sound_latch_0 <= 16'b0;
@@ -524,7 +528,7 @@ always @(posedge clk, posedge rst) begin
       m68k_sound_latch_1[15:0] <= cpu_dout[15:0];
   end
 end
-*/ 
+ 
 
 //////// RAM //////////////////////////
 //

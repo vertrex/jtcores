@@ -29,6 +29,8 @@ game:
       - scrn_bk.v
       - clut.v
       - ram_dma.v
+      #- sound.v
+      - z80_cs.v
 jtframe:
   - from: ram
     get:

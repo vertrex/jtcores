@@ -82,7 +82,12 @@ wire WRN6M;
 wire MUSIC;
 wire N1H;
 
+wire m68k_sound_cs_2, m68k_sound_cs_4, m68k_sound_cs_6;
+wire [15:0] m68k_sound_latch_0, m68k_sound_latch_1;
+wire [15:0] z80_sound_latch_0, z80_sound_latch_1, z80_sound_latch_2;
+
 //////// MAIN ////////////
+//
 //
 // main module 
 // - 68k cpu
@@ -128,17 +133,17 @@ toki_main  u_main(
 
   //Sound latch
   .MUSIC(MUSIC),
-  //.sound_cs_2(m68k_sound_cs_2),
-  //.sound_cs_4(m68k_sound_cs_4),
-  //.sound_cs_6(m68k_sound_cs_6),
+  .sound_cs_2(m68k_sound_cs_2),
+  .sound_cs_4(m68k_sound_cs_4),
+  .sound_cs_6(m68k_sound_cs_6),
 
-  //.m68k_sound_latch_0(m68k_sound_latch_0),
-  //.m68k_sound_latch_1(m68k_sound_latch_1),
+  .m68k_sound_latch_0(m68k_sound_latch_0),
+  .m68k_sound_latch_1(m68k_sound_latch_1),
 
   //Sound input from z80
-  //.z80_sound_latch_0(z80_sound_latch_0),
-  //.z80_sound_latch_1(z80_sound_latch_1),
-  //.z80_sound_latch_2(z80_sound_latch_2),
+  .z80_sound_latch_0(z80_sound_latch_0),
+  .z80_sound_latch_1(z80_sound_latch_1),
+  .z80_sound_latch_2(z80_sound_latch_2),
 
   .S1MASK(S1MASK),
   .S2MASK(S2MASK),
@@ -293,6 +298,8 @@ toki_video u_video(
 
 //music2 output 
 //XXX all to music 1 ? 
+
+
 wire SRDB, SWRB;
 wire SEL6295;
 wire COUNTER1;
@@ -311,6 +318,8 @@ wire [7:0] ym3812_dout;
 
 //wire  RESET_A;  //from where not driven ?
 wire  IRQ3812;
+
+wire ym_wr;
 
 music1 u_music1(
   .clk(clk),
@@ -338,7 +347,8 @@ music1 u_music1(
   .pcm_rom_cs(pcm_rom_cs),
 
   .oki_dout(oki_dout),
-  .ym3812_dout(ym3812_dout)
+  .ym3812_dout(ym3812_dout),
+  .ym_wr(ym_wr)
 );
 
 wire z80_rom_cs_n;
@@ -392,19 +402,61 @@ music2 u_music2(
   .bank_rom_addr(bank_rom_addr),
   .bank_rom_cs_n(bank_rom_cs_n),
 
-  //.m68k_sound_cs_2(m68k_sound_cs_2),
-  //.m68k_sound_cs_4(m68k_sound_cs_4),
-  //.m68k_sound_cs_6(m68k_sound_cs_6),
+  .m68k_sound_cs_2(m68k_sound_cs_2),
+  .m68k_sound_cs_4(m68k_sound_cs_4),
+  .m68k_sound_cs_6(m68k_sound_cs_6),
 
-  //.m68k_sound_latch_0(m68k_sound_latch_0),
-  //.m68k_sound_latch_1(m68k_sound_latch_1),
+  .m68k_sound_latch_0(m68k_sound_latch_0),
+  .m68k_sound_latch_1(m68k_sound_latch_1),
 
-  //.z80_sound_latch_0(z80_sound_latch_0),
-  //.z80_sound_latch_1(z80_sound_latch_1),
-  //.z80_sound_latch_2(z80_sound_latch_2),
+  .z80_sound_latch_0(z80_sound_latch_0),
+  .z80_sound_latch_1(z80_sound_latch_1),
+  .z80_sound_latch_2(z80_sound_latch_2),
 
   .oki_dout(oki_dout),
-  .ym3812_dout(ym3812_dout)
+  .ym3812_dout(ym3812_dout),
+  .ym_wr(ym_wr)
 );
+
+/*
+toki_sound u_sound(
+  .rst(rst),
+  .clk(clk),
+  .clk48(clk),
+
+  .coin_input(coin),
+
+  .snd(snd),
+  .fxlevel(dip_fxlevel),
+  .enable_fm(enable_fm),
+  .enable_psg(enable_psg),
+
+  .z80_rom_addr(z80_rom_addr),
+  .z80_rom_data(z80_rom_data),
+  .z80_rom_ok(z80_rom_ok),
+  .z80_rom_cs(z80_rom_cs),
+
+  .bank_rom_addr(bank_rom_addr),
+  .bank_rom_data(bank_rom_data),
+  .bank_rom_ok(bank_rom_ok),
+  .bank_rom_cs(bank_rom_cs),
+
+  .pcm_rom_addr(pcm_rom_addr),
+  .pcm_rom_data(pcm_rom_data),
+  .pcm_rom_ok(pcm_rom_ok),
+  .pcm_rom_cs(pcm_rom_cs),
+
+  .m68k_sound_cs_2(m68k_sound_cs_2),
+  .m68k_sound_cs_4(m68k_sound_cs_4),
+  .m68k_sound_cs_6(m68k_sound_cs_6),
+
+  .m68k_sound_latch_0(m68k_sound_latch_0),
+  .m68k_sound_latch_1(m68k_sound_latch_1),
+  .z80_sound_latch_0(z80_sound_latch_0),
+  .z80_sound_latch_1(z80_sound_latch_1),
+  .z80_sound_latch_2(z80_sound_latch_2)
+);
+
+*/
 
 endmodule

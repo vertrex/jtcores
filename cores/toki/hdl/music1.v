@@ -70,7 +70,8 @@ module music1(
   output            pcm_rom_cs,
 
   output     [7:0]  oki_dout,
-  output     [7:0]  ym3812_dout
+  output     [7:0]  ym3812_dout,
+  input             ym_wr
 );
 
 
@@ -87,10 +88,10 @@ jtopl2   u_YM3812(
     .rst(rst), //RESET A
     .clk(clk), //CLK_3_6 ? 
     .cen(CLK_3_6), //CLK_3_6 //1 if clk is CLK_3_6
-    .din(SD_OUT[7:0]),  //SD[0:7] 
+    .din(SD_OUT[7:0]),  //SD[0:7] ym_cs_1 
     .addr(SA0), // cmd addr SA0 
     .cs_n(CS3812), //CS3812
-    .wr_n(SWRB), //SWRB //NO RD ?  
+    .wr_n(~ym_wr), //SWRB //NO RD ?  
     .dout(ym3812_dout), // separate so keep it or put on shared SD bus ?  
     .irq_n(IRQ3812), //IRQ3812
     .snd(opl_snd[15:0]), //? 
@@ -117,11 +118,9 @@ wire signed [13:0] oki_snd;
 wire [17:0] adpcm_rom_addr;
 
 assign pcm_rom_cs = 1'b1;
-
 // pcm rom byte 13 and 15 are swapped, that could be a simple encryption 
 // XXX NOT ON THE SCHEMATICS ???
 assign pcm_rom_addr = { adpcm_rom_addr[16], adpcm_rom_addr[13], adpcm_rom_addr[14] ,adpcm_rom_addr[15] , adpcm_rom_addr[12:0]}; 
-
 /// XXX NOT WORKING ANYMORE 
 jt6295 #(.INTERPOL(1))  u_adpcm(
     .rst(rst),

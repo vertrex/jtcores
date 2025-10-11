@@ -35,12 +35,12 @@ module scrn4(
 
   input          [7:0]  char_rom_1_data,
   input                 char_rom_1_ok,
-  output         [15:0] char_rom_1_addr,
+  output    reg  [15:0] char_rom_1_addr,
   output                char_rom_1_cs,
 
   input          [7:0]  char_rom_2_data,
   input                 char_rom_2_ok,
-  output         [15:0] char_rom_2_addr,
+  output    reg  [15:0] char_rom_2_addr,
   output                char_rom_2_cs,
 
   output         [3:0]  char_color, //pic  
@@ -83,8 +83,13 @@ assign char_rom_2_cs = 1'b1;
 
 //page 6 
 //74LS368  exh<4> -> exh<4>/4
-assign char_rom_1_addr[15:0] =  {ram_out[11:0], vpos_latch[2:0], ~hpos[2]} ;  
-assign char_rom_2_addr[15:0] =  {ram_out[11:0], vpos_latch[2:0], ~hpos[2]} ; 
+//assign char_rom_1_addr[15:0] =  {ram_out[11:0], vpos_latch[2:0], ~hpos[2]} ;  
+//assign char_rom_2_addr[15:0] =  {ram_out[11:0], vpos_latch[2:0], ~hpos[2]} ; 
+
+always @(posedge clk) begin 
+  char_rom_1_addr[15:0] <=  {ram_out[11:0], vpos_latch[2:0], ~hpos[2]} ;  
+  char_rom_2_addr[15:0] <=  {ram_out[11:0], vpos_latch[2:0], ~hpos[2]} ; 
+end
 
 sei0010bu sei0010bu_u(
   .clk(clk), 

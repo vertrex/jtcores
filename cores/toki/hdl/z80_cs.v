@@ -4,6 +4,12 @@
 module z80_cs 
 (
     input [15:0]      z80_addr,
+    input             z80_wr_n,
+    input             z80_rd_n,
+
+    output reg        z80_rom_cs,
+    output reg        bank_rom_cs,
+    output reg        z80_ram_cs,
 
     output reg        ym_cs_0,
     output reg        ym_cs_1,
@@ -14,7 +20,9 @@ module z80_cs
     output reg        main_data_pending_cs,
     output reg        read_coin_cs,
 
-    output reg        ym_wr
+    output reg        ym_wr,
+    output reg        oki_wr,
+    output reg        oki_rd
 );
 
 ///////// z80 bus mapping  ////////////////////
@@ -39,14 +47,23 @@ module z80_cs
 //
 
 always @(*) begin
+    // RAM & ROM
+    z80_rom_cs = (z80_addr[15:0] < 16'h2000);
+    z80_ram_cs = (z80_addr[15:0] >= 16'h2000 && z80_addr[15:0] < 16'h2800);
+ 
     // IO
     ym_cs_0 =  (z80_addr[15:0] == 16'h4008);
-    ym_cs_1 =  (z80_addr[15:0] == 16'h4009); //SA
-    ym_wr = (z80_addr[15:0] == 16'h4008 || z80_addr[15:0] == 16'h4009);
+    ym_cs_1 =  (z80_addr[15:0] == 16'h4009);
     m68k_latch0_cs =  (z80_addr[15:0] == 16'h4010);
     m68k_latch1_cs =  (z80_addr[15:0] == 16'h4011);
     main_data_pending_cs =   (z80_addr[15:0] == 16'h4012);
     read_coin_cs =   (z80_addr[15:0] == 16'h4013);
+
+    oki_rd = ((z80_addr[15:0] == 16'h6000) && (z80_rd_n == 1'b0));
+    oki_wr = ((z80_addr[15:0] == 16'h6000) && (z80_wr_n == 1'b0));
+
+    bank_rom_cs = (z80_addr[15:0] >= 16'h8000);
+    ym_wr = ((z80_addr[15:0] == 16'h4008 || z80_addr[15:0] == 16'h4009)  && (z80_wr_n == 1'b0));
 end 
 
 endmodule

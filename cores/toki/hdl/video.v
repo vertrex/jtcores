@@ -70,7 +70,7 @@ module toki_video(
 
   input      [7:0]  prom_26_data,
   input             prom_26_ok,
-  output     [7:0]  prom_26_addr,
+  output reg [7:0]  prom_26_addr,
   output            prom_26_cs,
 
   input      [7:0]  prom_27_data, // XXX 4 bit wide ! 
@@ -127,7 +127,10 @@ wire [7:0] exv = {vpos[7] ^ YREV, vpos[6] ^ YREV, vpos[5] ^ YREV, vpos[4] ^ YREV
 wire OBJT1, OBJT2, STARTY, VORIGIN, VBL_ROM;
 
 assign prom_26_cs = 1'b1;
-assign prom_26_addr[7:0] = vpos[7:0]; // generate CPU VBLANK on O5 (pin 6)  
+
+//assign prom_26_addr[7:0] = vpos[7:0]; // generate CPU VBLANK on O5 (pin 6)  
+always @(posedge clk)
+  prom_26_addr[7:0] <= vpos[7:0]; // generate CPU VBLANK on O5 (pin 6)  
 
 assign OBJT1 =   prom_26_data[0];
 assign OBJT2 =   prom_27_data[1]; //need to be latched 
