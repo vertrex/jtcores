@@ -56,9 +56,7 @@ module sei0100bu
  output reg read_coin_cs,
  output reg m68k_latch0_cs,
  output reg m68k_latch1_cs,
- output reg ym_wr,
- input  SRDB,
- input  [15:0] SA_FULL
+ output reg ym_wr
 );
 
 reg  ym_cs_0; 
@@ -70,34 +68,16 @@ reg  ym_cs_0;
 assign CS3812 = ~(ym_cs_0 | ym_cs_1);//~ym_wr; //XXX ONLY 8 ??  on in one out ? one wqrite one read ?
 assign CS3812_IN = ym_cs_0;
 
-reg ym_cs_0_new, ym_cs_1_new, ym_wr_new, m68k_latch0_cs_new, m68k_latch1_cs_new,
-     main_data_pending_cs_new, read_coin_cs_new;
-
 // old z80_cs.v 
 always @(*) begin
     // IO
-    ym_cs_0_new =  (~SEI0100_CS_N &&  SA[4:0] == 5'h08);
-    ym_cs_1_new =  (~SEI0100_CS_N &&  SA[4:0] == 5'h09); //SA
-    ym_wr_new = (~SEI0100_CS_N && (SA[4:0] == 5'h08 || SA[4:0] == 5'h09));
-    m68k_latch0_cs_new =  (~SEI0100_CS_N && (SA[4:0] == 5'h10));
-    m68k_latch1_cs_new =  (~SEI0100_CS_N && (SA[4:0] == 5'h11));
-    main_data_pending_cs_new =   (~SEI0100_CS_N && (SA[4:0] == 5'h12));
-    read_coin_cs_new =   (~SEI0100_CS_N && (SA[4:0] == 5'h13));
-end 
-
-
-
-always @(*) begin
-    // RAM & ROM
- 
-    // IO
-    ym_cs_0 =  (SA_FULL[15:0] == 16'h4008);
-    ym_cs_1 =  (SA_FULL[15:0] == 16'h4009);
-    m68k_latch0_cs =  (SA_FULL[15:0] == 16'h4010);
-    m68k_latch1_cs =  (SA_FULL[15:0] == 16'h4011);
-    main_data_pending_cs =   (SA_FULL[15:0] == 16'h4012);
-    read_coin_cs =   (SA_FULL[15:0] == 16'h4013);
-    ym_wr = ((SA_FULL[15:0] == 16'h4008 || SA_FULL[15:0] == 16'h4009)  && (SWRB == 1'b0));
+    ym_cs_0 =  (~SEI0100_CS_N &&  SA[4:0] == 5'h08);
+    ym_cs_1 =  (~SEI0100_CS_N &&  SA[4:0] == 5'h09); //SA
+    ym_wr = (~SEI0100_CS_N && (SA[4:0] == 5'h08 || SA[4:0] == 5'h09));
+    m68k_latch0_cs =  (~SEI0100_CS_N && (SA[4:0] == 5'h10));
+    m68k_latch1_cs =  (~SEI0100_CS_N && (SA[4:0] == 5'h11));
+    main_data_pending_cs =   (~SEI0100_CS_N && (SA[4:0] == 5'h12));
+    read_coin_cs =   (~SEI0100_CS_N && (SA[4:0] == 5'h13));
 end 
 
 ////// Z80 databus input   /////////////////////// 

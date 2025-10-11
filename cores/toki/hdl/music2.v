@@ -130,8 +130,6 @@ always @(*) begin
     // RAM & ROM
     ym_cs_0 =  (SA[15:0] == 16'h4008);
     z80_rom_cs = (SA[15:0] < 16'h2000);
-    //z80_ram_cs = (SA[15:0] >= 16'h2000 && SA[15:0] < 16'h2800);
-    //bank_rom_cs = (SA[15:0] >= 16'h8000);
     oki_rd = ((SA[15:0] == 16'h6000) && (SRDB == 1'b0));
     oki_wr = ((SA[15:0] == 16'h6000) && (SWRB == 1'b0));
 end 
@@ -246,9 +244,7 @@ sei0100bu sei0100bu_u(
   .read_coin_cs(read_coin_cs),
   .m68k_latch0_cs(m68k_latch0_cs),
   .m68k_latch1_cs(m68k_latch1_cs),
-  .ym_wr(ym_wr),
-  .SRDB(SRDB),
-  .SA_FULL(SA[15:0])
+  .ym_wr(ym_wr)
 ); 
 
 assign z80_rom_cs_n = ~z80_rom_cs;
