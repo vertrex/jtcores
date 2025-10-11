@@ -124,11 +124,9 @@ jtframe_z80 u_z80(
 //
 
 reg z80_rom_cs, oki_rd, oki_wr;
-reg ym_cs_0;
 
 always @(*) begin
     // RAM & ROM
-    ym_cs_0 =  (SA[15:0] == 16'h4008);
     z80_rom_cs = (SA[15:0] < 16'h2000);
     oki_rd = ((SA[15:0] == 16'h6000) && (SRDB == 1'b0));
     oki_wr = ((SA[15:0] == 16'h6000) && (SWRB == 1'b0));
@@ -253,31 +251,24 @@ assign z80_rom_cs_n = ~z80_rom_cs;
 //selected by the PLD finally ?
 // we need to simulate a bus 
 
+//try with assign ?   
+//assign SD_IN = (~irq_ack_n | ~SEI0100_CS_N)  ? SEI0100_SD_IN :
 always @(posedge clk) begin
   if (rst)
      SD_IN <= 8'hff;
   else if (clk) begin 
-  //assign SD_IN = (~irq_ack_n | ~SEI0100_CS_N)  ? SEI0100_SD_IN :
   // XXX
      SD_IN <=
             //(~irq_ack_n | ~SEI0100_CS_N)  ? SEI0100_SD_IN : 
-               //~z80_ram_cs_n                 ? RAM_SD_OUT : 
-               //~z80_rom_cs_n                 ? decrypt_rom_data :
-               //~SEL6295 & ~SRDB              ? oki_dout :
-               //~bank_rom_cs_n                ? bank_rom_data :
-               //CS3812_IN & ~SRDB             ? ym3812_dout :  //0 onlyt ???it's rarrely used aslone CS3812 ? 
-
+                 CS3812_IN & ~SRDB                       ? ym3812_dout :  //0 onlyt ???it's rarrely used aslone CS3812 ? 
                  ~irq_ack_n & irq_rst10                   ? 8'hd7 : 
                  ~irq_ack_n & irq_rst18                   ? 8'hdf :
                  main_data_pending_cs &  sub2main_pending ? 8'b1  :  //MWRLB  + DATA BUS ?
                  main_data_pending_cs & ~sub2main_pending ? 8'b0  :   //MRLB + DATA BUS ? 
-                 ym_cs_0 & ~SRDB ? ym3812_dout :
+               //~SEL6295 & ~SRDB              ? oki_dout :
                  oki_rd                                   ? oki_dout :
                  ~bank_rom_cs_n                             ? bank_rom_data :
-
-                 //m_cs_0 & ~SRDB                          ? ym3812_dout :  //0 onlyt ???it's rarrely used aslone CS3812 ? 
                  //read directly or from a latch ?? 
-                 //
                  m68k_latch0_cs                           ? m68k_sound_latch_0[7:0] : //MDB //MAB 
                  m68k_latch1_cs                           ? m68k_sound_latch_1[7:0] ://MDB MAB 
                  read_coin_cs                             ? {6'b0, ~COIN2, ~COIN1} : //
