@@ -255,7 +255,10 @@ assign SD_IN =
                  ~irq_ack_n & irq_rst10                   ? 8'hd7 : 
                  ~irq_ack_n & irq_rst18                   ? 8'hdf :
                  CS3812_IN & ~SRDB                       ? ym3812_dout :  //0 onlyt ???it's rarrely used aslone CS3812 ? 
+                 //we need to read datga from maian and main need to read our
+                 //data 
                  main_data_pending_cs &  sub2main_pending ? 8'b1  :  //MWRLB  + DATA BUS ?
+                 //we need to read data from and main already read our data 
                  main_data_pending_cs & ~sub2main_pending ? 8'b0  :   //MRLB + DATA BUS ? 
                  ~SEL6295 & ~SRDB                         ? oki_dout :
                  ~bank_rom_cs_n                             ? bank_rom_data :

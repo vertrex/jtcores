@@ -109,7 +109,7 @@ wire cpu_uds_n;             // Upper byte strobe
 (*keep*) wire [2:0]cpu_fc;  // Processor state
 
 // CPU buses
-reg  [15:0] cpu_din;
+wire [15:0] cpu_din;
 wire [15:0] cpu_dout;
 
 wire [23:0] cpu_a;    
@@ -353,32 +353,28 @@ end
 //assign cpu_din = (!cpu_uds_n && MEMDIR) ? ram_do[15:0] : 16'bz;
 
 //always @(*) begin
-always @(posedge clk, posedge rst) begin
-  if(rst) begin 
-    cpu_din <= 16'h0000;
-    end
-  else begin
-    if (clk) begin
-      cpu_din <= ~ROM0 | ~ROM1 ? cpu_rom_data[15:0] :  
+//always @(posedge clk, posedge rst) begin
+  //if(rst) begin 
+    //cpu_din <= 16'h0000;
+    //end
+  //else begin
+    //if (clk) begin
+assign      cpu_din = ~ROM0 | ~ROM1 ? cpu_rom_data[15:0] :  
                  ~RAM       ? ram_do[15:0] :  //& BUSOPN ??
                  dsw_cs     ? dipsw[15:0] : 
                  inputs_cs  ? {1'b1,1'b1,p2_button2,p2_button1,p2_right,p2_left,p2_down,p2_up,
                                1'b1,1'b1,p1_button2,p1_button1,p1_right,p1_left,p1_down,p1_up} :
                  system_cs  ? {1'b1,1'b1,1'b1,1'b1,1'b1,1'b1,1'b1,1'b1,
                                1'b1,1'b1,1'b1,p2_start,p1_start,1'b1,1'b1,1'b1} : 
-                 //WRITE TO MDB by sei0100bu
-                 //XXX & WWRLB ?
-                 //MWRLB ?
-                 //(~cpu_as_n & ~MUSIC & (MAB[3:1] == 3'd2 | MAB[3:1] == 3'd3 | MAB[3:1] == 3'd5))  ? {8'd0, SEI0100_MDB_IN} : 
-                 //~MUSIC  ? {8'd0, SEI0100_MDB_IN} : 
-                 //should we share bus ?
-                 sound_cs_2 ? z80_sound_latch_0 : 
-                 sound_cs_3 ? z80_sound_latch_1 :
-                 sound_cs_5 ? z80_sound_latch_2 :
+                 //(~cpu_as_n & ~MUSIC)  ? {8'd0, SEI0100_MDB_IN} : 
+                 ~MUSIC  ? {8'd0, SEI0100_MDB_IN} : 
+                 //sound_cs_2 ? z80_sound_latch_0 : 
+                 //sound_cs_3 ? z80_sound_latch_1 :
+                 //sound_cs_5 ? z80_sound_latch_2 :
                  16'd0;
-             end
-           end
-end 
+             //end
+           //end
+//end 
 
 ///////
 // 74LS08 19R page 1

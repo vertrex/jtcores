@@ -10,7 +10,7 @@ module sei0100bu
   input         MRDLB,   //pin 60 ?
   input   [3:1] MAB,     //pin 56-58
   input   [7:0] MDB_OUT,     //pin 24-31 
-  output reg  [7:0] MDB_IN,     //pin 24-31 
+  output  [7:0] MDB_IN,     //pin 24-31 
   //pin 38, 34 1'b0 
   input         irq_ack_n, //pin 54,  PLD23 B3 
   input         IRQ3812,  //pin 63
@@ -223,49 +223,73 @@ reg oki6295_irq_n;
       //sound_cs_6 <= (cpu_a[23:0] == 24'h8000c);
 
 
+
+// indicate is z80 sent data to main to be read 
+always @(posedge clk) begin
+    // data is waiting to be read 
+    if (~SEI0100_CS_N && (SA[4:0] == 5'h00)) 
+        sub2main_pending <= 1'b1;
+    // data is has been processed by 68k 
+    else if (~MUSIC & (MAB[3:1] == 3'd6 || MAB[3:1] == 3'd2)) //? it's used as cpu din too
+        sub2main_pending <= 1'b0;
+end 
+
+// main cpu assert irq for oki6295
+always @(posedge clk) begin
+  //if (PRCLK1) begin XXX 
+    if (~MUSIC & (MAB[3:1] == 3'd4)) 
+      oki6295_irq_n <= 1'b0; 
+    else //clear or wait to be read ? by irq6285 how do we acknowledge ? 
+         //6285 is lot slower does it have time to read ? 
+      oki6295_irq_n <= 1'b1;
+  //end
+end 
+
+// 
 always @(posedge clk) begin //XXX speed must be same than 68k din ?
   if (rst) begin
     z80_sound_latch_0 <= 16'b0;
     z80_sound_latch_1 <= 16'b0;
-    sub2main_pending  <= 1'b0;
-    oki6295_irq_n     <= 1'b1;
     end
-  //else if (CLK_3_6) begin // ?
-  //else if (clk) begin // ?
-  else begin // ?
+  else if (CLK_3_6) begin // ?
     // send z80 data to 68k cpu
     if (~SEI0100_CS_N && (SA[4:0] == 5'h18)) 
-      //z80_sound_latch_0 <= {8'b0, SD_OUT[7:0]};
-      //MDB_IN[7:0] <= SD_OUT[7:0]; //xxx put back or use latch + cs ?
       z80_sound_latch_0 <= {8'b0, SD_OUT[7:0]}; //xxx put back or use latch + cs ?
 
     if (~SEI0100_CS_N && (SA[4:0] == 5'h19))
-      //z80_sound_latch_1 <= {8'b0, SD_OUT[7:0]};
-      //MDB_IN[7:0] <= SD_OUT[7:0]; //XXX put back
       z80_sound_latch_1 <= {8'b0, SD_OUT[7:0]}; //XXX put back
+    end 
+end
 
-    // data from z80 is pending read from 68k
+// coin latch ? 
+always @(posedge clk) begin //XXX speed must be same than 68k din ?
+  if (rst) begin
+    z80_sound_latch_2 <= 16'b1; //1b1 or 1b0 ? at default as it seems to be cleared 
+    end
+  else begin // ?
     if (~SEI0100_CS_N && (SA[4:0] == 5'h00)) begin
-      //z80_sound_latch_2 <= 16'b0;
-      //MDB_IN[7:0] <= 8'b0; //XXX put back ?
       z80_sound_latch_2  <= 16'b0; //XXX put back ?
-      sub2main_pending <= 1'b1;
       end
-
-    //else if (m68k_sound_cs_6 == 1'b1 || m68k_sound_cs_2 == 1'b1) begin //? it's used as cpu din too
+    //data has been process by main we clear the coin latch
+    //and the other latch too ?
     else if (~MUSIC & (MAB[3:1] == 3'd6 || MAB[3:1] == 3'd2)) begin //? it's used as cpu din too
+      //clear other latch too ? 
+      //
       z80_sound_latch_2 <= 16'b1;
-      //MDB_IN[7:0] <= 8'b1; // XXX put back 
-      sub2main_pending <= 1'b0;
       end
-
-    // main cpu assert irq for oki6295
-    //if (m68k_sound_cs_4 == 1'b1) 
-    if (~MUSIC & (MAB[3:1] == 3'd4)) 
-      oki6295_irq_n <= 1'b0; 
-    else
-      oki6295_irq_n <= 1'b1;
+    // data from z80 is pending read from 68k
     end
 end
+
+
+assign MDB_IN[7:0] = (~MUSIC & MAB[3:1] == 3'd2) ? z80_sound_latch_0[7:0] :
+                     (~MUSIC & MAB[3:1] == 3'd3) ? z80_sound_latch_1[7:0] :
+                     //read coin status ? 
+                     (~MUSIC & MAB[3:1] == 3'd5) ? z80_sound_latch_2[7:0] :
+                     8'd0;
+
+//sound_cs_2 = ~cpu_as_n & (cpu_a[23:1] == 23'h40002);
+//sound_cs_3 = ~cpu_as_n & (cpu_a[23:1] == 23'h40003);
+//sound_cs_5 = ~cpu_as_n & (cpu_a[23:1] == 23'h40005);
 
 endmodule
