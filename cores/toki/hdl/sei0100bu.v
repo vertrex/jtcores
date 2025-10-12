@@ -19,7 +19,7 @@ module sei0100bu
   input         COIN2, //pin 37
   input         SEI0100_CS_N, //pin 41, PLD23 B0
   input         SWRB, //pin 47 
-  input         B1, //pin 48, PLD23 B1 (bit 3 low ?)
+  input         B1, //pin 48, PLD23 B1 (bit 3 low ?) >9 == for for CS? (FOR SD IN) addr > 9
   input   [4:0] SA, //pin 42-46 //32 value + sei0100_cs -> z80_cs value!! (max 4001b  0x1b == 27) 
 
   //output 
@@ -34,15 +34,8 @@ module sei0100bu
   input       [7:0] SD_OUT, //read data from CPU ! 
   output      [7:0] SD_IN,//19,50,20,51,21,52,22,53  //reg?
 
-  //SEIBU SOUND DEVICE MAIN READ
-  //READ FROM MDB
-  //XXX PUT IN SD_OUT !
-  //output reg [7:0] m68k_sound_latch_0,
-  //output reg [7:0] m68k_sound_latch_1,
-
+  // XXX REMOVE THAT  b1 & sa ? 
  output reg ym_cs_1,
- //output reg irq_rst10,
- //output reg irq_rst18,
  output reg ym_wr
 );
 
@@ -62,12 +55,11 @@ always @(*) begin
     ym_wr = (~SEI0100_CS_N && (SA[4:0] == 5'h08 || SA[4:0] == 5'h09));
 end 
 
-
 reg [7:0] m68k_sound_latch_0;
 reg [7:0] m68k_sound_latch_1;
 
 assign SD_IN[7:0] =
-  //XXX & SRDB ? we read from that
+                    //XXX & ~SRDB  ?
                     //IRQ3812 ack 
                     ~irq_ack_n & ~IRQ3812 ? 8'hd7 : 
                     //irq6295_n  ack
@@ -97,12 +89,9 @@ assign SD_IN[7:0] =
 //  both interrupt are needed to handle sound and coin input
 //
 // XXX ??? BUS SHARED ? + CONTROLLER ?
-
-
 assign Z80_INT = ~(irq_rst10|irq_rst18);
 // XXX PEUX PAS MARHCER SDIFFERENT ! on doit maintner le int jusqu au ack
 //assign Z80_INT = ~((~MUSIC & (MAB[3:1] == 3'd4))) | ~IRQ3812;
-
 
 reg irq_rst10;
 reg irq_rst18;
@@ -119,9 +108,7 @@ always @(posedge clk) begin
     stop_irq_10 <= 1'b0;
     stop_irq_18 <= 1'b0;
     end
-  else begin
-    //if (CLK_3_6) begin
-    if (clk) begin
+  else if (CLK_3_6) begin
       if (irq_ack_n & stop_irq_10) begin
         irq_rst10 <= 1'b0;
         stop_irq_10 <= 1'b0;
@@ -140,9 +127,7 @@ always @(posedge clk) begin
       else if (~irq_ack_n & irq_rst18)
         stop_irq_18 <= 1'b1;
     end 
-  end
 end
-
 
 ///////// Sound ///////////////
 //
@@ -162,7 +147,7 @@ always @(posedge clk) begin
     m68k_sound_latch_1 <= 8'b0;
     end
   //else if (CLK_3_6) begin //@clk we read from cpu ? what could be the clock on the original there is no cpu clk
-  else begin //@clk we read from cpu ? what could be the clock on the original there is no cpu clk
+  else if (CLK_3_6) begin //@clk we read from cpu ? what could be the clock on the original there is no cpu clk
     //MUSIC ? ?MWRLB MRDB ? 
     //0b1000_0000_0000_0000_0000'
     //8000
@@ -175,8 +160,6 @@ always @(posedge clk) begin
       m68k_sound_latch_1[7:0] <= MDB_OUT[7:0];
   end
 end
-
-
 
 ////// SOUND ////////////////////
 //
@@ -192,12 +175,14 @@ reg oki6295_irq_n;
 
 // indicate is z80 sent data to main to be read 
 always @(posedge clk) begin
-    // data is waiting to be read 
-    if (~SEI0100_CS_N && (SA[4:0] == 5'h00)) 
-        sub2main_pending <= 1'b1;
-    // data is has been processed by 68k 
-    else if (~MUSIC & (MAB[3:1] == 3'd6 || MAB[3:1] == 3'd2)) //? it's used as cpu din too
-        sub2main_pending <= 1'b0;
+    // data is waiting to be read
+    if (CLK_3_6) begin 
+      if (~SEI0100_CS_N && (SA[4:0] == 5'h00)) 
+          sub2main_pending <= 1'b1;
+      // data is has been processed by 68k 
+      else if (~MUSIC & (MAB[3:1] == 3'd6 || MAB[3:1] == 3'd2)) //? it's used as cpu din too
+          sub2main_pending <= 1'b0;
+    end 
 end 
 
 //XX XUE ASSIGNEMENT ?
@@ -205,12 +190,13 @@ end
 // main cpu assert irq for oki6295
 always @(posedge clk) begin
   //if (PRCLK1) begin XXX 
+  if (CLK_3_6) begin 
     if (~MUSIC & (MAB[3:1] == 3'd4)) 
       oki6295_irq_n <= 1'b0; 
     else //clear or wait to be read ? by irq6285 how do we acknowledge ? 
          //6285 is lot slower does it have time to read ? 
       oki6295_irq_n <= 1'b1;
-  //end
+  end
 end 
 
 reg [7:0] z80_sound_latch_0; 
@@ -241,7 +227,8 @@ always @(posedge clk) begin //XXX speed must be same than 68k din ?
   if (rst) begin
     z80_sound_latch_2 <= 8'b1; //1b1 or 1b0 ? at default as it seems to be cleared 
     end
-  else begin // ?
+  else if (CLK_3_6) begin // ?
+    // TOO LONG ?
     if (~SEI0100_CS_N && (SA[4:0] == 5'h00)) begin
       z80_sound_latch_2  <= 8'b0; //XXX put back ?
       end
@@ -249,7 +236,6 @@ always @(posedge clk) begin //XXX speed must be same than 68k din ?
     //and the other latch too ?
     else if (~MUSIC & (MAB[3:1] == 3'd6 || MAB[3:1] == 3'd2)) begin //? it's used as cpu din too
       //clear other latch too ? 
-      //
       z80_sound_latch_2 <= 8'b1;
       end
     // data from z80 is pending read from 68k

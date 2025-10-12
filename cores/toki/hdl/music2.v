@@ -213,9 +213,10 @@ assign z80_rom_cs_n = ~z80_rom_cs; //XXX we should use one from PLD
 assign SD_IN =   CS3812_IN & ~SRDB                       ? ym3812_dout :  //0 onlyt ???it's rarrely used aslone CS3812 ? 
                  ~SEL6295 & ~SRDB                        ? oki_dout :
                  // XXX ORDER SEEMS IMPORTANT ?? WHY ? 
-                 (~SEI0100_CS_N && (SA[4:0] >= 5'h10 && SA[4:0] <= 5'h13)) ? SEI0100_SD_IN :
+                 //(~SEI0100_CS_N && (SA[4:0] >= 5'h10 && SA[4:0] <= 5'h13)) ? SEI0100_SD_IN :
+                 ~SEI0100_CS_N ? SEI0100_SD_IN :
                  ~irq_ack_n ? SEI0100_SD_IN :
-                 //we need to read datga from maian and main need to read our
+                 //we need to read data from main and main need to read our
                  z80_rom_cs                               ? decrypt_rom_data :
                  ~bank_rom_cs_n                           ? bank_rom_data :
                  ~z80_ram_cs_n                            ? RAM_SD_OUT:
