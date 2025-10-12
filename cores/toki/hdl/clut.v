@@ -75,24 +75,17 @@ sg0140    sg0140_u(
 assign prom_27_cs = 1'b1;
 // XXX PRIOR_A IS WRONG AT TLEAST ON THE POCKET THAT MAKE STRANGE THINGS 
 // IT's some time 0 when it should be 1 (it's active low) 
-/* 
-assign prom_27_addr[7:0] = { PRIOR_D, PRIOR_C, PRIOR_B, PRIOR_A, S2ON, 1'b0, S4ON, S1ON };
+// it seems because of  MDB_IN on main.v that switch ram/cpu 
+// may be make two different bus  rather than one shared ? 
+// tryied to switch to cpu by default may be better
 
+always @(posedge clk) begin
+                                                                        //S4ON
+  prom_27_addr[7:0] <= { PRIOR_D, PRIOR_C, PRIOR_B, PRIOR_A, S2ON, OBJON, S4ON, S1ON };
 // 74LS257 2H, 3H 
 // 74LS258 
 // 74LS246 1C 
-assign palette_addr[10:1] =  //OBJON ? { prom_27_data[3:2], OOB[7:0] } :
-//assign palette_addr[10:1] =  prom_27_data[0] == 1'b1 ?  { prom_27_data[3:2], OOB[7:0] } : 
-                             prom_27_data[1] == 1'b0 ?  { prom_27_data[3:2], s1_s4_out[7:0] } :
-                                                        { prom_27_data[3:2], SCRN2[7:0] };
 // SIS6091 5H
-//
-*/
-always @(posedge clk) begin 
-  prom_27_addr[7:0] <= { PRIOR_D, PRIOR_C, PRIOR_B, PRIOR_A, S2ON, 1'b0, S4ON, S1ON };
-// 74LS257 2H, 3H 
-// 74LS258 
-// 74LS246 1C 
   palette_addr[10:1] <=  //OBJON ? { prom_27_data[3:2], OOB[7:0] } :
 //assign palette_addr[10:1] =  prom_27_data[0] == 1'b1 ?  { prom_27_data[3:2], OOB[7:0] } : 
                              prom_27_data[1] == 1'b0 ?  { prom_27_data[3:2], s1_s4_out[7:0] } :

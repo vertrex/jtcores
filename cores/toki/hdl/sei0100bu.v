@@ -35,18 +35,18 @@ module sei0100bu
   output  reg    [7:0] SD_IN,//19,50,20,51,21,52,22,53  //reg?
 
   //XXX REMOVE 
-  output reg [15:0] z80_sound_latch_0,
-  output reg [15:0] z80_sound_latch_1,
-  output reg [15:0] z80_sound_latch_2,
+  //output reg [15:0] z80_sound_latch_0,
+  //output reg [15:0] z80_sound_latch_1,
+  //output reg [15:0] z80_sound_latch_2,
 
-  input             m68k_sound_cs_2,
-  input             m68k_sound_cs_4,
-  input             m68k_sound_cs_6,
+  //input             m68k_sound_cs_2,
+  //input             m68k_sound_cs_4,
+  //input             m68k_sound_cs_6,
 
   //SEIBU SOUND DEVICE MAIN READ
   //READ FROM MDB
-  input      [15:0] m68k_sound_latch_0,
-  input      [15:0] m68k_sound_latch_1,
+  output reg [7:0] m68k_sound_latch_0,
+  output reg [7:0] m68k_sound_latch_1,
 
  output reg ym_cs_1,
  output reg irq_rst10,
@@ -151,27 +151,27 @@ end
 //  0b1000_0000_0000_0000_0000' //is 80000 ! 
 //  is that lateched ??
 //  
-/*
+
 always @(posedge clk) begin
   if (rst) begin
     m68k_sound_latch_0 <= 8'b0;
     m68k_sound_latch_1 <= 8'b0;
     end
-  else if (CLK_3_6) begin //@clk we read from cpu ? what could be the clock on the original there is no cpu clk
+  //else if (CLK_3_6) begin //@clk we read from cpu ? what could be the clock on the original there is no cpu clk
+  else begin //@clk we read from cpu ? what could be the clock on the original there is no cpu clk
     //MUSIC ? ?MWRLB MRDB ? 
     //0b1000_0000_0000_0000_0000'
     //8000
     // MWRLDB ? MRDB ? to check ?
-    if (~MUSIC & MAB[3:1] == 3'h0)
+    if (~MUSIC & (MAB[3:1] == 3'd0))
       m68k_sound_latch_0[7:0] <= MDB_OUT[7:0];
     //0b1000_0000_0000_0000_0010'
     //80001 
-    if (~MUSIC & MAB[3:1] == 3'h1) //was 2 but it's << 1 
+    if (~MUSIC & (MAB[3:1] == 3'd1)) //was 2 but it's << 1 
       m68k_sound_latch_1[7:0] <= MDB_OUT[7:0];
   end
 end
-*/
-   
+
 //REG ?
 //
 //always @(*) begin
@@ -202,9 +202,7 @@ reg oki6295_irq_n;
 //reg sub2main_pending;
 
 // XXX WRITE TO MAIN CPU DATA BUS DIRECTLY! MDB ! 
-//reg [15:0] z80_sound_latch_0; 
-//reg [15:0] z80_sound_latch_1; 
-//reg [15:0] z80_sound_latch_2;
+
 
 //sound_cs_2 ? z80_sound_latch_0 : 
 //sound_cs_3 ? z80_sound_latch_1 :
@@ -245,51 +243,50 @@ always @(posedge clk) begin
   //end
 end 
 
+reg [7:0] z80_sound_latch_0; 
+reg [7:0] z80_sound_latch_1; 
+reg [7:0] z80_sound_latch_2;
+
 // 
 always @(posedge clk) begin //XXX speed must be same than 68k din ?
   if (rst) begin
-    z80_sound_latch_0 <= 16'b0;
-    z80_sound_latch_1 <= 16'b0;
+    z80_sound_latch_0 <= 8'b0;
+    z80_sound_latch_1 <= 8'b0;
     end
   else if (CLK_3_6) begin // ?
     // send z80 data to 68k cpu
     if (~SEI0100_CS_N && (SA[4:0] == 5'h18)) 
-      z80_sound_latch_0 <= {8'b0, SD_OUT[7:0]}; //xxx put back or use latch + cs ?
+      z80_sound_latch_0 <= SD_OUT[7:0]; //xxx put back or use latch + cs ?
 
     if (~SEI0100_CS_N && (SA[4:0] == 5'h19))
-      z80_sound_latch_1 <= {8'b0, SD_OUT[7:0]}; //XXX put back
+      z80_sound_latch_1 <= SD_OUT[7:0]; //XXX put back
     end 
 end
 
 // coin latch ? 
 always @(posedge clk) begin //XXX speed must be same than 68k din ?
   if (rst) begin
-    z80_sound_latch_2 <= 16'b1; //1b1 or 1b0 ? at default as it seems to be cleared 
+    z80_sound_latch_2 <= 8'b1; //1b1 or 1b0 ? at default as it seems to be cleared 
     end
   else begin // ?
     if (~SEI0100_CS_N && (SA[4:0] == 5'h00)) begin
-      z80_sound_latch_2  <= 16'b0; //XXX put back ?
+      z80_sound_latch_2  <= 8'b0; //XXX put back ?
       end
     //data has been process by main we clear the coin latch
     //and the other latch too ?
     else if (~MUSIC & (MAB[3:1] == 3'd6 || MAB[3:1] == 3'd2)) begin //? it's used as cpu din too
       //clear other latch too ? 
       //
-      z80_sound_latch_2 <= 16'b1;
+      z80_sound_latch_2 <= 8'b1;
       end
     // data from z80 is pending read from 68k
     end
 end
 
-
-assign MDB_IN[7:0] = (~MUSIC & MAB[3:1] == 3'd2) ? z80_sound_latch_0[7:0] :
-                     (~MUSIC & MAB[3:1] == 3'd3) ? z80_sound_latch_1[7:0] :
+assign MDB_IN[7:0] = (~MUSIC & (MAB[3:1] == 3'd2)) ? z80_sound_latch_0[7:0] :
+                     (~MUSIC & (MAB[3:1] == 3'd3)) ? z80_sound_latch_1[7:0] :
                      //read coin status ? 
-                     (~MUSIC & MAB[3:1] == 3'd5) ? z80_sound_latch_2[7:0] :
+                     (~MUSIC & (MAB[3:1] == 3'd5)) ? z80_sound_latch_2[7:0] :
                      8'd0;
-
-//sound_cs_2 = ~cpu_as_n & (cpu_a[23:1] == 23'h40002);
-//sound_cs_3 = ~cpu_as_n & (cpu_a[23:1] == 23'h40003);
-//sound_cs_5 = ~cpu_as_n & (cpu_a[23:1] == 23'h40005);
 
 endmodule

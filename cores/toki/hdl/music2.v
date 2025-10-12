@@ -51,20 +51,20 @@ module music2
   output            bank_rom_cs_n,
 //// 
 
-  input             m68k_sound_cs_2,
-  input             m68k_sound_cs_4,
-  input             m68k_sound_cs_6,
+  //input             m68k_sound_cs_2,
+  //input             m68k_sound_cs_4,
+  //input             m68k_sound_cs_6,
 
   //SEIBU SOUND DEVICE MAIN READ
   //READ FROM MDB
-  input      [15:0] m68k_sound_latch_0,
-  input      [15:0] m68k_sound_latch_1,
+  //input      [15:0] m68k_sound_latch_0,
+  //input      [15:0] m68k_sound_latch_1,
 
   //SEIBU SOUND DEVICE MAIN WRITE
   //XXX WRITE TO MDB ! 
-  output [15:0] z80_sound_latch_0,
-  output [15:0] z80_sound_latch_1,
-  output [15:0] z80_sound_latch_2,
+  //output [15:0] z80_sound_latch_0,
+  //output [15:0] z80_sound_latch_1,
+  //output [15:0] z80_sound_latch_2,
 
   input         [7:0] oki_dout,
   input         [7:0] ym3812_dout,
@@ -188,6 +188,9 @@ wire CS3812_IN;
 wire irq_rst10, irq_rst18, main_data_pending_cs, sub2main_pending,
   read_coin_cs, m68k_latch0_cs, m68k_latch1_cs;
 
+wire [7:0] m68k_sound_latch_0;
+wire [7:0] m68k_sound_latch_1;
+
 sei0100bu sei0100bu_u(
   .clk(clk),
   .rst(rst),
@@ -217,14 +220,14 @@ sei0100bu sei0100bu_u(
   .SD_IN(SEI0100_SD_IN),
 
   //XXX
-  .z80_sound_latch_0(z80_sound_latch_0),
-  .z80_sound_latch_1(z80_sound_latch_1),
-  .z80_sound_latch_2(z80_sound_latch_2),
+  //.z80_sound_latch_0(z80_sound_latch_0),
+  //.z80_sound_latch_1(z80_sound_latch_1),
+  //.z80_sound_latch_2(z80_sound_latch_2),
 
 
-  .m68k_sound_cs_2(m68k_sound_cs_2),
-  .m68k_sound_cs_4(m68k_sound_cs_4),
-  .m68k_sound_cs_6(m68k_sound_cs_6),
+  //.m68k_sound_cs_2(m68k_sound_cs_2),
+  //.m68k_sound_cs_4(m68k_sound_cs_4),
+  //.m68k_sound_cs_6(m68k_sound_cs_6),
 
   //SEIBU SOUND DEVICE MAIN READ
   //READ FROM MDB

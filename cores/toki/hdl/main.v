@@ -39,16 +39,6 @@ module toki_main(
   output     [15:0] obj_out,
 
   output            MUSIC, //active low
-  output reg        sound_cs_2, 
-  output reg        sound_cs_4,
-  output reg        sound_cs_6,
-
-  output reg [15:0] m68k_sound_latch_0,
-  output reg [15:0] m68k_sound_latch_1,
-
-  input      [15:0] z80_sound_latch_0,
-  input      [15:0] z80_sound_latch_1,
-  input      [15:0] z80_sound_latch_2,
 
   output            S1MASK,
   output            S2MASK,
@@ -160,7 +150,7 @@ fx68k fx68k (
     .BGACKn(bgack_n),  // input  : Bus grant ack //didn't work 
     //.BGACKn(1'b1),  // input  : Bus grant ack  An input signal to the CPU indicating that the requesting device has taken control of the bus. 
 
-    // PERIPHERAL CONTROL 
+    // PERIPHERAL CONTROL
     .E(),              // output : cpu enable 
     .VMAn(),           // output : valid pheripheral memory address
     .VPAn(vpa_n),     // output :valid peripheral address detected  
@@ -195,19 +185,17 @@ assign MAB[17:1] = BUSOPN == 1'b0 ? cpu_a[17:1] :
 //should also get from sei0100bu from music and others ? 
 //as cpu_din ? 
 
-//XXX why cpu_din ??
-assign MDB_OUT[7:0] =  (!cpu_lds_n & !MEMDIR) ? cpu_dout[7:0] :
-                       //8'h0; 
-                  //(!cpu_lds_n & MEMDIR)  ?  cpu_din[7:0] :
-                   ram_do[7:0] ;  //& BUSOPN ??
-                  //cpu_din[7:0]; 
+// XXX 
+// ADRS.v SOUND.v read from cpu 
+// video.v scrn4 scrn2 read from memory 
+// make two different bus rather than one shared to avoid problem ? 
+assign MDB_OUT[7:0] = 
+                  (!cpu_lds_n & MEMDIR) ? ram_do[7:0] :
+                   cpu_dout[7:0] ;  //& BUSOPN ??
 //                  8'hZ;  // Z ? don't work well on real or sim 
 //memory -> CPU // B-> A
-assign MDB_OUT[15:8] = (!cpu_uds_n & !MEMDIR) ? cpu_dout[15:8] :
-                       //8'h0;
-                   //(!cpu_uds_n & MEMDIR)  ?  cpu_din[15:8] :
-                   //cpu_din[15:8];
-                   ram_do[15:8];
+assign MDB_OUT[15:8] = (!cpu_uds_n & MEMDIR) ? ram_do[15:8] :
+                   cpu_dout[15:8];
 //                  8'hZ;  // Z ? //don't work well on real or sim
 //cpu -> Memory
 
@@ -312,30 +300,18 @@ jtframe_68kdtack_cen  u_dtack(
 //reg ram_cs, obj_cs, palette_cs, bk1_cs, bk2_cs, vram_cs, 
 reg obj_cs;
 reg dsw_cs, inputs_cs, system_cs;
-//wire sound_cs_2, sound_cs_3, sound_cs_5;
 
-reg sound_cs_3, sound_cs_5;
 //XXX  if <300000 or z ?
 //assign cpu_rom_addr[18:1] = cpu_a[18:1];
 always @(posedge clk)
     cpu_rom_addr[18:1] <= cpu_a[18:1];
 //assign cpu_rom_cs = ~ROM0 | ~ROM1; //1'b1 ? doesnt work
 
-
 // XXX page3 rev_y & rev_x etc 
 always @(*) begin
       cpu_rom_cs = ~cpu_as_n & (cpu_a[23:1] < 23'h30000);
-      //video 
+      //obj no dma
       obj_cs  = ~cpu_as_n & (cpu_a[23:1] >= 23'h36c00 && cpu_a[23:1] < 23'h37000); //2048
-      //sound latch
-      //== MUSIC but also IN < ?
-      sound_cs_4 = ~cpu_as_n & (cpu_a[23:1] == 23'h40004);
-      sound_cs_6 = ~cpu_as_n & (cpu_a[23:1] == 23'h40006);
-      
-      sound_cs_2 = ~cpu_as_n & (cpu_a[23:1] == 23'h40002);
-      sound_cs_3 = ~cpu_as_n & (cpu_a[23:1] == 23'h40003);
-      sound_cs_5 = ~cpu_as_n & (cpu_a[23:1] == 23'h40005);
-      //divide it in sub cs & use it bg scroll 
       //IO
       dsw_cs     = ~cpu_as_n & (cpu_a[23:1] == 23'h60000); // && cpu_a[23:1] < 24'hc0001); //2 
       inputs_cs  = ~cpu_as_n & (cpu_a[23:1] == 23'h60001); // && cpu_a[23:1] < 24'hc0003); //2 
@@ -368,9 +344,6 @@ assign      cpu_din = ~ROM0 | ~ROM1 ? cpu_rom_data[15:0] :
                                1'b1,1'b1,1'b1,p2_start,p1_start,1'b1,1'b1,1'b1} : 
                  //(~cpu_as_n & ~MUSIC)  ? {8'd0, SEI0100_MDB_IN} : 
                  ~MUSIC  ? {8'd0, SEI0100_MDB_IN} : 
-                 //sound_cs_2 ? z80_sound_latch_0 : 
-                 //sound_cs_3 ? z80_sound_latch_1 :
-                 //sound_cs_5 ? z80_sound_latch_2 :
                  16'd0;
              //end
            //end
@@ -435,6 +408,7 @@ ADRS ADRS_u(
   .MWRLB(MWRLB),
   .MRDLB(MRDLB),
   //.RESET_A(RESET_A),
+  //.MDB(MDB_OUT[15:0]),
   .MDB(MDB_OUT[15:0]),
 
   .ROM0(ROM0),
@@ -506,25 +480,6 @@ assign br_n = MBUSRQ;
 //                  '0b101  000'
 //                  scrollram[40]&  0x8000 -> bit 16 up ! 
 //flip_screen_set((m_scrollram[0x28]&0x8000)==0); 
-
-///////// Sound ///////////////
-//
-// Sound register latch
-//
-
-always @(posedge clk, posedge rst) begin
-  if (rst) begin
-    m68k_sound_latch_0 <= 16'b0;
-    m68k_sound_latch_1 <= 16'b0;
-    end
-  else begin
-    if (cpu_a[23:0] == 24'h80000)
-      m68k_sound_latch_0[15:0] <= cpu_dout[15:0];
-    if (cpu_a[23:0] == 24'h80002)
-      m68k_sound_latch_1[15:0] <= cpu_dout[15:0];
-  end
-end
- 
 
 //////// RAM //////////////////////////
 //
