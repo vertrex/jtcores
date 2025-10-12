@@ -44,7 +44,7 @@ module music1(
   
   input             SA0, // Sound Address
   input       [7:0] SD_OUT, // Sound data 
-  //output    [7:0] SD_IN
+  output      [7:0] SD_IN,
 
   input        RESET_A, //active low
   output       IRQ3812, //active low
@@ -142,6 +142,9 @@ jt6295 #(.INTERPOL(1))  u_adpcm(
 );
 
 
+//assign SD_IN = CS3812_IN & ~SRDB                       ? ym3812_dout :
+               //~SEL6295 & ~SRDB                        ? oki_dout :
+               //8'hff;
 
 ///////// MIXING /////////////////
 //

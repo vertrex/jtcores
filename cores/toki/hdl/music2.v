@@ -203,8 +203,6 @@ sei0100bu sei0100bu_u(
   //XXX not on original board 
   //remove this signal after debug
   .ym_cs_1(ym_cs_1),
-  //.irq_rst10(irq_rst10),
-  //.irq_rst18(irq_rst18),
   .ym_wr(ym_wr)
 ); 
 
@@ -215,14 +213,8 @@ assign z80_rom_cs_n = ~z80_rom_cs; //XXX we should use one from PLD
 assign SD_IN =   CS3812_IN & ~SRDB                       ? ym3812_dout :  //0 onlyt ???it's rarrely used aslone CS3812 ? 
                  ~SEL6295 & ~SRDB                        ? oki_dout :
                  // XXX ORDER SEEMS IMPORTANT ?? WHY ? 
-                 //is z80_romm_cs /bank_rom or ram rom too large ?? 
                  (~SEI0100_CS_N && (SA[4:0] >= 5'h10 && SA[4:0] <= 5'h13)) ? SEI0100_SD_IN :
-                 //(~SEI0100_CS_N && SRDB) ? SEI0100_SD_IN : //XXX MARCHE PAS 
-                 // XXX USE DIRECTLY IRQ3812 & SEL6295 ? 
-                 // XXX SI PERIPH PAS PRET IL DOIT METRTE LE CPU EN WAIT ! 
-                  ~irq_ack_n & ~IRQ3812 ? 8'hd7 : 
-                  //irq6295_n 
-                  ~irq_ack_n & ~((~MUSIC & (MAB[3:1] == 3'd4)))  ? 8'hdf :
+                 ~irq_ack_n ? SEI0100_SD_IN :
                  //we need to read datga from maian and main need to read our
                  z80_rom_cs                               ? decrypt_rom_data :
                  ~bank_rom_cs_n                           ? bank_rom_data :

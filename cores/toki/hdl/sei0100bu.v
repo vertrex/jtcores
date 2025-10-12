@@ -67,7 +67,11 @@ reg [7:0] m68k_sound_latch_0;
 reg [7:0] m68k_sound_latch_1;
 
 assign SD_IN[7:0] =
-  //XXX & SRDB ? we read from that 
+  //XXX & SRDB ? we read from that
+                    //IRQ3812 ack 
+                    ~irq_ack_n & ~IRQ3812 ? 8'hd7 : 
+                    //irq6295_n  ack
+                    ~irq_ack_n & ~((~MUSIC & (MAB[3:1] == 3'd4)))  ? 8'hdf :
                     // m68k_latch0_cs 
                     (~SEI0100_CS_N && (SA[4:0] == 5'h10))    ? m68k_sound_latch_0[7:0] :
                     // m68k_latch1_cs
@@ -77,16 +81,6 @@ assign SD_IN[7:0] =
                     // read coin cs 
                     (~SEI0100_CS_N && (SA[4:0] == 5'h13))    ? {6'b0, ~COIN2, ~COIN1}  :
 
-                    //~irq_ack_n & ~IRQ3812 ? 8'hd7 : 
-                    //~irq_ack_n & ~((~MUSIC & (MAB[3:1] == 3'd4)))  ? 8'hdf :
-                    //(~irq_ack_n & ~IRQ3812) ? 8'hd7 : 
-                    //latch ? 
-                    //(~irq_ack_n & ~oki6295_irq_n) ? 8'hdf :
-                    // XXX USE DIRECTLY IRQ3812 & SEL6295 ? 
-                    // irq_rst10 <= ~IRQ3812 
-                    // irq_rst18 <= ~oki6295_irq_n 
-                    //~irq_ack_n & irq_rst10                   ? 8'hd7 : 
-                    //~irq_ack_n & irq_rst18                   ? 8'hdf :
                     8'hff;
 
 ////// Z80 databus input   /////////////////////// 
@@ -106,6 +100,7 @@ assign SD_IN[7:0] =
 
 
 assign Z80_INT = ~(irq_rst10|irq_rst18);
+// XXX PEUX PAS MARHCER SDIFFERENT ! on doit maintner le int jusqu au ack
 //assign Z80_INT = ~((~MUSIC & (MAB[3:1] == 3'd4))) | ~IRQ3812;
 
 
