@@ -49,22 +49,8 @@ module music2
   input             bank_rom_ok, 
   output reg [15:0] bank_rom_addr,
   output            bank_rom_cs_n,
-//// 
 
-  //input             m68k_sound_cs_2,
-  //input             m68k_sound_cs_4,
-  //input             m68k_sound_cs_6,
-
-  //SEIBU SOUND DEVICE MAIN READ
-  //READ FROM MDB
-  //input      [15:0] m68k_sound_latch_0,
-  //input      [15:0] m68k_sound_latch_1,
-
-  //SEIBU SOUND DEVICE MAIN WRITE
-  //XXX WRITE TO MDB ! 
-  //output [15:0] z80_sound_latch_0,
-  //output [15:0] z80_sound_latch_1,
-  //output [15:0] z80_sound_latch_2,
+  ////  XXX not on original schem
 
   input         [7:0] oki_dout,
   input         [7:0] ym3812_dout,
@@ -131,8 +117,6 @@ end
 
 ///////
 wire irq_ack_n;
-//assign irq_ack_n = ~(~z80_iorq_n & ~z80_m1_n); // === PLD B3 !!!!!  
-
 wire SEI0100_CS_N, B1, z80_ram_cs_n;
 wire z80_rom_cs_n_pld;
 
@@ -188,9 +172,6 @@ wire CS3812_IN;
 wire irq_rst10, irq_rst18, main_data_pending_cs, sub2main_pending,
   read_coin_cs, m68k_latch0_cs, m68k_latch1_cs;
 
-wire [7:0] m68k_sound_latch_0;
-wire [7:0] m68k_sound_latch_1;
-
 sei0100bu sei0100bu_u(
   .clk(clk),
   .rst(rst),
@@ -219,60 +200,32 @@ sei0100bu sei0100bu_u(
   .SD_OUT(SD_OUT),
   .SD_IN(SEI0100_SD_IN),
 
-  //XXX
-  //.z80_sound_latch_0(z80_sound_latch_0),
-  //.z80_sound_latch_1(z80_sound_latch_1),
-  //.z80_sound_latch_2(z80_sound_latch_2),
-
-
-  //.m68k_sound_cs_2(m68k_sound_cs_2),
-  //.m68k_sound_cs_4(m68k_sound_cs_4),
-  //.m68k_sound_cs_6(m68k_sound_cs_6),
-
-  //SEIBU SOUND DEVICE MAIN READ
-  //READ FROM MDB
-  .m68k_sound_latch_0(m68k_sound_latch_0),
-  .m68k_sound_latch_1(m68k_sound_latch_1),
-
+  //XXX not on original board 
+  //remove this signal after debug
   .ym_cs_1(ym_cs_1),
-
   .irq_rst10(irq_rst10),
   .irq_rst18(irq_rst18),
-  .main_data_pending_cs(main_data_pending_cs),
-  .sub2main_pending(sub2main_pending),
-  .read_coin_cs(read_coin_cs),
-  .m68k_latch0_cs(m68k_latch0_cs),
-  .m68k_latch1_cs(m68k_latch1_cs),
   .ym_wr(ym_wr)
 ); 
 
-assign z80_rom_cs_n = ~z80_rom_cs;
+assign z80_rom_cs_n = ~z80_rom_cs; //XXX we should use one from PLD 
 //assign bank_rom_cs_n = ~bank_rom_cs;
-//XXX IN AND OUT HERE MUST BE MORE CLEART ! AND HOW TO SEND ALL IN IN CPU ?
-//selected by the PLD finally ?
-// we need to simulate a bus 
 
-//try with assign ?   
-assign SD_IN = 
-              //(~irq_ack_n | ~SEI0100_CS_N)  ? SEI0100_SD_IN :
-                 ~irq_ack_n & irq_rst10                   ? 8'hd7 : 
-                 ~irq_ack_n & irq_rst18                   ? 8'hdf :
-                 CS3812_IN & ~SRDB                       ? ym3812_dout :  //0 onlyt ???it's rarrely used aslone CS3812 ? 
+// simulate shared bus
+assign SD_IN =   CS3812_IN & ~SRDB                       ? ym3812_dout :  //0 onlyt ???it's rarrely used aslone CS3812 ? 
+                 ~SEL6295 & ~SRDB                        ? oki_dout :
+                 // XXX ORDER SEEMS IMPORTANT ?? WHY ? 
+                 //is z80_romm_cs /bank_rom or ram rom too large ?? 
+                 (~SEI0100_CS_N && (SA[4:0] >= 5'h10 && SA[4:0] <= 5'h13)) ? SEI0100_SD_IN :
+                 //(~SEI0100_CS_N && SRDB) ? SEI0100_SD_IN : //XXX MARCHE PAS 
+                 // XXX USE DIRECTLY IRQ3812 & SEL6295 ?  
+                  ~irq_ack_n & irq_rst10                   ? 8'hd7 : 
+                  ~irq_ack_n & irq_rst18                   ? 8'hdf :
                  //we need to read datga from maian and main need to read our
-                 //data 
-                 main_data_pending_cs &  sub2main_pending ? 8'b1  :  //MWRLB  + DATA BUS ?
-                 //we need to read data from and main already read our data 
-                 main_data_pending_cs & ~sub2main_pending ? 8'b0  :   //MRLB + DATA BUS ? 
-                 ~SEL6295 & ~SRDB                         ? oki_dout :
-                 ~bank_rom_cs_n                             ? bank_rom_data :
-                 //read directly or from a latch ?? 
-                 m68k_latch0_cs                           ? m68k_sound_latch_0[7:0] : //MDB //MAB 
-                 m68k_latch1_cs                           ? m68k_sound_latch_1[7:0] ://MDB MAB 
-                 read_coin_cs                             ? {6'b0, ~COIN2, ~COIN1} : //
-                 ~z80_ram_cs_n                               ? RAM_SD_OUT:
                  z80_rom_cs                               ? decrypt_rom_data :
-
-                                               8'hff;
+                 ~bank_rom_cs_n                           ? bank_rom_data :
+                 ~z80_ram_cs_n                            ? RAM_SD_OUT:
+                                                            8'hff;
 
 
 // SEI0080 SCRAMBLER 

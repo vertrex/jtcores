@@ -32,41 +32,27 @@ module sei0100bu
   output        CS3812_IN, //pin 61
   //SD_OUT !
   input       [7:0] SD_OUT, //read data from CPU ! 
-  output  reg    [7:0] SD_IN,//19,50,20,51,21,52,22,53  //reg?
-
-  //XXX REMOVE 
-  //output reg [15:0] z80_sound_latch_0,
-  //output reg [15:0] z80_sound_latch_1,
-  //output reg [15:0] z80_sound_latch_2,
-
-  //input             m68k_sound_cs_2,
-  //input             m68k_sound_cs_4,
-  //input             m68k_sound_cs_6,
+  output      [7:0] SD_IN,//19,50,20,51,21,52,22,53  //reg?
 
   //SEIBU SOUND DEVICE MAIN READ
   //READ FROM MDB
+  //XXX PUT IN SD_OUT !
   output reg [7:0] m68k_sound_latch_0,
   output reg [7:0] m68k_sound_latch_1,
 
  output reg ym_cs_1,
  output reg irq_rst10,
  output reg irq_rst18,
- output reg main_data_pending_cs,
- output reg sub2main_pending,
- output reg read_coin_cs,
- output reg m68k_latch0_cs,
- output reg m68k_latch1_cs,
  output reg ym_wr
 );
 
 reg  ym_cs_0; 
-     //ym_wr; 
-     //m68k_latch0_cs, m68k_latch1_cs, 
-     //main_data_pending_cs, read_coin_cs;
 
 //assign CS3812 = ~ym_wr; //XXX ONLY 8 ??  on in one out ? one wqrite one read ?
 assign CS3812 = ~(ym_cs_0 | ym_cs_1);//~ym_wr; //XXX ONLY 8 ??  on in one out ? one wqrite one read ?
 assign CS3812_IN = ym_cs_0;
+
+reg sub2main_pending;
 
 // old z80_cs.v 
 always @(*) begin
@@ -74,11 +60,28 @@ always @(*) begin
     ym_cs_0 =  (~SEI0100_CS_N &&  SA[4:0] == 5'h08);
     ym_cs_1 =  (~SEI0100_CS_N &&  SA[4:0] == 5'h09); //SA
     ym_wr = (~SEI0100_CS_N && (SA[4:0] == 5'h08 || SA[4:0] == 5'h09));
-    m68k_latch0_cs =  (~SEI0100_CS_N && (SA[4:0] == 5'h10));
-    m68k_latch1_cs =  (~SEI0100_CS_N && (SA[4:0] == 5'h11));
-    main_data_pending_cs =   (~SEI0100_CS_N && (SA[4:0] == 5'h12));
-    read_coin_cs =   (~SEI0100_CS_N && (SA[4:0] == 5'h13));
 end 
+
+assign SD_IN[7:0] =
+  //XXX & SRDB ? we read from that 
+                    // m68k_latch0_cs 
+                    (~SEI0100_CS_N && (SA[4:0] == 5'h10))    ? m68k_sound_latch_0[7:0] :
+                    // m68k_latch1_cs
+                    (~SEI0100_CS_N && (SA[4:0] == 5'h11))    ? m68k_sound_latch_1[7:0] :
+                    // main_data_pending_cs 
+                    (~SEI0100_CS_N && (SA[4:0] == 5'h12))    ? {7'b0, sub2main_pending}:
+                    // read coin cs 
+                    (~SEI0100_CS_N && (SA[4:0] == 5'h13))    ? {6'b0, ~COIN2, ~COIN1}  :
+
+                    //(~irq_ack_n & ~IRQ3812) ? 8'hd7 : 
+                    //latch ? 
+                    //(~irq_ack_n & ~oki6295_irq_n) ? 8'hdf :
+                    // XXX USE DIRECTLY IRQ3812 & SEL6295 ? 
+                    // irq_rst10 <= ~IRQ3812 
+                    // irq_rst18 <= ~oki6295_irq_n 
+                    //~irq_ack_n & irq_rst10                   ? 8'hd7 : 
+                    //~irq_ack_n & irq_rst18                   ? 8'hdf :
+                    8'hff;
 
 ////// Z80 databus input   /////////////////////// 
 //
@@ -100,6 +103,7 @@ end
 reg stop_irq_10; 
 reg stop_irq_18; 
 
+//like an address bus just a assign ? 
 assign Z80_INT = ~(irq_rst10|irq_rst18);
 
 always @(posedge clk) begin
@@ -134,10 +138,6 @@ always @(posedge clk) begin
 end
 
 
-//reg [7:0] m68k_sound_latch_0;
-//reg [7:0] m68k_sound_latch_1;
-//input   [3:1] MAB,     //pin 56-58
-//input   [7:0] MDB,  
 ///////// Sound ///////////////
 //
 // Sound register latch
@@ -150,8 +150,6 @@ end
 //   _9876_5432_1098_7654_3210
 //  0b1000_0000_0000_0000_0000' //is 80000 ! 
 //  is that lateched ??
-//  
-
 always @(posedge clk) begin
   if (rst) begin
     m68k_sound_latch_0 <= 8'b0;
@@ -172,24 +170,7 @@ always @(posedge clk) begin
   end
 end
 
-//REG ?
-//
-//always @(*) begin
-  //@ Clock ?
-// XXX FROM MDB/ MAB 
-//always @(posedge clk) begin
-        //SD_IN <= ~irq_ack_n & irq_rst10                   ? 8'hd7 : 
-                 //~irq_ack_n & irq_rst18                   ? 8'hdf :
-                 //main_data_pending_cs &  sub2main_pending ? 8'b1  :  //MWRLB  + DATA BUS ?
-                 //main_data_pending_cs & ~sub2main_pending ? 8'b0  :   //MRLB + DATA BUS ? 
-                 //m_cs_0 & ~SRDB                          ? ym3812_dout :  //0 onlyt ???it's rarrely used aslone CS3812 ? 
-                 //read directly or from a latch ?? 
-                 //
-                 //m68k_latch0_cs                           ? m68k_sound_latch_0[7:0] : //MDB //MAB 
-                 //m68k_latch1_cs                           ? m68k_sound_latch_1[7:0] ://MDB MAB 
-                 //read_coin_cs                             ? {6'b0, ~COIN2, ~COIN1} : //COIN 
-                                                            //8'hff;
-//end 
+
 
 ////// SOUND ////////////////////
 //
@@ -203,25 +184,6 @@ reg oki6295_irq_n;
 
 // XXX WRITE TO MAIN CPU DATA BUS DIRECTLY! MDB ! 
 
-
-//sound_cs_2 ? z80_sound_latch_0 : 
-//sound_cs_3 ? z80_sound_latch_1 :
-//sound_cs_5 ? z80_sound_latch_2 :
-
-// XXX
-// WRITE DIRECTLY TO MDB AS SHARE DATABUS OR WRITE TO A FAKE DATABUS ? 
-// HOW CPU NOW WE CAN WRITE ? WE NEED TO CHECK MWRLB ?
-//wire  m68k_sound_cs_2;
-//wire  m68k_sound_cs_4;
-//wire  m68k_sound_cs_6;
-      //sound_cs_2 <= (cpu_a[23:0] == 24'h80004);
-      //sound_cs_3 <= (cpu_a[23:0] == 24'h80006);
-      //sound_cs_4 <= (cpu_a[23:0] == 24'h80008);
-      //sound_cs_5 <= (cpu_a[23:0] == 24'h8000a);
-      //sound_cs_6 <= (cpu_a[23:0] == 24'h8000c);
-
-
-
 // indicate is z80 sent data to main to be read 
 always @(posedge clk) begin
     // data is waiting to be read 
@@ -231,6 +193,8 @@ always @(posedge clk) begin
     else if (~MUSIC & (MAB[3:1] == 3'd6 || MAB[3:1] == 3'd2)) //? it's used as cpu din too
         sub2main_pending <= 1'b0;
 end 
+
+//XX XUE ASSIGNEMENT ?
 
 // main cpu assert irq for oki6295
 always @(posedge clk) begin
@@ -263,6 +227,9 @@ always @(posedge clk) begin //XXX speed must be same than 68k din ?
     end 
 end
 
+// XXX COIN RAJOTUE 2 COIN A CHAQUE FOIS 
+// TROP RAPIDE DOIT ETRE CLOCK SUR 3_6 ?? 
+// IL EST PAS CLEAR ASSEZ VITE 
 // coin latch ? 
 always @(posedge clk) begin //XXX speed must be same than 68k din ?
   if (rst) begin
@@ -288,5 +255,4 @@ assign MDB_IN[7:0] = (~MUSIC & (MAB[3:1] == 3'd2)) ? z80_sound_latch_0[7:0] :
                      //read coin status ? 
                      (~MUSIC & (MAB[3:1] == 3'd5)) ? z80_sound_latch_2[7:0] :
                      8'd0;
-
 endmodule
