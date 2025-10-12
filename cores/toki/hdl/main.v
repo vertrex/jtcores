@@ -318,7 +318,7 @@ always @(posedge clk)
 always @(*) begin
       cpu_rom_cs = ~cpu_as_n & (cpu_a[23:1] < 23'h30000);
       //obj no dma
-      obj_cs  = ~cpu_as_n & (cpu_a[23:1] >= 23'h36c00 && cpu_a[23:1] < 23'h37000); //2048
+      obj_cs     = ~cpu_as_n & (cpu_a[23:1] >= 23'h36c00 && cpu_a[23:1] < 23'h37000); //2048
       //IO
       dsw_cs     = ~cpu_as_n & (cpu_a[23:1] == 23'h60000); // && cpu_a[23:1] < 24'hc0001); //2 
       inputs_cs  = ~cpu_as_n & (cpu_a[23:1] == 23'h60001); // && cpu_a[23:1] < 24'hc0003); //2 

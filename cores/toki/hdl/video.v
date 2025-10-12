@@ -269,6 +269,7 @@ scrn_bk bk2_u(
   .MAB(MAB),
   .MDB_RAM_OUT(MDB_RAM_OUT),
   .MDB_CPU_OUT(MDB_CPU_OUT),
+
   .RST_SH(RST_S2H),
   .SEL_SH(SEL_S2H),
   .RST_SY(RST_S2Y),

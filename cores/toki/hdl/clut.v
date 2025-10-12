@@ -38,7 +38,7 @@ module CLUT(
   input      [7:0]  prom_27_data, // XXX 4 bit wide ! 
   input             prom_27_ok,
 
-  output reg [7:0]  prom_27_addr,
+  output     [7:0]  prom_27_addr,
   output            prom_27_cs,
 
   output      [3:0] R,
@@ -79,19 +79,42 @@ assign prom_27_cs = 1'b1;
 // may be make two different bus  rather than one shared ? 
 // tryied to switch to cpu by default may be better
 
-always @(posedge clk) begin
-                                                                        //S4ON
-  prom_27_addr[7:0] <= { PRIOR_D, PRIOR_C, PRIOR_B, PRIOR_A, S2ON, OBJON, S4ON, S1ON };
+                                                                        //OBJON //S4ON
+assign  prom_27_addr[7:0] = { PRIOR_D, PRIOR_C, PRIOR_B, PRIOR_A, S2ON, 1'b0, S4ON, S1ON };
 // 74LS257 2H, 3H 
 // 74LS258 
 // 74LS246 1C 
 // SIS6091 5H
-  palette_addr[10:1] <=  //OBJON ? { prom_27_data[3:2], OOB[7:0] } :
-//assign palette_addr[10:1] =  prom_27_data[0] == 1'b1 ?  { prom_27_data[3:2], OOB[7:0] } : 
-                             prom_27_data[1] == 1'b0 ?  { prom_27_data[3:2], s1_s4_out[7:0] } :
-                                                        { prom_27_data[3:2], SCRN2[7:0] };
+  //palette_addr[10:1] <=  //OBJON ? { prom_27_data[3:2], OOB[7:0] } :
 
-end 
+  /* 
+always @(posedge clk) begin
+   //N6M ? 
+   if (prom_27_data[0]) begin 
+     if (prom_27_data[1] == 1'b0)  
+       palette_addr <= { prom_27_data[3:2], s1_s4_out[7:0] }; 
+     else 
+       palette_addr <= { prom_27_data[3:2], SCRN2[7:0] };
+   end 
+ end
+ */
+
+//* 
+always @(posedge clk) begin
+   //N6M ? 
+   //if (prom_27_data[0]) begin 
+     if (prom_27_data[1] == 1'b0)  
+       palette_addr <= { prom_27_data[3:2], s1_s4_out[7:0] }; 
+     else 
+       palette_addr <= { prom_27_data[3:2], SCRN2[7:0] };
+   //end 
+ end
+ //*/
+
+//assign palette_addr[10:1] =  prom_27_data[0] == 1'b1 ?  { prom_27_data[3:2], OOB[7:0] } : 
+                             //prom_27_data[1] == 1'b0 ?  { prom_27_data[3:2], s1_s4_out[7:0] } :
+                                                        //{ prom_27_data[3:2], SCRN2[7:0] };
+
 
 
 reg  [10:1] palette_addr;

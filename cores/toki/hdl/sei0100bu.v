@@ -104,9 +104,13 @@ assign SD_IN[7:0] =
 //
 // XXX ??? BUS SHARED ? + CONTROLLER ?
 
+
+assign Z80_INT = ~(irq_rst10|irq_rst18);
+//assign Z80_INT = ~((~MUSIC & (MAB[3:1] == 3'd4))) | ~IRQ3812;
+
+
 reg irq_rst10;
 reg irq_rst18;
-assign Z80_INT = ~(irq_rst10|irq_rst18);
 
 reg stop_irq_10; 
 reg stop_irq_18; 

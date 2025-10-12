@@ -262,6 +262,7 @@ toki_video u_video(
   .MAB(MAB),
   //.MDB(MDB_OUT),
   .MDB_RAM_OUT(MDB_RAM_OUT),
+  .MDB_CPU_OUT(MDB_CPU_OUT),
 
   .DMSL_S1(DMSL_S1),
   .DMSL_S2(DMSL_S2),
