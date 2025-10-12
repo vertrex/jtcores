@@ -92,7 +92,8 @@ module toki_video(
 
   input       [12:1] KDA,
   input       [17:1] MAB,
-  input       [15:0] MDB,
+  input       [15:0] MDB_RAM_OUT,
+  input       [15:0] MDB_CPU_OUT,
   input              DMSL_S1,
   input              DMSL_S2,
   input              DMSL_S4,
@@ -194,7 +195,7 @@ scrn4 scrn4_u(
 
   .KDA(KDA[10:1]),
   .DMSL_S4(DMSL_S4),
-  .MDB(MDB),
+  .MDB(MDB_RAM_OUT),
   
   .hpos(hpos[7:0]),
   .vpos(vpos[7:0]),
@@ -230,7 +231,8 @@ scrn_bk bk1_u(
   .DMSL(DMSL_S1),
   .KDA(KDA[10:1]),
   .MAB(MAB),
-  .MDB(MDB),
+  .MDB_RAM_OUT(MDB_RAM_OUT),
+  .MDB_CPU_OUT(MDB_CPU_OUT),
   .RST_SH(RST_S1H),
   .SEL_SH(SEL_S1H),
   .RST_SY(RST_S1Y),
@@ -265,8 +267,8 @@ scrn_bk bk2_u(
   .DMSL(DMSL_S2),
   .KDA(KDA[10:1]),
   .MAB(MAB),
-  .MDB(MDB),
-
+  .MDB_RAM_OUT(MDB_RAM_OUT),
+  .MDB_CPU_OUT(MDB_CPU_OUT),
   .RST_SH(RST_S2H),
   .SEL_SH(SEL_S2H),
   .RST_SY(RST_S2Y),
@@ -374,7 +376,7 @@ CLUT CLUT_u(
   .OOB(obj[7:0]), //XXX
   .KDA(KDA[10:1]),
   .DMSL_GL(DMSL_GL),
-  .MDB(MDB[15:0]),
+  .MDB(MDB_RAM_OUT[15:0]),
   .MASK(MASK),
 
   .prom_27_data(prom_27_data),

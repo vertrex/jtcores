@@ -73,7 +73,9 @@ wire HREV;
 wire YREV;
 wire [12:1] KDA;
 wire [17:1] MAB;
-wire [15:0] MDB_OUT;
+//wire [15:0] MDB_OUT;
+wire [15:0] MDB_RAM_OUT;
+wire [15:0] MDB_CPU_OUT;
 wire MWRLB, MRDLB; 
 wire DMSL_S1, DMSL_S2, DMSL_S4, DMSL_GL;
 wire RST_S1H, SEL_S1H, RST_S1Y, SEL_S1Y;
@@ -145,7 +147,9 @@ toki_main  u_main(
 
   .KDA(KDA),
   .MAB(MAB),
-  .MDB_OUT(MDB_OUT),
+  //.MDB_OUT(MDB_OUT),
+  .MDB_RAM_OUT(MDB_RAM_OUT),
+  .MDB_CPU_OUT(MDB_CPU_OUT),
   .SEI0100_MDB_IN(SEI0100_MDB_IN),
   .MWRLB(MWRLB),
   .MRDLB(MRDLB),
@@ -256,7 +260,8 @@ toki_video u_video(
 
   .KDA(KDA),
   .MAB(MAB),
-  .MDB(MDB_OUT),
+  //.MDB(MDB_OUT),
+  .MDB_RAM_OUT(MDB_RAM_OUT),
 
   .DMSL_S1(DMSL_S1),
   .DMSL_S2(DMSL_S2),
@@ -363,7 +368,7 @@ music2 u_music2(
   .MWRLB(MWRLB),
   .MRDLB(MRDLB),
   .MAB(MAB[3:1]),
-  .MDB_OUT(MDB_OUT[7:0]),
+  .MDB_CPU_OUT(MDB_CPU_OUT[7:0]),
   .MDB_IN(SEI0100_MDB_IN[7:0]),
   .IRQ3812(IRQ3812),
   .COIN1(coin[0]), 

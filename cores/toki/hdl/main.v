@@ -51,7 +51,9 @@ module toki_main(
 
   output     [12:1] KDA,
   output     [17:1] MAB,
-  output     [15:0] MDB_OUT,
+  //output     [15:0] MDB_OUT,
+  output     [15:0] MDB_CPU_OUT,
+  output     [15:0] MDB_RAM_OUT,
   input       [7:0] SEI0100_MDB_IN,
   output            MWRLB,
   output            MRDLB,
@@ -189,16 +191,21 @@ assign MAB[17:1] = BUSOPN == 1'b0 ? cpu_a[17:1] :
 // ADRS.v SOUND.v read from cpu 
 // video.v scrn4 scrn2 read from memory 
 // make two different bus rather than one shared to avoid problem ? 
-assign MDB_OUT[7:0] = 
-                  (!cpu_lds_n & MEMDIR) ? ram_do[7:0] :
-                   cpu_dout[7:0] ;  //& BUSOPN ??
+//assign MDB_OUT[7:0] =
+//cpulds & MEMDIR ??? ca veux rie ndire je check lds sur la ram ...
+
+
+                  //(!cpu_lds_n & MEMDIR) ? ram_do[7:0] :
+                   //cpu_dout[7:0] ;  //& BUSOPN ??
 //                  8'hZ;  // Z ? don't work well on real or sim 
 //memory -> CPU // B-> A
-assign MDB_OUT[15:8] = (!cpu_uds_n & MEMDIR) ? ram_do[15:8] :
-                   cpu_dout[15:8];
+//assign MDB_OUT[15:8] = (!cpu_uds_n & MEMDIR) ? ram_do[15:8] :
+                   //cpu_dout[15:8];
 //                  8'hZ;  // Z ? //don't work well on real or sim
 //cpu -> Memory
 
+assign MDB_CPU_OUT[15:0] = cpu_dout[15:0];
+assign MDB_RAM_OUT[15:0] = ram_do[15:0];
 
 ///////// 68K interrupt ///////////////////////////
 //
@@ -409,7 +416,7 @@ ADRS ADRS_u(
   .MRDLB(MRDLB),
   //.RESET_A(RESET_A),
   //.MDB(MDB_OUT[15:0]),
-  .MDB(MDB_OUT[15:0]),
+  .MDB(MDB_CPU_OUT[15:0]),
 
   .ROM0(ROM0),
   .ROM1(ROM1),

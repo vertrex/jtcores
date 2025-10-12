@@ -14,7 +14,8 @@ module scrn_bk(
   input          [10:1] KDA,
   input                 DMSL,
   input          [17:1] MAB,
-  input          [15:0] MDB,
+  input          [15:0] MDB_RAM_OUT,
+  input          [15:0] MDB_CPU_OUT,
 
   input                 RST_SH,
   input                 SEL_SH,
@@ -49,7 +50,7 @@ sei0021bu sei21bu_bk1_h(
    .low(MAB[2]),
    .high(MAB[1]),
 
-   .data(MDB[7:0]),
+   .data(MDB_CPU_OUT[7:0]),
  
    .sync(s21_hsync),
    .scrolled(scrolled_hpos)
@@ -66,7 +67,7 @@ sei0021bu sei21bu_bk1_v(
    .low(MAB[2]),
    .high(MAB[1]),
    
-   .data(MDB[7:0]),
+   .data(MDB_CPU_OUT[7:0]),
    
    .sync(),
    .scrolled(scrolled_vpos)
@@ -77,7 +78,7 @@ assign sg_sync = scrolled_hpos[1];
 sis6091 #(.AW(10)) u_bk1_ram(
   .clk0(clk),
   .cen0(WRN6M),  //XXX NOT A REAL CLOCK ! 
-  .data0(MDB[15:0]),
+  .data0(MDB_RAM_OUT[15:0]),
   .addr0(KDA[10:1]),
   .we0({~DMSL, ~DMSL}),//DMSL S1
   .q0(),
