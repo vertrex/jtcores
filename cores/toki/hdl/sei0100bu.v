@@ -42,6 +42,9 @@ module sei0100bu
 reg  ym_cs_0; 
 
 //assign CS3812 = ~ym_wr; //XXX ONLY 8 ??  on in one out ? one wqrite one read ?
+//up if read or write -> cs 
+//if cs + SWRB it's write 
+//addr is 1 if ym_cs_1 
 assign CS3812 = ~(ym_cs_0 | ym_cs_1);//~ym_wr; //XXX ONLY 8 ??  on in one out ? one wqrite one read ?
 assign CS3812_IN = ym_cs_0;
 
@@ -50,10 +53,17 @@ reg sub2main_pending;
 // old z80_cs.v 
 always @(*) begin
     // IO
+    // 0b1000
+                // SA[0] == 0 
     ym_cs_0 =  (~SEI0100_CS_N &&  SA[4:0] == 5'h08);
-    ym_cs_1 =  (~SEI0100_CS_N &&  SA[4:0] == 5'h09); //SA
+                //0b001 -> SA[0] == 1 
+    ym_cs_1 =  (~SEI0100_CS_N &&  SA[4:0] == 5'h09); //SA[0]
+    // ??  1 if IRQ 
     ym_wr = (~SEI0100_CS_N && (SA[4:0] == 5'h08 || SA[4:0] == 5'h09));
 end 
+
+//if CS3812 
+//SA[0] =  (~SEI0100_CS_N &&  SA[4:0] == 5'h09) ? 
 
 reg [7:0] m68k_sound_latch_0;
 reg [7:0] m68k_sound_latch_1;
@@ -201,7 +211,6 @@ end
 
 reg [7:0] z80_sound_latch_0; 
 reg [7:0] z80_sound_latch_1; 
-reg [7:0] z80_sound_latch_2;
 
 // 
 always @(posedge clk) begin //XXX speed must be same than 68k din ?
@@ -222,22 +231,26 @@ end
 // XXX COIN RAJOTUE 2 COIN A CHAQUE FOIS 
 // TROP RAPIDE DOIT ETRE CLOCK SUR 3_6 ?? 
 // IL EST PAS CLEAR ASSEZ VITE 
-// coin latch ? 
+// coin latch ?
+reg coin_latch;
+
 always @(posedge clk) begin //XXX speed must be same than 68k din ?
   if (rst) begin
-    z80_sound_latch_2 <= 8'b1; //1b1 or 1b0 ? at default as it seems to be cleared 
+    coin_latch <= 1'b1; //1b1 or 1b0 ? at default as it seems to be cleared 
     end
   else if (CLK_3_6) begin // ?
     // TOO LONG ?
-    if (~SEI0100_CS_N && (SA[4:0] == 5'h00)) begin
-      z80_sound_latch_2  <= 8'b0; //XXX put back ?
-      end
     //data has been process by main we clear the coin latch
     //and the other latch too ?
-    else if (~MUSIC & (MAB[3:1] == 3'd6 || MAB[3:1] == 3'd2)) begin //? it's used as cpu din too
+    if (~MUSIC & (MAB[3:1] == 3'd6 || MAB[3:1] == 3'd2)) begin //? it's used as cpu din too
       //clear other latch too ? 
-      z80_sound_latch_2 <= 8'b1;
+      coin_latch <= 1'b1;
       end
+    else if (~SEI0100_CS_N && (SA[4:0] == 5'h00)) begin
+      coin_latch <= 1'b0; //XXX put back ?
+      end
+      //else 0 ? 
+
     // data from z80 is pending read from 68k
     end
 end
@@ -245,6 +258,6 @@ end
 assign MDB_IN[7:0] = (~MUSIC & (MAB[3:1] == 3'd2)) ? z80_sound_latch_0[7:0] :
                      (~MUSIC & (MAB[3:1] == 3'd3)) ? z80_sound_latch_1[7:0] :
                      //read coin status ? 
-                     (~MUSIC & (MAB[3:1] == 3'd5)) ? z80_sound_latch_2[7:0] :
+                     (~MUSIC & (MAB[3:1] == 3'd5)) ? {7'b0, coin_latch} :
                      8'd0;
 endmodule

@@ -301,7 +301,7 @@ wire COUNTER2;
 wire CS3812;
 wire CLK_3_6;
 wire PRCLK1;
-wire SA0; //should be on SA bus 
+wire SA_0; //should be on SA bus 
 wire [7:0] SD_OUT;
 // OLD 
 wire [7:0] oki_dout;
@@ -320,7 +320,7 @@ music1 u_music1(
   .rst(rst),
   .CLK_3_6(CLK_3_6),
   .CS3812(CS3812),
-  .SA0(SA0),
+  .SA_0(SA_0),
   .SD_OUT(SD_OUT),
   //.RESET_A(RESET_A), // ?? ~SYS_RESET or = SYS_RESET ?
   .IRQ3812(IRQ3812),
@@ -381,7 +381,7 @@ music2 u_music2(
 
   .CLK_3_6(CLK_3_6),
   .PRCLK1(PRCLK1),
-  .SA0(SA0),
+  .SA_0(SA_0),
   .SD_OUT(SD_OUT),
   ////////////////////////////////
   .oki_cen(oki_cen),

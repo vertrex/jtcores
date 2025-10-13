@@ -42,7 +42,7 @@ module music1(
   input             CLK_3_6,
   input             CS3812,
   
-  input             SA0, // Sound Address
+  input             SA_0, // Sound Address
   input       [7:0] SD_OUT, // Sound data 
   output      [7:0] SD_IN,
 
@@ -90,9 +90,9 @@ jtopl2   u_YM3812(
     .clk(clk), //CLK_3_6 ? 
     .cen(CLK_3_6), //CLK_3_6 //1 if clk is CLK_3_6
     .din(SD_OUT[7:0]),  //SD[0:7] ym_cs_1 
-    .addr(SA0), // cmd addr SA0 
+    .addr(SA_0), // cmd addr SA0 
     .cs_n(CS3812), //CS3812
-    .wr_n(~ym_wr), //SWRB //NO RD ?  
+    .wr_n(SWRB), //SWRB //NO RD ?  
     .dout(ym3812_dout), // separate so keep it or put on shared SD bus ?  
     .irq_n(IRQ3812), //IRQ3812
     .snd(opl_snd[15:0]), //? 

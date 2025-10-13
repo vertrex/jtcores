@@ -31,7 +31,7 @@ module music2
     //74HC74
     output          CLK_3_6, 
     output          PRCLK1,
-    output          SA0, 
+    output          SA_0, 
     output   [7:0]  SD_OUT,
     // XXX SD / SA ?
 
@@ -58,8 +58,8 @@ module music2
 );
 
 /////// TEMPORARY TO MUSIC1 work
-wire ym_cs_1;
-assign SA0 = ym_cs_1; //should be on SA bus & selected by CS3812 ...
+//wire ym_cs_1;
+//assign SA0 = ym_cs_1; //should be on SA bus & selected by CS3812 ...
 
 // WRB is used for ym-wr & oki wr .. ????
 assign PRCLK1 = oki_cen;
@@ -77,6 +77,8 @@ wire z80_busak_n;
 wire RFSH_n; //XXX plug to z80
 wire Z80_INT;
 wire [15:0] SA;
+
+assign SA_0 = SA[0];
 
 jtframe_z80 u_z80(
     .clk(clk),
@@ -210,6 +212,7 @@ assign z80_rom_cs_n = ~z80_rom_cs; //XXX we should use one from PLD
 //assign bank_rom_cs_n = ~bank_rom_cs;
 
 // simulate shared bus
+// ~CS3812 & ~SRDB ,,(OR ~SA[0])\ac?
 assign SD_IN =   CS3812_IN & ~SRDB                       ? ym3812_dout :  //0 onlyt ???it's rarrely used aslone CS3812 ? 
                  ~SEL6295 & ~SRDB                        ? oki_dout :
                  // XXX ORDER SEEMS IMPORTANT ?? WHY ? 
