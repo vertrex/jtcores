@@ -28,8 +28,7 @@ module sei0100bu
   output        COUNTER1, //pin 39
   output        COUNTER2, //pin 40
   output        Z80_INT, //pin 23
-  output        CS3812, //pin 61
-  output        CS3812_IN, //pin 61
+  output    reg CS3812, //pin 61
   //SD_OUT !
   input       [7:0] SD_OUT, //read data from CPU ! 
   output      [7:0] SD_IN//19,50,20,51,21,52,22,53  //reg?
@@ -40,23 +39,13 @@ module sei0100bu
 //if cs + SWRB it's write 
 //addr is 1 if ym_cs_1
 //
-reg ym_cs_0, ym_cs_1; //, ym_wr;
-
-assign CS3812 = ~(ym_cs_0 | ym_cs_1);//~ym_wr; //XXX ONLY 8 ??  on in one out ? one wqrite one read ?
-assign CS3812_IN = ym_cs_0;
-
 reg sub2main_pending;
 
 // old z80_cs.v 
 always @(*) begin
     // IO
     // 0b1000
-                // SA[0] == 0 
-    ym_cs_0 =  (~SEI0100_CS_N &&  SA[4:0] == 5'h08);
-                //0b001 -> SA[0] == 1 
-    ym_cs_1 =  (~SEI0100_CS_N &&  SA[4:0] == 5'h09); //SA[0]
-    // ??  1 if IRQ 
-    //ym_wr = (~SEI0100_CS_N && (SA[4:0] == 5'h08 || SA[4:0] == 5'h09));
+    CS3812 = ~(~SEI0100_CS_N && (SA[4:0] == 5'h08 || SA[4:0] == 5'h09));
 end 
 
 //if CS3812 

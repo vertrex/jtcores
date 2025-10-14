@@ -53,8 +53,7 @@ module music2
   ////  XXX not on original schem
 
   input         [7:0] oki_dout,
-  input         [7:0] ym3812_dout,
-  output              ym_wr
+  input         [7:0] ym3812_dout
 );
 
 /////// TEMPORARY TO MUSIC1 work
@@ -167,7 +166,6 @@ jtframe_ram #(.AW(11)) u_z80_cpu_ram( ///XXX CLOCK ENABLE ?
 // YM3931 (SDIP64)
 
 wire [7:0] SEI0100_SD_IN;
-wire CS3812_IN;
 
 wire irq_rst10, irq_rst18, main_data_pending_cs, sub2main_pending,
   read_coin_cs, m68k_latch0_cs, m68k_latch1_cs;
@@ -196,12 +194,8 @@ sei0100bu sei0100bu_u(
   .COUNTER2(COUNTER1),
   .Z80_INT(Z80_INT),
   .CS3812(CS3812),
-  .CS3812_IN(CS3812_IN),
   .SD_OUT(SD_OUT),
   .SD_IN(SEI0100_SD_IN)
-
-  //XXX not on original board 
-  //remove this signal after debug
 ); 
 
 assign z80_rom_cs_n = ~z80_rom_cs; //XXX we should use one from PLD 
@@ -209,8 +203,8 @@ assign z80_rom_cs_n = ~z80_rom_cs; //XXX we should use one from PLD
 
 // simulate shared bus
 // ~CS3812 & ~SRDB ,,(OR ~SA[0])\ac?
-assign SD_IN =   CS3812_IN & ~SRDB                       ? ym3812_dout :  //0 onlyt ???it's rarrely used aslone CS3812 ? 
-                 ~SEL6295 & ~SRDB                        ? oki_dout :
+assign SD_IN =   ~CS3812 & ~SRDB                       ? ym3812_dout :   
+                 ~SEL6295 & ~SRDB                      ? oki_dout :
                  // XXX ORDER SEEMS IMPORTANT ?? WHY ? 
                  //(~SEI0100_CS_N && (SA[4:0] >= 5'h10 && SA[4:0] <= 5'h13)) ? SEI0100_SD_IN :
                  ~SEI0100_CS_N ? SEI0100_SD_IN :
