@@ -32,19 +32,16 @@ module sei0100bu
   output        CS3812_IN, //pin 61
   //SD_OUT !
   input       [7:0] SD_OUT, //read data from CPU ! 
-  output      [7:0] SD_IN,//19,50,20,51,21,52,22,53  //reg?
-
-  // XXX REMOVE THAT  b1 & sa ? 
- output reg ym_cs_1,
- output reg ym_wr
+  output      [7:0] SD_IN//19,50,20,51,21,52,22,53  //reg?
 );
-
-reg  ym_cs_0; 
 
 //assign CS3812 = ~ym_wr; //XXX ONLY 8 ??  on in one out ? one wqrite one read ?
 //up if read or write -> cs 
 //if cs + SWRB it's write 
-//addr is 1 if ym_cs_1 
+//addr is 1 if ym_cs_1
+//
+reg ym_cs_0, ym_cs_1; //, ym_wr;
+
 assign CS3812 = ~(ym_cs_0 | ym_cs_1);//~ym_wr; //XXX ONLY 8 ??  on in one out ? one wqrite one read ?
 assign CS3812_IN = ym_cs_0;
 
@@ -59,7 +56,7 @@ always @(*) begin
                 //0b001 -> SA[0] == 1 
     ym_cs_1 =  (~SEI0100_CS_N &&  SA[4:0] == 5'h09); //SA[0]
     // ??  1 if IRQ 
-    ym_wr = (~SEI0100_CS_N && (SA[4:0] == 5'h08 || SA[4:0] == 5'h09));
+    //ym_wr = (~SEI0100_CS_N && (SA[4:0] == 5'h08 || SA[4:0] == 5'h09));
 end 
 
 //if CS3812 

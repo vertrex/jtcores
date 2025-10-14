@@ -71,8 +71,7 @@ module music1(
   output            pcm_rom_cs,
 
   output     [7:0]  oki_dout,
-  output     [7:0]  ym3812_dout,
-  input             ym_wr
+  output     [7:0]  ym3812_dout
 );
 
 
@@ -89,7 +88,7 @@ jtopl2   u_YM3812(
     .rst(rst), //RESET A
     .clk(clk), //CLK_3_6 ? 
     .cen(CLK_3_6), //CLK_3_6 //1 if clk is CLK_3_6
-    .din(SD_OUT[7:0]),  //SD[0:7] ym_cs_1 
+    .din(SD_OUT[7:0]),  //SD[0:7] 
     .addr(SA_0), // cmd addr SA0 
     .cs_n(CS3812), //CS3812
     .wr_n(SWRB), //SWRB //NO RD ?  

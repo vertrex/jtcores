@@ -341,8 +341,7 @@ music1 u_music1(
   .pcm_rom_cs(pcm_rom_cs),
 
   .oki_dout(oki_dout),
-  .ym3812_dout(ym3812_dout),
-  .ym_wr(ym_wr)
+  .ym3812_dout(ym3812_dout)
 );
 
 wire z80_rom_cs_n;
@@ -397,8 +396,7 @@ music2 u_music2(
   .bank_rom_cs_n(bank_rom_cs_n),
 
   .oki_dout(oki_dout),
-  .ym3812_dout(ym3812_dout),
-  .ym_wr(ym_wr)
+  .ym3812_dout(ym3812_dout)
 );
 
 

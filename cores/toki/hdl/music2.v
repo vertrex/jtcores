@@ -58,8 +58,6 @@ module music2
 );
 
 /////// TEMPORARY TO MUSIC1 work
-//wire ym_cs_1;
-//assign SA0 = ym_cs_1; //should be on SA bus & selected by CS3812 ...
 
 // WRB is used for ym-wr & oki wr .. ????
 assign PRCLK1 = oki_cen;
@@ -200,12 +198,10 @@ sei0100bu sei0100bu_u(
   .CS3812(CS3812),
   .CS3812_IN(CS3812_IN),
   .SD_OUT(SD_OUT),
-  .SD_IN(SEI0100_SD_IN),
+  .SD_IN(SEI0100_SD_IN)
 
   //XXX not on original board 
   //remove this signal after debug
-  .ym_cs_1(ym_cs_1),
-  .ym_wr(ym_wr)
 ); 
 
 assign z80_rom_cs_n = ~z80_rom_cs; //XXX we should use one from PLD 
