@@ -46,19 +46,15 @@ module music1(
   input       [7:0] SD_OUT, // Sound data 
   output      [7:0] SD_IN,
 
-  input        RESET_A, //active low
-  output       IRQ3812, //active low
+  input             RESET_A, //active low
+  output            IRQ3812, //active low
 
-  input        PRCLK1,
-  input        SRDB,
-  input        SWRB, 
-  input        SEL6295,
+  input             PRCLK1,
+  input             SRDB,
+  input             SWRB, 
+  input             SEL6295,
 
-
-/////////////////////////////////
-////////////// OLD IO ///////////
-/////////////////////////////////
-
+  /////// fpga specific 
   output     [15:0] snd,
   input       [1:0] fxlevel,
   input             enable_fm,
@@ -68,10 +64,7 @@ module music1(
   input       [7:0] pcm_rom_data,
   input             pcm_rom_ok, 
   output     [16:0] pcm_rom_addr,
-  output            pcm_rom_cs,
-
-  output     [7:0]  oki_dout,
-  output     [7:0]  ym3812_dout
+  output            pcm_rom_cs
 );
 
 
@@ -82,6 +75,8 @@ module music1(
 reg ym3812_addr;
 wire signed [15:0] opl_snd;
 wire opl_sample;
+
+wire [7:0]  ym3812_dout;
 
 //type 1 ou 2?
 jtopl2   u_YM3812(
@@ -121,7 +116,9 @@ assign pcm_rom_cs = 1'b1;
 // pcm rom byte 13 and 15 are swapped, that could be a simple encryption 
 // XXX NOT ON THE SCHEMATICS ???
 assign pcm_rom_addr = { adpcm_rom_addr[16], adpcm_rom_addr[13], adpcm_rom_addr[14] ,adpcm_rom_addr[15] , adpcm_rom_addr[12:0]}; 
-/// XXX NOT WORKING ANYMORE 
+
+wire [7:0]  oki_dout;
+
 jt6295 #(.INTERPOL(1))  u_adpcm(
     .rst(rst),
     .clk(clk), //PRCLK1? 
@@ -141,9 +138,9 @@ jt6295 #(.INTERPOL(1))  u_adpcm(
 );
 
 
-//assign SD_IN = CS3812_IN & ~SRDB                       ? ym3812_dout :
-               //~SEL6295 & ~SRDB                        ? oki_dout :
-               //8'hff;
+assign SD_IN = ~CS3812 & ~SRDB   ? ym3812_dout :
+               ~SEL6295 & ~SRDB  ? oki_dout :
+               8'hff;
 
 ///////// MIXING /////////////////
 //

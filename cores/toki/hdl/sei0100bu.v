@@ -28,28 +28,23 @@ module sei0100bu
   output        COUNTER1, //pin 39
   output        COUNTER2, //pin 40
   output        Z80_INT, //pin 23
-  output    reg CS3812, //pin 61
-  //SD_OUT !
-  input       [7:0] SD_OUT, //read data from CPU ! 
-  output      [7:0] SD_IN//19,50,20,51,21,52,22,53  //reg?
+  output reg    CS3812, //pin 61
+ 
+  input   [7:0] SD_OUT, //read data from CPU ! 
+  output  [7:0] SD_IN//19,50,20,51,21,52,22,53  //reg?
 );
 
 //assign CS3812 = ~ym_wr; //XXX ONLY 8 ??  on in one out ? one wqrite one read ?
 //up if read or write -> cs 
 //if cs + SWRB it's write 
 //addr is 1 if ym_cs_1
-//
 reg sub2main_pending;
 
-// old z80_cs.v 
 always @(*) begin
     // IO
-    // 0b1000
+    // 0b1000  / 0b1001 (SA[0])
     CS3812 = ~(~SEI0100_CS_N && (SA[4:0] == 5'h08 || SA[4:0] == 5'h09));
 end 
-
-//if CS3812 
-//SA[0] =  (~SEI0100_CS_N &&  SA[4:0] == 5'h09) ? 
 
 reg [7:0] m68k_sound_latch_0;
 reg [7:0] m68k_sound_latch_1;
@@ -68,7 +63,6 @@ assign SD_IN[7:0] =
                     (~SEI0100_CS_N && (SA[4:0] == 5'h12))    ? {7'b0, sub2main_pending}:
                     // read coin cs 
                     (~SEI0100_CS_N && (SA[4:0] == 5'h13))    ? {6'b0, ~COIN2, ~COIN1}  :
-
                     8'hff;
 
 ////// Z80 databus input   /////////////////////// 
@@ -84,10 +78,7 @@ assign SD_IN[7:0] =
 // 
 //  both interrupt are needed to handle sound and coin input
 //
-// XXX ??? BUS SHARED ? + CONTROLLER ?
 assign Z80_INT = ~(irq_rst10|irq_rst18);
-// XXX PEUX PAS MARHCER SDIFFERENT ! on doit maintner le int jusqu au ack
-//assign Z80_INT = ~((~MUSIC & (MAB[3:1] == 3'd4))) | ~IRQ3812;
 
 reg irq_rst10;
 reg irq_rst18;
@@ -162,12 +153,7 @@ end
 // sound latch
 //
 //
-
-// XXX done by the controlelr ?
 reg oki6295_irq_n;
-//reg sub2main_pending;
-
-// XXX WRITE TO MAIN CPU DATA BUS DIRECTLY! MDB ! 
 
 // indicate is z80 sent data to main to be read 
 always @(posedge clk) begin
@@ -180,8 +166,6 @@ always @(posedge clk) begin
           sub2main_pending <= 1'b0;
     end 
 end 
-
-//XX XUE ASSIGNEMENT ?
 
 // main cpu assert irq for oki6295
 always @(posedge clk) begin
@@ -241,9 +225,11 @@ always @(posedge clk) begin //XXX speed must be same than 68k din ?
     end
 end
 
-assign MDB_IN[7:0] = (~MUSIC & (MAB[3:1] == 3'd2)) ? z80_sound_latch_0[7:0] :
+assign MDB_IN[7:0] = // low word 
+                     (~MUSIC & (MAB[3:1] == 3'd2)) ? z80_sound_latch_0[7:0] :
+                     // high word
                      (~MUSIC & (MAB[3:1] == 3'd3)) ? z80_sound_latch_1[7:0] :
-                     //read coin status ? 
+                     //read coin status 
                      (~MUSIC & (MAB[3:1] == 3'd5)) ? {7'b0, coin_latch} :
                      8'd0;
 endmodule

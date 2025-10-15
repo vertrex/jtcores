@@ -33,33 +33,22 @@ module music2
     output          PRCLK1,
     output          SA_0, 
     output   [7:0]  SD_OUT,
-    // XXX SD / SA ?
+    input     [7:0] MUSIC1_SD_IN,
 
-/////////////////////////////////
-////////////// OLD IO ///////////
-/////////////////////////////////
-  input             oki_cen,
-/// ROM 
-  input       [7:0] z80_rom_data,
-  input             z80_rom_ok, 
-  output reg [12:0] z80_rom_addr,
-  output            z80_rom_cs_n,
+    //// XXXX 
+    input             oki_cen,
+    /// ROM 
+    input       [7:0] z80_rom_data,
+    input             z80_rom_ok, 
+    output reg [12:0] z80_rom_addr,
+    output            z80_rom_cs_n,
 
-  input       [7:0] bank_rom_data,
-  input             bank_rom_ok, 
-  output reg [15:0] bank_rom_addr,
-  output            bank_rom_cs_n,
-
-  ////  XXX not on original schem
-
-  input         [7:0] oki_dout,
-  input         [7:0] ym3812_dout
+    input       [7:0] bank_rom_data,
+    input             bank_rom_ok, 
+    output reg [15:0] bank_rom_addr,
+    output            bank_rom_cs_n
 );
 
-/////// TEMPORARY TO MUSIC1 work
-
-// WRB is used for ym-wr & oki wr .. ????
-assign PRCLK1 = oki_cen;
 
 ///////// Z80 CPU  /////////////////////// 
 // 
@@ -69,7 +58,6 @@ wire [7:0] SD_IN; //reg ?
 wire z80_iorq_n;
 wire z80_cen;
 wire z80_busak_n;
-//wire ym3812_irq_n; 
 
 wire RFSH_n; //XXX plug to z80
 wire Z80_INT;
@@ -107,17 +95,8 @@ jtframe_z80 u_z80(
 //
 //  Chip select 
 //
-reg z80_rom_cs;
-
-always @(*) begin
-    // RAM & ROM
-    z80_rom_cs = (SA[15:0] < 16'h2000);
-end 
-
-///////
 wire irq_ack_n;
 wire SEI0100_CS_N, B1, z80_ram_cs_n;
-wire z80_rom_cs_n_pld;
 
 pld23 pld23_u(
   .SA_3(SA[3]),
@@ -136,7 +115,7 @@ pld23 pld23_u(
   .irq_ack_n(irq_ack_n), // SEI0100BU ? XXX 54 
   .bank_rom_cs_n(bank_rom_cs_n), // EPROM CE Z80 64k / (CS) 
   .z80_ram_cs_n(z80_ram_cs_n), // Z80 RAM CS      
-  .z80_rom_cs_n(z80_rom_cs_n_pld) // SEI080 BU ? XXX addrs cs ? 
+  .z80_rom_cs_n(z80_rom_cs_n) // SEI080 BU ? XXX addrs cs ? 
   //.B7(B7)  // Z80 8KX8 EPROM  OE (CS) addrs SPRC0 / SRPG0 ?? (SELECT ROM ? CPU 0)
 );
 
@@ -198,21 +177,17 @@ sei0100bu sei0100bu_u(
   .SD_IN(SEI0100_SD_IN)
 ); 
 
-assign z80_rom_cs_n = ~z80_rom_cs; //XXX we should use one from PLD 
-//assign bank_rom_cs_n = ~bank_rom_cs;
-
 // simulate shared bus
-// ~CS3812 & ~SRDB ,,(OR ~SA[0])\ac?
-assign SD_IN =   ~CS3812 & ~SRDB                       ? ym3812_dout :   
-                 ~SEL6295 & ~SRDB                      ? oki_dout :
+assign SD_IN =  
+                 ~CS3812 & ~SRDB                       ? MUSIC1_SD_IN :   
+                 ~SEL6295 & ~SRDB                      ? MUSIC1_SD_IN :
                  // XXX ORDER SEEMS IMPORTANT ?? WHY ? 
-                 //(~SEI0100_CS_N && (SA[4:0] >= 5'h10 && SA[4:0] <= 5'h13)) ? SEI0100_SD_IN :
                  ~SEI0100_CS_N ? SEI0100_SD_IN :
                  ~irq_ack_n ? SEI0100_SD_IN :
                  //we need to read data from main and main need to read our
-                 z80_rom_cs                               ? decrypt_rom_data :
                  ~bank_rom_cs_n                           ? bank_rom_data :
                  ~z80_ram_cs_n                            ? RAM_SD_OUT:
+                 ~z80_rom_cs_n                            ? decrypt_rom_data :
                                                             8'hff;
 
 
@@ -242,30 +217,23 @@ wire       z80_m1_n;   //m1 low => opcode
 wire       z80_mreq_n;
 
 sei80bu u_sei80bu(
-    //N1H ?? ~hpos[0] ?/
+  //N1H ?? ~hpos[0] ?/
   .clk(clk),
-  //cen ?
+  .N1H(N1H),
+  .N6M(N6M),
   .z80_rom_addr({3'd0, z80_rom_addr}),
   .z80_rom_data(z80_rom_data),
   .z80_rom_ok(z80_rom_ok), 
-  .z80_rom_cs(~z80_rom_cs_n),
+  .z80_rom_cs_n(z80_rom_cs_n),
   .z80_m1(~z80_m1_n),
   .decrypt_rom_data(decrypt_rom_data),
-  .decrypt_rom_ok(decrypt_rom_ok)
+  .decrypt_rom_ok(decrypt_rom_ok),
+  .oki_cen(oki_cen),
+  .PRCLK1(PRCLK1),
+  .CLK_3_6(CLK_3_6)
 );
 
-///////// Z80 CLOCK /////////////////////////////
-//
-// Generate 3.579545 MHz clock
-//
-wire cen_fm2;
 
-// XXX MOVE TO SEI80BU ! 
-jtframe_cen3p57 u_fmcen(
-    .clk(clk),      // 48 MHz
-    .cen_3p57(CLK_3_6),
-    .cen_1p78(cen_fm2)
-);
 
 ///////// Z80 WAIT ///////////////////////
 // 
@@ -296,7 +264,7 @@ end
 //
 reg bank_selected = 1'b0; // switch to data bank
 
-/// XXX ? HADNLED BY PLD ? 
+/// XXX ? HADNLED BY PLD ? OR SEI80BU ? 
 always @(posedge clk) begin
     // ROM & bank handling
     if (SA[15:0] < 16'h2000)

@@ -304,11 +304,11 @@ wire PRCLK1;
 wire SA_0; //should be on SA bus 
 wire [7:0] SD_OUT;
 // OLD 
-wire [7:0] oki_dout;
+//wire [7:0] oki_dout;
 wire [7:0] z80_dout;
 wire ym_cs_0;
 wire ym_cs_1; 
-wire [7:0] ym3812_dout;
+wire [7:0] MUSIC1_SD_IN;
 
 //wire  RESET_A;  //from where not driven ?
 wire  IRQ3812;
@@ -320,7 +320,7 @@ music1 u_music1(
   .CS3812(CS3812),
   .SA_0(SA_0),
   .SD_OUT(SD_OUT),
-  //.RESET_A(RESET_A), // ?? ~SYS_RESET or = SYS_RESET ?
+  .SD_IN(MUSIC1_SD_IN),
   .IRQ3812(IRQ3812),
   .PRCLK1(PRCLK1),
   .SRDB(SRDB),
@@ -336,10 +336,7 @@ music1 u_music1(
   .pcm_rom_addr(pcm_rom_addr),
   .pcm_rom_data(pcm_rom_data),
   .pcm_rom_ok(pcm_rom_ok),
-  .pcm_rom_cs(pcm_rom_cs),
-
-  .oki_dout(oki_dout),
-  .ym3812_dout(ym3812_dout)
+  .pcm_rom_cs(pcm_rom_cs)
 );
 
 wire z80_rom_cs_n;
@@ -380,6 +377,7 @@ music2 u_music2(
   .PRCLK1(PRCLK1),
   .SA_0(SA_0),
   .SD_OUT(SD_OUT),
+  .MUSIC1_SD_IN(MUSIC1_SD_IN),
   ////////////////////////////////
   .oki_cen(oki_cen),
 
@@ -391,10 +389,7 @@ music2 u_music2(
   .bank_rom_data(bank_rom_data),
   .bank_rom_ok(bank_rom_ok),
   .bank_rom_addr(bank_rom_addr),
-  .bank_rom_cs_n(bank_rom_cs_n),
-
-  .oki_dout(oki_dout),
-  .ym3812_dout(ym3812_dout)
+  .bank_rom_cs_n(bank_rom_cs_n)
 );
 
 
