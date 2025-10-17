@@ -65,7 +65,7 @@ sis6091 #(.AW(10)) u_vram_ram(
   .cen1(T4H),
   .data1(),
   .addr1({vpos[7:3], hpos[7:3]}),
-  .we1(),
+  .we1({1'b0, 1'b0}),
   .q1(ram_out[15:0])
 );
 

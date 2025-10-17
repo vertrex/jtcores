@@ -24,15 +24,35 @@ module sei0100bu
 
   //output 
   //pin nc 2-18,62 
-  output        pin35, //pin 35 //XXX ROM A15 ??? inversed wire ?? 
   output        COUNTER1, //pin 39
   output        COUNTER2, //pin 40
   output        Z80_INT, //pin 23
   output reg    CS3812, //pin 61
  
   input   [7:0] SD_OUT, //read data from CPU ! 
-  output  [7:0] SD_IN//19,50,20,51,21,52,22,53  //reg?
+  output  [7:0] SD_IN,//19,50,20,51,21,52,22,53  //reg?
+
+  output reg    BANK_SELECTED //pin 35 (sa15 on or off for bank ! )
+  //bank_rom_addr <= {bank_selected, SA[14:0]}
 );
+
+//reg bank_selected = 1'b0; // switch to data bank
+
+always @(posedge clk) begin
+    // bank size is 0x10000 
+    // z80 address from 0x8000  to 0x10000 is read directly from the rom 
+    // z80 address from 0x10000 to 0x18000 is read after switching bank
+    //if (SA[15:0] == 16'h4007) // switch bank usage  //bank_rom_cs? PLD232 
+    // XXX B1 ? 
+    if (~SEI0100_CS_N && SA[4:0] == 5'd7) //~B1  ??
+      BANK_SELECTED <= SD_OUT[0];
+    //if (SA[15:0] >= 16'h8000 && bank_selected == 1'b0) //bit 15 up or down from SEI 0100bu or JP121 ?
+      //bank_rom_addr[15:0] <= (SA[15:0] - 16'h8000); //0x2000 first bytes
+    //else if (SA[15:0] >= 16'h8000 && bank_selected == 1'b1)
+      //bank_rom_addr[15:0] <= SA[15:0];
+end
+
+
 
 //assign CS3812 = ~ym_wr; //XXX ONLY 8 ??  on in one out ? one wqrite one read ?
 //up if read or write -> cs 

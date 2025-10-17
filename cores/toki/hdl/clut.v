@@ -136,7 +136,7 @@ sis6091 #(.AW(10)) u_palette_ram(
   .cen1(P6M), 
   .data1(),
   .addr1(palette_addr[10:1]),
-  .we1(),
+  .we1({1'b0, 1'b0}),
   .q1(palette_out[15:0])
 );
 

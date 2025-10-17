@@ -27,7 +27,7 @@ module scrn_bk(
 
   input          [15:0] gfx_rom_data,
   input                 gfx_rom_ok,
-  output   reg   [18:1] gfx_rom_addr,
+  output         [18:1] gfx_rom_addr,
   output                gfx_rom_cs,
 
   output          [3:0] color,
@@ -87,18 +87,12 @@ sis6091 #(.AW(10)) u_bk1_ram(
   .cen1(scrolled_hpos[0]), //XXX NOT A REAL CLOCK 
   .data1(),
   .addr1({scrolled_vpos[8:4], scrolled_hpos[8:4]}),  
-  .we1(),
+  .we1({1'b0, 1'b0}),
   .q1(ram_out)
 );
 
 assign gfx_rom_cs = 1'b1;
-
-always @(posedge clk)
-  gfx_rom_addr[18:1] <= {ram_out[11:0], scrolled_hpos[3], scrolled_vpos[3:0], scrolled_hpos[2]}; 
-
-
-//assign gfx_rom_addr[18:1] = {ram_out[11:0], scrolled_hpos[3], scrolled_vpos[3:0], scrolled_hpos[2]}; 
-///can glitch ?? 
+assign gfx_rom_addr[18:1] = {ram_out[11:0], scrolled_hpos[3], scrolled_vpos[3:0], scrolled_hpos[2]}; 
 
 wire [15:0] ram_out;
 
