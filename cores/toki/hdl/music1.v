@@ -68,24 +68,23 @@ module music1(
 );
 
 
-////////// YM3812 /////////////////////////////////// 
+////////// YM3812 //////////////////////
 //
 // MUSIC
 //
-reg ym3812_addr;
-wire signed [15:0] opl_snd;
-wire opl_sample;
-
-wire [7:0]  ym3812_dout;
+reg                 ym3812_addr;
+wire                opl_sample;
+wire signed [15:0]  opl_snd;
+wire         [7:0]  ym3812_dout;
 
 //type 1 ou 2?
 jtopl2   u_YM3812(
-    .rst(rst), //RESET A
-    .clk(clk), //CLK_3_6 ? 
-    .cen(CLK_3_6), //CLK_3_6 //1 if clk is CLK_3_6
-    .din(SD_OUT[7:0]),  //SD[0:7] 
-    .addr(SA_0), // cmd addr SA0 
-    .cs_n(CS3812), //CS3812
+    .rst(rst),
+    .clk(clk),
+    .cen(CLK_3_6),
+    .din(SD_OUT[7:0]),
+    .addr(SA_0),
+    .cs_n(CS3812),
     .wr_n(SWRB), //SWRB //NO RD ?  
     .dout(ym3812_dout), // separate so keep it or put on shared SD bus ?  
     .irq_n(IRQ3812), //IRQ3812
@@ -93,31 +92,15 @@ jtopl2   u_YM3812(
     .sample(opl_sample) //? 
 );
 
-//MSM6295GS 
-//6295 2MB MASK ROM
-
-//YM3014 //3814  (DAC)
-// FLR / MIXER 
-// PWR AMP
-
-////////////////////////////////////////////
-///////////////// OLD CODE ///////////////// 
-////////////////////////////////////////////
-
 ///////// OKIM6295   /////////////////////// 
 //
+// MSM6295GS 
 // ADPCM sound effects 
 //
-wire       oki_sample;
-wire signed [13:0] oki_snd;
-wire [17:0] adpcm_rom_addr;
-
-assign pcm_rom_cs = 1'b1;
-// pcm rom byte 13 and 15 are swapped, that could be a simple encryption 
-// XXX NOT ON THE SCHEMATICS ???
-assign pcm_rom_addr = { adpcm_rom_addr[16], adpcm_rom_addr[13], adpcm_rom_addr[14] ,adpcm_rom_addr[15] , adpcm_rom_addr[12:0]}; 
-
-wire [7:0]  oki_dout;
+wire                oki_sample;
+wire signed [13:0]  oki_snd;
+wire        [17:0]  adpcm_rom_addr;
+wire         [7:0]  oki_dout;
 
 jt6295 #(.INTERPOL(1))  u_adpcm(
     .rst(rst),
@@ -137,10 +120,14 @@ jt6295 #(.INTERPOL(1))  u_adpcm(
     .sample(oki_sample)    // sample rate  
 );
 
-
 assign SD_IN = ~CS3812 & ~SRDB   ? ym3812_dout :
                ~SEL6295 & ~SRDB  ? oki_dout :
                8'hff;
+
+assign pcm_rom_cs = 1'b1;
+// pcm rom byte 13 and 15 are swapped, that could be a simple encryption 
+// XXX NOT ON THE SCHEMATICS ???
+assign pcm_rom_addr = { adpcm_rom_addr[16], adpcm_rom_addr[13], adpcm_rom_addr[14] ,adpcm_rom_addr[15] , adpcm_rom_addr[12:0]}; 
 
 ///////// MIXING /////////////////
 //
@@ -155,7 +142,6 @@ assign SD_IN = ~CS3812 & ~SRDB   ? ym3812_dout :
 reg [7:0] fx_volume;
 reg [7:0] fm_volume;
 
-//always @(*) ? assign directly ?
 always @(posedge clk)  begin //posedge clk ?
   if (clk) begin
    fm_volume <=  ~enable_fm ? 8'h00 : 8'h10; 

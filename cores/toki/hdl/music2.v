@@ -190,7 +190,7 @@ assign SD_IN =
 // Decypher z80 ROM 8.m3
 //
 wire [7:0] decrypt_rom_data;
-wire       decrypt_rom_ok;
+//wire       decrypt_rom_ok;
 reg        decrypt_rom_cs_seibu;
 
 wire       z80_m1_n;   //m1 low => opcode
@@ -207,7 +207,7 @@ sei80bu u_sei80bu(
   .z80_rom_cs_n(z80_rom_cs_n),
   .z80_m1(~z80_m1_n),
   .decrypt_rom_data(decrypt_rom_data),
-  .decrypt_rom_ok(decrypt_rom_ok),
+  //.decrypt_rom_ok(decrypt_rom_ok),
   .oki_cen(oki_cen),
   .PRCLK1(PRCLK1),
   .CLK_3_6(CLK_3_6)
