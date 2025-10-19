@@ -242,8 +242,8 @@ scrn_bk bk1_u(
   .RST_SY(RST_S1Y),
   .SEL_SY(SEL_S1Y),
 
-  .hpos(hpos[7:0]),
-  .vpos(vpos[7:0]),
+  .hpos(hpos[8:0]),
+  .vpos(vpos[8:0]),
 
   .gfx_rom_data(gfx3_rom_data),
   .gfx_rom_ok(gfx3_rom_ok),
@@ -279,8 +279,8 @@ scrn_bk bk2_u(
   .RST_SY(RST_S2Y),
   .SEL_SY(SEL_S2Y),
 
-  .hpos(hpos[7:0]),
-  .vpos(vpos[7:0]),
+  .hpos(hpos[8:0]),
+  .vpos(vpos[8:0]),
 
   .gfx_rom_data(gfx4_rom_data),
   .gfx_rom_ok(gfx4_rom_ok),

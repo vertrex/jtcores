@@ -40,7 +40,7 @@ jtframe_cen48 u_cen(
     .cen1p5()
 );
 
-
+//assign P6M = N6M;
 //assign N6M = P6M; //FIX THE CHAR /BK1 bug 
 
 wire  [8:0] hpos;
@@ -205,16 +205,7 @@ toki_video u_video(
   .obj_out(obj_out),
 
   //GFX ROM 
-  //.gfx1_rom_data(gfx1_rom_data),
-  //.gfx1_rom_ok(gfx1_rom_ok),
-  //.gfx1_rom_addr(gfx1_rom_addr),
-  //.gfx1_rom_cs(gfx1_rom_cs),
-  //
-  //.char_rom_data(char_rom_data),
-  //.char_rom_ok(char_rom_ok),
-  //.char_rom_addr(char_rom_addr),
-  //.char_rom_cs(char_rom_cs),
-  
+
   .char_rom_1_data(char_rom_1_data),
   .char_rom_1_ok(char_rom_1_ok),
   .char_rom_1_addr(char_rom_1_addr),

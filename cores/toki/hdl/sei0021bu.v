@@ -10,10 +10,10 @@ module sei0021bu(
    input            high,
    input      [7:0] data,
 
-   input      [7:0] pos, //XXX [8:0]
+   input      [8:0] pos, //XXX [8:0]
 
    output reg       sync,
-   output reg [8:0] scrolled 
+   output [8:0] scrolled 
 );
 
 reg [8:0] scroll;
@@ -28,7 +28,7 @@ always @(posedge clk, negedge rst_n) begin
          scroll <= { data[4],  scroll[7:0] };
     
       // update in sel_n && high ?  
-      scrolled[8:0] <= {1'b0, pos[7:0]} + scroll[8:0];
+      scrolled[8:0] <= pos[8:0] + scroll[8:0];
 
       //sync 
       if (pos[1:0] + scroll[1:0] == 2'b11) //11

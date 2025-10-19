@@ -67,14 +67,14 @@ assign VSYNC = HS | VS;
 //mask, hblk is then send to the cpu , mask is then use for hsync on the jamma
 //output 
 
-parameter HBLANK_START  = 265; //high [265, 137]     | 265  
+//parameter HBLANK_START  = 265; //high [265, 137]     | 265  
 //parameter HBLANK_START  = 266; //high [265, 137]     | 265   //WORK FOR CHAR BUT NOT BK ...
 //parameter HBLANK_START  = 265; //high [265, 137]     | 265   //WORK FOR CHAR BUT NOT BK ...
-//parameter HBLANK_START  = 262; //WORK FOR BK BUT NOT CHAR  
+parameter HBLANK_START  = 262; //WORK FOR BK BUT NOT CHAR  
 //parameter HBLANK_END 	  = 9; //10 tick so stop at 9  | 9  we shift 3 to align but there's maybe a latch somewhere
 //parameter HBLANK_END 	  = 10; //10 tick so stop at 9  | 9  we shift 3 to align but there's maybe a latch somewhere
-parameter HBLANK_END 	  = 9; //10 tick so stop at 9  | 9  we shift 3 to align but there's maybe a latch somewhere
-//parameter HBLANK_END 	  = 6; //
+//parameter HBLANK_END 	  = 9; //10 tick so stop at 9  | 9  we shift 3 to align but there's maybe a latch somewhere
+parameter HBLANK_END 	  = 6; //
 parameter HSYNC_START 	= 304; //[179,210] +50 hblank start  
 parameter HSYNC_END 		= 336; //32
 
@@ -102,17 +102,20 @@ reg [8:0] hcnt, vcnt;
 // half 11 half 00 @negedge ? 
 
 //2'b11 & 2b00?
-//assign T3F = (~pxl_cen & (hpos[1:0] == 2'b11));  // || (hcnt == HBLANK_END-1); // || hcnt == HBLANK_END ?  hpos[1:0] == 2'b00);
-//assign T3F = ((~pxl_cen & (hpos[1:0] == 2'b11)) | (pxl_cen & (hpos[1:0] == 2'b00)));  // || (hcnt == HBLANK_END-1); // || hcnt == HBLANK_END ?  hpos[1:0] == 2'b00);
-assign T3F = (hpos[1:0] == 2'b11);  // || (hcnt == HBLANK_END-1); // || hcnt == HBLANK_END ?  hpos[1:0] == 2'b00);
-assign T4H = (hpos[2:0] == 3'b100); // || (hcnt == HBLANK_END-1);
-assign T8H = (hpos[2:0] == 3'b000);// || (hcnt == HBLANK_END-1); // || hnct == HBLANK_END ? 
-//assign T8H = (hpos[2:0] == 3'b011);// || (hcnt == HBLANK_END-1); // || hnct == HBLANK_END ? 
+//working but there is a shift of 3 pixel  
+//assign T3F = (hpos[1:0] == 2'b11);  // || (hcnt == HBLANK_END-1); // || hcnt == HBLANK_END ?  hpos[1:0] == 2'b00);
+//assign T4H = (hpos[2:0] == 3'b100); // || (hcnt == HBLANK_END-1);
+//assign T8H = (hpos[2:0] == 3'b000);// || (hcnt == HBLANK_END-1); // || hnct == HBLANK_END ? 
 
 //on other measure it look like that ... but it's the merged one 
 //assign T3F = (hpos[1:0] == 2'b01);
 //assign T4H = (hpos[2:0] == 3'b101);
 //assign T8H = (hpos[2:0] == 3'b001);
+//
+assign T3F = (hpos[1:0] == 2'b00);  // || (hcnt == HBLANK_END-1); // || hcnt == HBLANK_END ?  hpos[1:0] == 2'b00);
+assign T4H = (hpos[2:0] == 3'b01); // || (hcnt == HBLANK_END-1);
+assign T8H = (hpos[2:0] == 3'b110);
+
 assign N1H = ~hpos[0];
 
 //sei50bu generate only line and PROM26 generate Y / LVBL ?
