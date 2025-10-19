@@ -27,7 +27,7 @@ module scrn_bk(
 
   input          [15:0] gfx_rom_data,
   input                 gfx_rom_ok,
-  output         [18:1] gfx_rom_addr,
+  output   reg   [18:1] gfx_rom_addr,
   output                gfx_rom_cs,
 
   output          [3:0] color,
@@ -47,7 +47,7 @@ sei0021bu sei21bu_bk1_h(
    .rst_n(RST_SH),
    .cs_n(SEL_SH),
 
-   .pos(hpos[8:0]), //-3 fix the issue of shift
+   .pos(hpos[8:0]), //8 on board 
                       //SEL S1H or S2H
    .low(MAB[2]),
    .high(MAB[1]),
@@ -97,15 +97,15 @@ assign gfx_rom_cs = 1'b1;
 //ram_out clock :  scrolled_hpos[0] 
 //scrolled_hpos clock : N6M 
 //scrolled_vpos clock : N6M 
-assign gfx_rom_addr[18:1] = {ram_out[11:0], scrolled_hpos[3], scrolled_vpos[3:0], ~scrolled_hpos[2]}; 
+  //gfx_rom_addr[18:1] <= {ram_out[11:0], scrolled_hpos[3], scrolled_vpos[3:0], ~scrolled_hpos[2]}; 
 
-//always @(posedge clk) begin 
+always @(posedge clk) begin 
   //if (N6M) begin 
   //if (s21_hsync) begin 
     //put only gfx_rom_cs here ? 
-    //gfx_rom_addr[18:1] <= {ram_out[11:0], scrolled_hpos[3], scrolled_vpos[3:0], scrolled_hpos[2]}; 
+    gfx_rom_addr[18:1] <= {ram_out[11:0], scrolled_hpos[3], scrolled_vpos[3:0], scrolled_hpos[2]}; 
   //end
-//end 
+end 
 
 
 wire [15:0] ram_out;
