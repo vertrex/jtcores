@@ -180,10 +180,10 @@ assign SD_IN =
                  ~SEI0100_CS_N ? SEI0100_SD_IN :
                  ~irq_ack_n ? SEI0100_SD_IN :
                  //we need to read data from main and main need to read our
-                 ~z80_ram_cs_n                            ? RAM_SD_OUT:
-                 ~bank_rom_cs_n                           ? bank_rom_data :
-                 ~z80_rom_cs_n                            ? decrypt_rom_data :
-                                                            8'hff;
+                 ~z80_ram_cs_n                         ? RAM_SD_OUT:
+                 ~bank_rom_cs_n                        ? bank_rom_data :
+                 ~z80_rom_cs_n                         ? decrypt_rom_data :
+                                                         8'hff;
 
 ///////// SEIBU80 //////////
 //

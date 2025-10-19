@@ -131,7 +131,11 @@ assign prom_26_cs = 1'b1;
 
 //assign prom_26_addr[7:0] = vpos[7:0]; // generate CPU VBLANK on O5 (pin 6)  
 always @(posedge clk)
-  prom_26_addr[7:0] <= vpos[7:0]; // generate CPU VBLANK on O5 (pin 6)  
+  //@ P6M ?
+  if (N6M) begin 
+    prom_26_addr[7:0] <= vpos[7:0]; // generate CPU VBLANK on O5 (pin 6)  
+  end 
+
 
 assign OBJT1 =   prom_26_data[0];
 assign OBJT2 =   prom_27_data[1]; //need to be latched 
@@ -295,7 +299,7 @@ scrn_bk bk2_u(
 wire  [7:0] obj;
 reg   [8:0] obj_line_buffer_addr;
 
-wire swap = hpos[8:0] == 9'd383 ? 1'b0 : 1'b1; //+1 ? //swap a 10
+//wire swap = hpos[8:0] == 9'd383 ? 1'b0 : 1'b1; //+1 ? //swap a 10
 //wire swap = hpos[8:0] == 9'd10 ? 1'b0 : 1'b1; //+1 ? //swap a 10
 
 /*
@@ -347,11 +351,15 @@ end
 
 //74LS374 7FH page 8
 always @(posedge clk) 
-    if (~S2MASK & P6M) 
+    if (~S2MASK & N6M) 
       bk2[7:0] <= { bk2_code_latch[3:0], bk2_color[3:0] };
 
 //assign bk2 = S2MASK ? 8'bz : bk2_r; //XXX ????
-wire s2on = ~(bk2[3] & bk2[2] & bk2[1] & bk2[0]); //sch page 8 XXX
+reg s2on; 
+
+always @(posedge clk )
+  if (N6M)
+    s2on <= ~(bk2[3] & bk2[2] & bk2[1] & bk2[0]); //sch page 8 XXX
 
 // COLOR OUTPUT
 CLUT CLUT_u(
