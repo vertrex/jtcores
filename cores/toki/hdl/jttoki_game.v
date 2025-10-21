@@ -40,8 +40,6 @@ jtframe_cen48 u_cen(
     .cen1p5()
 );
 
-//assign N6M = P6M; //FIX THE CHAR /BK1 bug 
-
 wire  [8:0] hpos;
 wire  [8:0] vpos;
 

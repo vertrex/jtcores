@@ -88,7 +88,7 @@ sis6091 #(.AW(10)) u_bk1_ram(
   .q0(),
 
   .clk1(clk),
-  .cen1(scrolled_hpos[0]), 
+  .cen1(scrolled_hpos[1:0] == 2'b00), 
   .data1(),
   .addr1({scrolled_vpos[8:4], scrolled_hpos[8:4]}),  
   .we1({1'b0, 1'b0}),
@@ -99,11 +99,10 @@ assign gfx_rom_cs = 1'b1;
 //ram_out clock :  scrolled_hpos[0] 
 //scrolled_hpos clock : N6M 
 //scrolled_vpos clock : N6M 
- //assign gfx_rom_addr[18:1] = {ram_out[11:0], scrolled_hpos[3], scrolled_vpos[3:0], scrolled_hpos[2]}; 
 
 always @(posedge clk) begin 
   if (N6M) begin 
-     if (s21_hsync) begin // XXX THIS MAKE THE GLITCH ? 
+     if (scrolled_hpos[1:0] == 2'b00) begin // XXX THIS WHAT MAKE GLITCH !!!!!!h
        //IF s21_hsync on voie clairemnet les bar sans le gitch au dcebut donc
        //decalage de 128 trouver la bonne vlaue ici ou dans le sei021bu
       //put only gfx_rom_cs here ? 
@@ -111,8 +110,6 @@ always @(posedge clk) begin
     end
   end 
 end 
-
-
 
 sei0010bu sei0010bu_u(
   .clk(clk),
