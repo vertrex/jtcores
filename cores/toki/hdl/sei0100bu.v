@@ -44,7 +44,7 @@ always @(posedge clk) begin
     // z80 address from 0x10000 to 0x18000 is read after switching bank
     //if (SA[15:0] == 16'h4007) // switch bank usage  //bank_rom_cs? PLD232 
     // XXX B1 ? 
-    if (~SEI0100_CS_N && SA[4:0] == 5'd7) //~B1  ??
+    if (~SEI0100_CS_N && SA[4:0] == 5'd7) //XXX ~B1  ??
       BANK_SELECTED <= SD_OUT[0];
     //if (SA[15:0] >= 16'h8000 && bank_selected == 1'b0) //bit 15 up or down from SEI 0100bu or JP121 ?
       //bank_rom_addr[15:0] <= (SA[15:0] - 16'h8000); //0x2000 first bytes
@@ -84,6 +84,10 @@ assign SD_IN[7:0] =
                     // read coin cs 
                     (~SEI0100_CS_N && (SA[4:0] == 5'h13))    ? {6'b0, ~COIN2, ~COIN1}  :
                     8'hff;
+
+//only if latched to main ?
+assign COUNTER1 = ~COIN1; 
+assign COUNTER2 = ~COIN2; 
 
 ////// Z80 databus input   /////////////////////// 
 //
@@ -228,7 +232,8 @@ always @(posedge clk) begin //XXX speed must be same than 68k din ?
   if (rst) begin
     coin_latch <= 1'b1; //1b1 or 1b0 ? at default as it seems to be cleared 
     end
-  else if (CLK_3_6) begin // ?
+  //else if (CLK_3_6) begin // ?
+  else begin // ?
     // TOO LONG ?
     //data has been process by main we clear the coin latch
     //and the other latch too ?
@@ -236,7 +241,7 @@ always @(posedge clk) begin //XXX speed must be same than 68k din ?
       //clear other latch too ? 
       coin_latch <= 1'b1;
       end
-    else if (~SEI0100_CS_N && (SA[4:0] == 5'h00)) begin
+    else if (~SEI0100_CS_N && (SA[4:0] == 5'h00)) begin 
       coin_latch <= 1'b0; //XXX put back ?
       end
       //else 0 ? 

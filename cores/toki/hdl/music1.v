@@ -46,7 +46,7 @@ module music1(
   input       [7:0] SD_OUT, // Sound data 
   output      [7:0] SD_IN,
 
-  input             RESET_A, //active low
+  //input             RESET_A, //active low
   output            IRQ3812, //active low
 
   input             PRCLK1,

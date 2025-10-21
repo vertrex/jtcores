@@ -128,10 +128,9 @@ wire [7:0] exv = {vpos[7] ^ YREV, vpos[6] ^ YREV, vpos[5] ^ YREV, vpos[4] ^ YREV
 wire OBJT1, OBJT2, STARTY, VORIGIN, VBL_ROM;
 
 assign prom_26_cs = 1'b1;
-
 //assign prom_26_addr[7:0] = vpos[7:0]; // generate CPU VBLANK on O5 (pin 6)  
+
 always @(posedge clk)
-  //@ P6M ?
   if (N6M) begin 
     prom_26_addr[7:0] <= vpos[7:0]; // generate CPU VBLANK on O5 (pin 6)  
   end 
@@ -183,8 +182,6 @@ end
 //
 // char : 8x8 tile 
 //
-parameter VRAM_PALETTE_OFFSET = 10'h100;
-
 wire [3:0] char_color;
 wire [3:0] char_code;
 

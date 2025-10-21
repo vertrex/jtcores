@@ -54,7 +54,6 @@ assign VSYNC = HS | VS;
 // VSync - 59.6094Hz
 // HSync - 15.31996kHz
 
-
 // CALC ON SEI0050BU 
 // hsync freq  : 15.61khz (period 64us) / 15.62khz ? 
 // vsync : 2.55khz (6 period of hsync)
@@ -62,19 +61,14 @@ assign VSYNC = HS | VS;
 // vblank generated via PROM, 82S135 @ 59.61 hz 
 // PROM generate different 59.61hz 
 
-
 //HBLANK is pin 23 (what I think was hsync hsync\acbefore ) it's then latche by 74LS174 & xor with pin 24 to create
 //mask, hblk is then send to the cpu , mask is then use for hsync on the jamma
 //output 
 
 //parameter HBLANK_START  = 265; //high [265, 137]     | 265  
 //parameter HBLANK_START  = 266; //high [265, 137]     | 265   //WORK FOR CHAR BUT NOT BK ...
-//parameter HBLANK_START  = 265; //high [265, 137]     | 265   //WORK FOR CHAR BUT NOT BK ...
-parameter HBLANK_START  = 262; //WORK FOR BK BUT NOT CHAR  
 //parameter HBLANK_END 	  = 9; //10 tick so stop at 9  | 9  we shift 3 to align but there's maybe a latch somewhere
 //parameter HBLANK_END 	  = 10; //10 tick so stop at 9  | 9  we shift 3 to align but there's maybe a latch somewhere
-//parameter HBLANK_END 	  = 9; //10 tick so stop at 9  | 9  we shift 3 to align but there's maybe a latch somewhere
-parameter HBLANK_END 	  = 6; //
 parameter HSYNC_START 	= 304; //[179,210] +50 hblank start  
 parameter HSYNC_END 		= 336; //32
 
@@ -96,25 +90,46 @@ parameter V_TOTAL			  = 262; //checked on board pin3
 reg [8:0] hcnt, vcnt;
 
 //assign LHBL = HBL;
-
 // it look like what we got before so can be ok 
 // the are not really @hpos1 it's betwee nedge ....
 // half 11 half 00 @negedge ? 
 
-//2'b11 & 2b00?
-//working but there is a shift of 3 pixel  
+
+
+//Working but there is a shift of 3 pixel  (work for bk not for char)
+//parameter HBLANK_START  = 265; 
+//parameter HBLANK_END 	  = 9; 
 //assign T3F = (hpos[1:0] == 2'b11);  // || (hcnt == HBLANK_END-1); // || hcnt == HBLANK_END ?  hpos[1:0] == 2'b00);
 //assign T4H = (hpos[2:0] == 3'b100); // || (hcnt == HBLANK_END-1);
-//assign T8H = (hpos[2:0] == 3'b000);// || (hcnt == HBLANK_END-1); // || hnct == HBLANK_END ? 
+//assign T8H = (hpos[2:0] == 3'b000);// || (hcnt == HBLANK_END-1); // || hnc
 
+// CHAR + BK is aligned but it create graphic glitches 
+parameter HBLANK_START  = 262; 
+parameter HBLANK_END 	  = 6; 
+//assign T3F = (hpos[1:0] == 2'b00); // || hcnt == HBLANK_END ?  hpos[1:0] == 2'b00);
+//assign T4H = (hpos[2:0] == 3'b01);
+//assign T8H = (hpos[2:0] == 3'b110);
+//
 //on other measure it look like that ... but it's the merged one 
 //assign T3F = (hpos[1:0] == 2'b01);
 //assign T4H = (hpos[2:0] == 3'b101);
 //assign T8H = (hpos[2:0] == 3'b001);
-//
-assign T3F = (hpos[1:0] == 2'b00);  // || (hcnt == HBLANK_END-1); // || hcnt == HBLANK_END ?  hpos[1:0] == 2'b00);
-assign T4H = (hpos[2:0] == 3'b01); // || (hcnt == HBLANK_END-1);
-assign T8H = (hpos[2:0] == 3'b110);
+
+
+// old char rom cen 
+// -> se0010bu -> load  (load char rom_data before serializing it !) 
+    // -> must be stable (eg rom_cs must be 1 )?
+assign T3F = (hpos[1:0] == 2'b00); // || hcnt == HBLANK_END ?  hpos[1:0] == 2'b00);
+//CLOCK ENABLE for ram out 
+//ram get vpos and return the tile to ram_out that is used for address 
+//(must be before T3F at leaest one cycle)
+assign T4H = (hpos[2:0] == 3'b01);
+// vpos_latch for ram addr every 4 pix? 
+// sync HBLB
+// S4CLLT  -> sg0140 COL_B_EN  -> LATCH COL_B (PALETTE) 
+//assign T8H = (hpos[2:0] == 3'b101); //moins de glitch qu'avec 110 ! (surtout sur les 4er pixel et un peux autre)
+assign T8H = (hpos[2:0] == 3'b100); //encore moins de glitch qu'avec 100 (suelement les 4er pixel)
+
 
 assign N1H = ~hpos[0];
 

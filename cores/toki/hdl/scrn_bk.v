@@ -27,7 +27,7 @@ module scrn_bk(
 
   input          [15:0] gfx_rom_data,
   input                 gfx_rom_ok,
-  output   reg   [18:1] gfx_rom_addr,
+  output  reg    [18:1] gfx_rom_addr,
   output                gfx_rom_cs,
 
   output          [3:0] color,
@@ -77,16 +77,18 @@ sei0021bu sei21bu_bk1_v(
 
 assign sg_sync = scrolled_hpos[1];
 
+wire [15:0] ram_out;
+
 sis6091 #(.AW(10)) u_bk1_ram(
   .clk0(clk),
-  .cen0(WRN6M),  //XXX NOT A REAL CLOCK ! 
+  .cen0(WRN6M),
   .data0(MDB_RAM_OUT[15:0]),
   .addr0(KDA[10:1]),
   .we0({~DMSL, ~DMSL}),//DMSL S1
   .q0(),
 
   .clk1(clk),
-  .cen1(scrolled_hpos[0]), //XXX NOT A REAL CLOCK 
+  .cen1(scrolled_hpos[0]), 
   .data1(),
   .addr1({scrolled_vpos[8:4], scrolled_hpos[8:4]}),  
   .we1({1'b0, 1'b0}),
@@ -97,18 +99,20 @@ assign gfx_rom_cs = 1'b1;
 //ram_out clock :  scrolled_hpos[0] 
 //scrolled_hpos clock : N6M 
 //scrolled_vpos clock : N6M 
-  //gfx_rom_addr[18:1] <= {ram_out[11:0], scrolled_hpos[3], scrolled_vpos[3:0], ~scrolled_hpos[2]}; 
+ //assign gfx_rom_addr[18:1] = {ram_out[11:0], scrolled_hpos[3], scrolled_vpos[3:0], scrolled_hpos[2]}; 
 
 always @(posedge clk) begin 
-  //if (N6M) begin 
-  //if (s21_hsync) begin 
-    //put only gfx_rom_cs here ? 
-    gfx_rom_addr[18:1] <= {ram_out[11:0], scrolled_hpos[3], scrolled_vpos[3:0], scrolled_hpos[2]}; 
-  //end
+  if (N6M) begin 
+     if (s21_hsync) begin // XXX THIS MAKE THE GLITCH ? 
+       //IF s21_hsync on voie clairemnet les bar sans le gitch au dcebut donc
+       //decalage de 128 trouver la bonne vlaue ici ou dans le sei021bu
+      //put only gfx_rom_cs here ? 
+      gfx_rom_addr[18:1] <= {ram_out[11:0], scrolled_hpos[3], scrolled_vpos[3:0], scrolled_hpos[2]}; 
+    end
+  end 
 end 
 
 
-wire [15:0] ram_out;
 
 sei0010bu sei0010bu_u(
   .clk(clk),

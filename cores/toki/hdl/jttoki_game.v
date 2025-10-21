@@ -40,7 +40,6 @@ jtframe_cen48 u_cen(
     .cen1p5()
 );
 
-//assign P6M = N6M;
 //assign N6M = P6M; //FIX THE CHAR /BK1 bug 
 
 wire  [8:0] hpos;
@@ -292,7 +291,7 @@ toki_video u_video(
 wire SRDB, SWRB;
 wire SEL6295;
 wire COUNTER1;
-wire COUNTER2; 
+wire COUNTER2;
 wire CS3812;
 wire CLK_3_6;
 wire PRCLK1;
