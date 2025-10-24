@@ -131,7 +131,7 @@ assign prom_26_cs = 1'b1;
 //assign prom_26_addr[7:0] = vpos[7:0]; // generate CPU VBLANK on O5 (pin 6)  
 
 always @(posedge clk)
-  if (N6M) begin 
+  if (~N6M) begin 
     prom_26_addr[7:0] <= vpos[7:0]; // generate CPU VBLANK on O5 (pin 6)  
   end 
 
@@ -150,6 +150,7 @@ wire T8H, T3F, T4H;
 SEI0050BU sei0050bu_u(
   .clk(clk),
   .rst(rst),
+  .P6M(P6M),
   .N6M(N6M),
 
   .VBL_ROM(VBL_ROM),
@@ -296,11 +297,11 @@ scrn_bk bk2_u(
 wire  [7:0] obj;
 reg   [8:0] obj_line_buffer_addr;
 
-//wire swap = hpos[8:0] == 9'd383 ? 1'b0 : 1'b1; //+1 ? //swap a 10
-//wire swap = hpos[8:0] == 9'd10 ? 1'b0 : 1'b1; //+1 ? //swap a 10
-
 /*
-* PUT BACK OR REWRITE PROPERLY
+//wire swap = hpos[8:0] == 9'd383 ? 1'b0 : 1'b1; //+1 ? //swap a 10
+wire swap = hpos[8:0] == 9'd7 ? 1'b0 : 1'b1; //+1 ? //swap a 10
+
+//* PUT BACK OR REWRITE PROPERLY
 scan_obj_ram scan_obj_ram_u(
   .clk(clk),
   .rst(rst),
@@ -321,42 +322,41 @@ scan_obj_ram scan_obj_ram_u(
   .line_buffer_addr(hpos[7:0] + 1), //+ 1 to latch the pixel ? 
   .line_buffer_out(obj)
 );
-*/
+
 
 //activcate obj wth mycode  
-//wire obj_on = ~(obj[3] & obj[2] & obj[1] & obj[0]); //check if != 'f if we use ny code
-//wire prior_c = 1'b1; //obj linebuf page 18  XXX   active low   ? 
-//wire prior_d = 1'b1; //obj linebuf page 18  XXX   active low   ? 
-//deactive obj with myt code 
-wire obj_on = 1'b0;// active high ? 
-wire prior_c = 1'b0; //obj linebuf page 18  XXX   active low  ? 
-wire prior_d = 1'b0; //obj linebuf page 18  XXX   active low  ?
+wire obj_on = ~(obj[3] & obj[2] & obj[1] & obj[0]); //check if != 'f if we use ny code
+wire prior_c = ~obj_on; //obj linebuf page 18  XXX   active low  ? 
+wire prior_d = ~obj_on; //obj linebuf page 18  XXX   active low  ?
+*/
+assign gfx2_rom_addr = 'b0;
+assign gfx2_rom_cs = 1'b0;
+assign obj = 8'hff;
+wire obj_on = 1'b0;
+wire prior_c = 1'b0;
+wire prior_d = 1'b0;
 
 // XXX @ ... ?
 wire MASK =  HBLB & L3;//XXX; L3 IS NOT GOOD in sei50bu.v !
 
-reg  [3:0] bk2_code_latch;
 
 //74LS174 8H page 8
+//74LS374 7FH page 8
+//(equivalent sg0140?)
 reg  [7:0] bk2;
-reg  [7:0] bk2_r;//clock is output of sei21bu hpos[1] !
+reg  [3:0] bk2_code_latch;
+reg        s2on;
 
 always @(posedge clk) begin 
-  if (S2CLLT & N6M)
-    bk2_code_latch <= bk2_code[3:0];
-end
-
-//74LS374 7FH page 8
-always @(posedge clk) 
-    if (~S2MASK & N6M) 
-      bk2[7:0] <= { bk2_code_latch[3:0], bk2_color[3:0] };
-
-//assign bk2 = S2MASK ? 8'bz : bk2_r; //XXX ????
-reg s2on; 
-
-always @(posedge clk )
-  if (N6M)
-    s2on <= ~(bk2[3] & bk2[2] & bk2[1] & bk2[0]); //sch page 8 XXX
+  if (~N6M) begin 
+    if (S2CLLT) begin // COL_B_EN ?
+      bk2_code_latch <= bk2_code[3:0]; 
+    end 
+//if    (~S2MASK )
+    s2on <= (bk2_color[3:0] == 4'hf) ? 1'b0: 1'b1; //sch page 8 XXX
+    bk2[7:0] <= { bk2_code_latch[3:0], bk2_color[3:0]};
+  end 
+end 
 
 // COLOR OUTPUT
 CLUT CLUT_u(

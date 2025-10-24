@@ -79,8 +79,7 @@ assign prom_27_cs = 1'b1;
 // may be make two different bus  rather than one shared ? 
 // tryied to switch to cpu by default may be better
 
-                                                                  //s2on      //OBJON //S4ON
-assign  prom_27_addr[7:0] = { PRIOR_D, PRIOR_C, PRIOR_B, PRIOR_A, S2ON, 1'b0, S4ON, S1ON };
+assign  prom_27_addr[7:0] = { PRIOR_D, PRIOR_C, PRIOR_B, PRIOR_A, S2ON, OBJON, S4ON, S1ON };
 //assign  prom_27_addr[7:0] = { PRIOR_D, PRIOR_C, PRIOR_B, PRIOR_A, 1'b0, 1'b0, S4ON, S1ON };
 // 74LS257 2H, 3H 
 // 74LS258 
@@ -112,7 +111,9 @@ always @(posedge clk) begin
  //end
  //*/
 
-assign palette_addr[10:1] =   //prom_27_data[0] == 1'b1 ?  { prom_27_data[3:2], OOB[7:0] } : 
+
+assign palette_addr[10:1] =  
+                             //prom_27_data[0] == 1'b1 ?  { prom_27_data[3:2], OOB[7:0] } : 
                              prom_27_data[1] == 1'b0 ?  { prom_27_data[3:2], s1_s4_out[7:0] } :
                                                         { prom_27_data[3:2], SCRN2[7:0] };
 
@@ -134,7 +135,7 @@ sis6091 #(.AW(10)) u_palette_ram(
   .q0(),
 
   .clk1(clk),
-  .cen1(P6M), 
+  .cen1(P6M), //use N6M sa we inverse clock ? 
   .data1(),
   .addr1(palette_addr[10:1]),
   .we1({1'b0, 1'b0}),

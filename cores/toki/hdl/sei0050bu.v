@@ -3,6 +3,7 @@
 //
 module SEI0050BU(
   input clk, // CLK 
+  input P6M,
   input N6M, //pin 9  CLK 
 
   input rst, //pin 8
@@ -20,7 +21,7 @@ module SEI0050BU(
   output T8H, //p22 CHAR_CEN
   output reg HBL, //p23 HSYNC 
   output L3, //p24  ~cblank
-  output T3F, //p25 CHAR_ROM_CEN
+  output reg T3F, //p25 CHAR_ROM_CEN
   output T4H, //p26  hpos2 ?  char SIS 6091 ! 
   output HD, //p27   hsync 
   output VSYNC, //p28 csync
@@ -94,41 +95,60 @@ reg [8:0] hcnt, vcnt;
 // the are not really @hpos1 it's betwee nedge ....
 // half 11 half 00 @negedge ? 
 
-
-
-//Working but there is a shift of 3 pixel  (work for bk not for char)
 //parameter HBLANK_START  = 265; 
 //parameter HBLANK_END 	  = 9; 
-//assign T3F = (hpos[1:0] == 2'b11);  // || (hcnt == HBLANK_END-1); // || hcnt == HBLANK_END ?  hpos[1:0] == 2'b00);
-//assign T4H = (hpos[2:0] == 3'b100); // || (hcnt == HBLANK_END-1);
-//assign T8H = (hpos[2:0] == 3'b000);// || (hcnt == HBLANK_END-1); // || hnc
 
-// CHAR + BK is aligned but it create graphic glitches 
-parameter HBLANK_START  = 262; 
-parameter HBLANK_END 	  = 6; 
-//assign T3F = (hpos[1:0] == 2'b00); // || hcnt == HBLANK_END ?  hpos[1:0] == 2'b00);
-//assign T4H = (hpos[2:0] == 3'b01);
-//assign T8H = (hpos[2:0] == 3'b110);
-//
+// MEASURED ON BOARD ! 
+//Working but there is a shift of 3 pixel  (work for bk not for char)
+//always @(posedge P6M) begin
+  //if (hpos[1:0] == 2'b11)
+    //T3F <= 1'b1;
+  //if (hpos[1:0] == 2'b00)
+    //T3F <= 1'b0;
+//end 
+
+//assign T4H = (hpos[2:0] == 3'b100);
+//assign T8H = (hpos[2:0] == 3'b000); //ichar cen check on board 
+
 //on other measure it look like that ... but it's the merged one 
 //assign T3F = (hpos[1:0] == 2'b01);
 //assign T4H = (hpos[2:0] == 3'b101);
 //assign T8H = (hpos[2:0] == 3'b001);
 
+// CHAR + BK is aligned but it create graphic glitches 
+//parameter HBLANK_START  = 262; 
+//parameter HBLANK_END 	  = 6; 
+//assign T3F = (hpos[1:0] == 2'b00); // || hcnt == HBLANK_END ?  hpos[1:0] == 2'b00);
+//assign T4H = (hpos[2:0] == 3'b01);
+//assign T8H = (hpos[2:0] == 3'b110);
 
 // old char rom cen 
 // -> se0010bu -> load  (load char rom_data before serializing it !) 
     // -> must be stable (eg rom_cs must be 1 )?
-assign T3F = (hpos[1:0] == 2'b00); // || hcnt == HBLANK_END ?  hpos[1:0] == 2'b00);
+//assign T3F = (hpos[1:0] == 2'b00); // || hcnt == HBLANK_END ?  hpos[1:0] == 2'b00);
 //CLOCK ENABLE for ram out 
 //ram get vpos and return the tile to ram_out that is used for address 
 //(must be before T3F at leaest one cycle)
-assign T4H = (hpos[2:0] == 3'b01);
+//assign T4H = (hpos[2:0] == 3'b01);
 // vpos_latch for ram addr every 4 pix? 
 // sync HBLB
 // S4CLLT  -> sg0140 COL_B_EN  -> LATCH COL_B (PALETTE) 
-//assign T8H = (hpos[2:0] == 3'b101); //moins de glitch qu'avec 110 ! (surtout sur les 4er pixel et un peux autre)
-assign T8H = (hpos[2:0] == 3'b100); //encore moins de glitch qu'avec 100 (suelement les 4er pixel)
+
+//WORKING OK 
+parameter HBLANK_START  = 262; 
+parameter HBLANK_END 	  = 6; 
+
+always @(posedge P6M) begin
+  if (hpos[1:0] == 2'b00)
+    T3F <= 1'b1;
+  if (hpos[1:0] == 2'b01)
+    T3F <= 1'b0;
+end 
+
+//assign T3F = (hpos[1:0] == 1'b00)
+assign T4H = (hpos[2:0] == 3'b001);
+assign T8H = (hpos[2:0] == 3'b101); 
+//assign T8H = (hpos[2:0] == 3'b100); //encore moins de glitch qu'avec 100 (suelement les 4er pixel) mais decallage avec palette
 
 
 assign N1H = ~hpos[0];

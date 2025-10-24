@@ -73,8 +73,10 @@ sis6091 #(.AW(10)) u_vram_ram(
 reg [2:0] vpos_latch;
 
 always @(posedge clk) begin 
-  if (N6M & T8H)
+  if (~N6M) begin 
+    if (T8H)
      vpos_latch[2:0] <= vpos[2:0];
+  end 
 end
 //hpos2 is latched too ? (hpos/4)
 
@@ -86,9 +88,13 @@ assign char_rom_2_cs = 1'b1;
 //assign char_rom_1_addr[15:0] =  {ram_out[11:0], vpos_latch[2:0], ~hpos[2]} ;  
 //assign char_rom_2_addr[15:0] =  {ram_out[11:0], vpos_latch[2:0], ~hpos[2]} ; 
 
-always @(posedge clk) begin 
-  char_rom_1_addr[15:0] <=  {ram_out[11:0], vpos_latch[2:0], ~hpos[2]} ;  
-  char_rom_2_addr[15:0] <=  {ram_out[11:0], vpos_latch[2:0], ~hpos[2]} ; 
+always @(posedge clk) begin
+  if (~N6M) begin 
+    //if (hpos[1:0] == 2'b00) begin //if this is wrong this create bug like synthesis  
+        char_rom_1_addr[15:0] <=  {ram_out[11:0], vpos_latch[2:0], ~hpos[2]} ;  
+        char_rom_2_addr[15:0] <=  {ram_out[11:0], vpos_latch[2:0], ~hpos[2]} ; 
+    //end
+  end 
 end
 
 sei0010bu sei0010bu_u(
