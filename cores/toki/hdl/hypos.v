@@ -34,13 +34,34 @@ assign OBJ_DB[15:0] = MDB[15:0];
 
 //PLD25 
 // XXX 
-wire RD_VPOS;
-wire RD_HPOS;
+wire ORIGIN; 
 
+wire CTRL_LT, RD_VPOS, RD_HPOS, LT_VPOS, LT_HPOS, ND2_8, RD_CHAR;
+
+PLD25 pld25_u(
+    FDA_1(FDA[0]), //0 or 1 ???
+    FDA_2(FDA[1]),
+    RDCLK(RDCLK),
+    ORIGIN(ORIGIN),
+    OIBDIR(OIBDIR),
+    POS_8(), //XXX 
+    CARY_M(), //XXX loop from other 
+    XC4(), // XXX 
+    BUSAK(BUSAK),
+    OBUSRQ(OBUSRQ),
+
+    CTRL_LT(CTRL_LT),
+    RD_VPOS(RD_VPOS),
+    RD_HPOS(RD_HPOS),
+    LT_VPOS(LT_VPOS),
+    LT_HPOS(LT_HPOS),
+    ND2_8(ND2_8),
+    OBUSAK(OBUSAK),
+    RD_CHAR(RD_CHAR)
+);
 
 //74LS174 U134  
-reg OBJEN_1, ORIGIN, SPR2_1, SPR1_1, YVRED_1, HREVD_1;
-wire CTRL_LT;
+reg OBJEN_1, SPR2_1, SPR1_1, YVRED_1, HREVD_1;
 
 always @(posedge CTRL_LT or negedge XOBDIR) begin
     if (!XOBDIR)
@@ -53,6 +74,9 @@ end
 
 //74LS173 9H
 //74LS173 10H 
+
+//OFFSET X or OFFSET Y ! 
+//mame is exact : offset y [3:0]  offset x [7:4]
 wire   [3:0] OFST;
 assign OFST[3:0] = ~RD_VPOS ? OBJ_DB[3:0] : RD_HPOS ? OBJ_DB[7:4] : 4'b00;
 
