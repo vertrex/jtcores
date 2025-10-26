@@ -54,8 +54,8 @@ assign VMT[3:0] = 4'b0;
 assign EVNWR2 = 1'b0;
 assign ODDWR2 = 1'b0;
 assign OIBDIR = 1'b0;
-assign OBUSRQ = 1'b0;
-assign OBUSDIR = 1'b0;
+assign OBUSRQ = 1'b0;  
+assign OBUSDIR = 1'b1; //active low ? 
 assign DMA2_EA[5:0] = 6'b0;
 assign DMA2_OA[5:0] = 6'b0;
 
