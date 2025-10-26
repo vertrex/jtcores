@@ -23,6 +23,7 @@ game:
       - pld20.v
       - pld21.v
       - pld23.v
+      - pld25.v
       - mdma.v
       - adrs.v
       - scrn4.v
@@ -31,6 +32,12 @@ game:
       - ram_dma.v
       #- sound.v
       - z80_cs.v
+      - hypos.v
+      - objdma.v
+      - scnddma.v
+      - objps.v
+      - linecunt.v
+      - linebuf.v
 jtframe:
   - from: ram
     get:

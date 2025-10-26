@@ -29,7 +29,7 @@ module CLUT(
   input             PRIOR_B,
   input             PRIOR_C,
   input             PRIOR_D,
-  input      [7:0]  OOB,
+  input      [7:0]  OOD,
   input      [10:1] KDA,
   input             DMSL_GL,
   input      [15:0] MDB,
@@ -85,7 +85,7 @@ assign  prom_27_addr[7:0] = { PRIOR_D, PRIOR_C, PRIOR_B, PRIOR_A, S2ON, OBJON, S
 // 74LS258 
 // 74LS246 1C 
 // SIS6091 5H
-  //palette_addr[10:1] <=  //OBJON ? { prom_27_data[3:2], OOB[7:0] } :
+  //palette_addr[10:1] <=  //OBJON ? { prom_27_data[3:2], OOD[7:0] } :
 
   /* 
 always @(posedge clk) begin
@@ -113,7 +113,7 @@ always @(posedge clk) begin
 
 
 assign palette_addr[10:1] =  
-                             //prom_27_data[0] == 1'b1 ?  { prom_27_data[3:2], OOB[7:0] } : 
+                             //prom_27_data[0] == 1'b1 ?  { prom_27_data[3:2], OOD[7:0] } : 
                              prom_27_data[1] == 1'b0 ?  { prom_27_data[3:2], s1_s4_out[7:0] } :
                                                         { prom_27_data[3:2], SCRN2[7:0] };
 

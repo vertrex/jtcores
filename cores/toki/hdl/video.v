@@ -106,7 +106,11 @@ module toki_video(
   input              SEL_S2H, 
   input              RST_S2Y, 
   input              SEL_S2Y,
-  input              WRN6M
+  input              WRN6M,
+  input              BUSAK,
+  
+  output             OBUSDIR,
+  output             OBUSRQ
 );
 
 ////////// VIDEO SYNC /////////////
@@ -331,10 +335,29 @@ wire prior_d = ~obj_on; //obj linebuf page 18  XXX   active low  ?
 */
 assign gfx2_rom_addr = 'b0;
 assign gfx2_rom_cs = 1'b0;
-assign obj = 8'hff;
-wire obj_on = 1'b0;
-wire prior_c = 1'b0;
-wire prior_d = 1'b0;
+
+wire OBJON;
+wire [7:0] OOD;
+wire PRIOR_C, PRIOR_D;
+
+obj obj_u(
+  .MDB_RAM_OUT(MDB_RAM_OUT[15:0]),
+  .MDB_CPU_OUT(MDB_RAM_OUT[15:0]),
+  .BUSAK(BUSAK),
+
+  .OBUSRQ(OBUSRQ),
+  .OBUSDIR(OBUSDIR),
+  .OBJON(OBJON),
+  .OOD(OOD[7:0]),
+  .PRIOR_C(PRIOR_C),
+  .PRIOR_D(PRIOR_D)
+);
+
+
+//assign obj = 8'hff;
+//wire obj_on = 1'b0;
+//wire prior_c = 1'b0;
+//wire prior_d = 1'b0;
 
 // XXX @ ... ?
 wire MASK =  HBLB & L3;//XXX; L3 IS NOT GOOD in sei50bu.v !
@@ -373,13 +396,13 @@ CLUT CLUT_u(
   .S1MASK(S1MASK),
   .S4MASK(S4MASK),
   .SCRN2(bk2),
-  .OBJON(obj_on),
+  .OBJON(OBJON),
   .S2ON(s2on),
   .PRIOR_A(PRIOR_A),
   .PRIOR_B(PRIOR_B),
-  .PRIOR_C(prior_c),
-  .PRIOR_D(prior_d),
-  .OOB(obj[7:0]), //XXX
+  .PRIOR_C(PRIOR_C),
+  .PRIOR_D(PRIOR_D),
+  .OOD(OOD[7:0]), //XXX
   .KDA(KDA[10:1]),
   .DMSL_GL(DMSL_GL),
   .MDB(MDB_RAM_OUT[15:0]),

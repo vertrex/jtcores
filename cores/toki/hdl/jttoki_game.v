@@ -84,10 +84,14 @@ wire RST_S2H, SEL_S2H, RST_S2Y, SEL_S2Y;
 wire WRN6M;
 wire MUSIC;
 wire N1H;
+wire BUSAK; 
+wire OBUSDIR;
+wire OBUSRQ; 
 
 wire m68k_sound_cs_2, m68k_sound_cs_4, m68k_sound_cs_6;
 wire [15:0] m68k_sound_latch_0, m68k_sound_latch_1;
 wire [15:0] z80_sound_latch_0, z80_sound_latch_1, z80_sound_latch_2;
+
 
 //////// MAIN ////////////
 //
@@ -168,7 +172,11 @@ toki_main  u_main(
   .RST_S2Y(RST_S2Y), 
   .SEL_S2Y(SEL_S2Y),
 
-  .WRN6M(WRN6M)
+  .WRN6M(WRN6M),
+
+  .BUSAK(BUSAK),
+  .OBUSDIR(OBUSDIR),
+  .OBUSRQ(OBUSRQ)
 );
 
 //////// VIDEO ////////////
@@ -270,7 +278,10 @@ toki_video u_video(
   .RST_S2Y(RST_S2Y), 
   .SEL_S2Y(SEL_S2Y),
 
-  .WRN6M(WRN6M)
+  .WRN6M(WRN6M),
+  .BUSAK(BUSAK),
+  .OBUSDIR(OBUSDIR),
+  .OBUSRQ(OBUSRQ)
 );
 
 //////// SOUND ////////////

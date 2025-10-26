@@ -71,7 +71,11 @@ module toki_main(
   output            RST_S2Y, 
   output            SEL_S2Y,
 
-  output            WRN6M
+  output            WRN6M,
+  output            BUSAK,
+
+  input             OBUSDIR,
+  input             OBUSRQ
 );
 
 wire p1_right    = joystick1[0];
@@ -358,18 +362,18 @@ assign      cpu_din = ~ROM0 | ~ROM1 ? cpu_rom_data[15:0] :
 
 ///////
 // 74LS08 19R page 1
-wire OBUSRQ = 1'b0;
+//wire OBUSRQ = 1'b0;
 //BR is set to 0 to make a cpu BUS request and grant (bg bus grant will be set when cpu is ready for dma) 
 
 // ACTIVE LOW , 0  if DMA is run and obj and CPU must be stopped 
 // XXX ? 
-wire OBUSDIR = 1'b1; //OBJ bus direction page 14 -> make change masks -> make change PRIOR_A & PRIOR_B ! 
+//wire OBUSDIR = 1'b1; //OBJ bus direction page 14 -> make change masks -> make change PRIOR_A & PRIOR_B ! 
 // pld21 need it high or nothing will be output as everything check MBUSDIR  & OBUSDIR ?
 
 wire MBUSDIR;
 //PLD 20, 22M
 // BUSOPN : active low if bus is not use by Memory or Object DMA
-wire BUSOPN, MWRMB, MRDMB, BUSAK, bgack_n, vpa_n;
+wire BUSOPN, MWRMB, MRDMB, bgack_n, vpa_n;
 
 PLD20 PLD20_u(
   .AS_n(cpu_as_n),
