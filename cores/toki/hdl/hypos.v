@@ -38,7 +38,7 @@ assign OBJ_DB[15:0] = MDB[15:0];
 
 //PLD25 
 // XXX 
-
+/*
 reg ORIGIN;
 
 wire CTRL_LT, RD_VPOS, RD_HPOS, LT_VPOS, LT_HPOS, ND2_8, RD_CHAR, CARY_M;
@@ -118,6 +118,6 @@ assign {CARY_M, POS[8:5]} = OBJ_DB[9:5];
 
 //74F283 14H 
 assign {XC4, ND2[7:4]} = {3'b0, CARY_M} + POS[7:4] + OFST[3:0];
-
+*/
 
 endmodule 

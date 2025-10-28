@@ -111,13 +111,23 @@ always @(posedge clk) begin
   end 
 end 
 
+reg [15:0] data; 
+
+//it some time glitch because there is not enough throughptu ?
+always @(posedge clk) begin 
+  if (gfx_rom_ok)
+    data <= gfx_rom_data;
+  else 
+    data <= 16'hffff;
+end 
+
 sei0010bu sei0010bu_u(
   .clk(clk),
   .rst(rst),
   .cen(N6M),
   .load(s21_hsync),
   .rev(1'b0),
-  .rom_data(gfx_rom_data),
+  .rom_data(data),
   .color(color)
 );
 

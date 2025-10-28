@@ -1,12 +1,22 @@
 params:
+  - { name: CHAR_2_OFFSET,    value: "22'h8000"}
   - { name: GFX_3_OFFSET,     value:  "22'h80000" }
   - { name: GFX_4_OFFSET,     value:  "22'hc0000" }
   #audio bank 1
-  - { name: BANK_OFFSET,      value: "22'h1000" } # start after 8.m3 (2nd bank start at + BA1_START )
-  - { name: OKI_OFFSET,       value: "22'h9000" } # start at 8.m3 + 7.m7 / 2
-  - { name: PROM26_OFFSET,    value: "22'h19000" }     # 131072/2 0x10_000
-  - { name: PROM27_OFFSET,    value: "22'h19080" }     # 131072/2 0x10_000
-  - { name: CHAR_2_OFFSET,    value: "22'h8000"}
+
+  - { name: Z80_OFFSET,      value: "22'h40000" } # start after gfx4 523288 < 2
+  - { name: BANK_OFFSET,      value: "22'h41000" } # start after 8.m3 (2nd bank start at + BA1_START )
+  - { name: OKI_OFFSET,       value: "22'h49000" } # start at 8.m3 + 7.m7 / 2
+  - { name: PROM26_OFFSET,    value: "22'h59000" }     # 131072/2 0x10_000
+  - { name: PROM27_OFFSET,    value: "22'h59080" }     # 131072/2 0x10_000
+
+  #- { name: BANK_OFFSET,      value: "22'h1000" } # start after 8.m3 (2nd bank start at + BA1_START )
+  #- { name: OKI_OFFSET,       value: "22'h9000" } # start at 8.m3 + 7.m7 / 2
+  #- { name: PROM26_OFFSET,    value: "22'h19000" }     # 131072/2 0x10_000
+  #- { name: PROM27_OFFSET,    value: "22'h19080" }     # 131072/2 0x10_000
+  #- { name: CHAR_2_OFFSET,    value: "22'h8000"}
+clocks:
+
 clocks:
   clk:
     - freq:  1000000
@@ -70,15 +80,20 @@ sdram:
           data_width: 16
           offset : GFX_3_OFFSET
           #cs: LVBL
+        #- name: gfx4_rom
+          #addr_width: 19
+          #data_width: 16
+          #offset : GFX_4_OFFSET
+          #cs: LVBL
+    - buses:
+      #rom + music on same bus make glitch not fast enough
         - name: gfx4_rom
           addr_width: 19
           data_width: 16
-          offset : GFX_4_OFFSET
-          #cs: LVBL
-    - buses:
         - name: z80_rom
           addr_width: 13
           data_width: 8
+          offset : Z80_OFFSET
         - name: bank_rom
           addr_width: 16
           data_width: 8
@@ -87,6 +102,11 @@ sdram:
           addr_width: 17
           data_width: 8
           offset: OKI_OFFSET
+
+
+  #XXX put at least this two in bram try with z80 rom /bank at also ?
+  #use bram for audio rom too ? except pcm ?
+  # use bram as it's small so no acces problem ?
         - name: prom_26
           addr_width: 8
           data_width: 8

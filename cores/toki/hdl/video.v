@@ -285,7 +285,7 @@ scrn_bk bk2_u(
   .vpos(vpos[8:0]),
 
   .gfx_rom_data(gfx4_rom_data),
-  .gfx_rom_ok(gfx4_rom_ok),
+  .gfx_rom_ok(gfx4_rom_ok), //glitch if at same time than sound because not enoughtrouput XXX !
   .gfx_rom_addr(gfx4_rom_addr),
   .gfx_rom_cs(gfx4_rom_cs),
 

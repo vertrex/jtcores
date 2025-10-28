@@ -316,6 +316,7 @@ wire [7:0] MUSIC1_SD_IN;
 //wire  RESET_A;  //from where not driven ?
 wire  IRQ3812;
 
+
 music1 u_music1(
   .clk(clk),
   .rst(rst),
