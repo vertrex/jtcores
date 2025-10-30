@@ -110,7 +110,8 @@ module toki_video(
   input              BUSAK,
   
   output             OBUSDIR,
-  output             OBUSRQ
+  output             OBUSRQ,
+  input              ODMARQ
 );
 
 ////////// VIDEO SYNC /////////////
@@ -341,9 +342,21 @@ wire [7:0] OOD;
 wire PRIOR_C, PRIOR_D;
 
 obj obj_u(
+  .clk(clk),
+  .rst(rst),
+
   .MDB_RAM_OUT(MDB_RAM_OUT[15:0]),
   .MDB_CPU_OUT(MDB_RAM_OUT[15:0]),
   .BUSAK(BUSAK),
+  .STARTY(STARTY),
+  .ODMARQ(ODMARQ),
+  .VORIGIN(VORIGIN), 
+  .H_POS(hpos[8:0]),
+  .YREV(YREV),
+  .HBLB(HBLB),
+  .T3F(T3F),
+  .T8H(T8H),
+  .RESETA(rst), //RST or ~RST ?
 
   .OBUSRQ(OBUSRQ),
   .OBUSDIR(OBUSDIR),

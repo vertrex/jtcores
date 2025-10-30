@@ -10,7 +10,7 @@ module LINECUNT(
    input         HREY,
    input         OBJ_N6M,
    input         ODD_LD,
-   input         EYN_LD,
+   input         EVN_LD,
    input         HBLB,
    input         OBJ2_7,
    input         Y1B,
@@ -22,7 +22,7 @@ module LINECUNT(
    output        OSP1,
    output        OSP2,
    output [15:0] PD,
-   output        EYNCLR,
+   output        EVNCLR,
    output        ODDCLR,
    output  [8:0] O1A,
    output  [8:0] E1A,
@@ -38,7 +38,7 @@ assign OBJ_HREV = 1'b0;
 assign OSP1 = 1'b0;
 assign OSP2 = 1'b0;
 assign PD[15:0] = 16'b0;
-assign EYNCLR = 1'b0;
+assign EVNCLR = 1'b0;
 assign ODDCLR = 1'b0;
 assign O1A[8:0] = 9'b0;
 assign E1A[8:0] = 9'b0;

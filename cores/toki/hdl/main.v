@@ -75,7 +75,9 @@ module toki_main(
   output            BUSAK,
 
   input             OBUSDIR,
-  input             OBUSRQ
+  input             OBUSRQ,
+
+  output            ODMARQ
 );
 
 wire p1_right    = joystick1[0];
@@ -402,7 +404,7 @@ wire  MEMDIR = cpu_wr_n;
 wire  ROM0, ROM1, RAM, MBUFEN, MBUFDR;
 //wire  RST_S1H, SEL_S1H, RST_S1Y, SEL_S1Y;
 //wire  RST_S2H, SEL_S2H, RST_S2Y, SEL_S2Y;
-wire  MDMARQ, ODMARQ;
+wire  MDMARQ;
 wire  RD_DISPW, RD_PLYER, RD_EXTIF;
 
 //wire RESET_A = ~rst;

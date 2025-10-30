@@ -1,4 +1,5 @@
 module LINEBUF(
+    input         clk,
     input         EVNWREN,
     input         OBJ_N6M,
     input   [9:0] OBJ1,
@@ -32,5 +33,73 @@ assign PRIOR_C = 1'b0;
 assign PRIOR_D = 1'b0;
 
 ///////////////////////////////////////
+
+// XXXX MUST ADD DIV_7p directio n?
+sis6091 u_181(
+  .clk0(clk),
+  .cen0(OBJ_N6M), //31
+  .data0(OBJ1[9:0]), //6,7,8,10,12-19,22-25
+  .addr0(E1A[8:0]),//62-71
+  .we0({EVNWREN, EVNWREN}), //30
+  .q0(),
+
+  .clk1(clk),
+  .cen1(OBJ_P6M), //73
+  .data1(), //data 1 or addr1 ?
+  .addr1(), //75-80,1,3,4,5  //XXX USXE addr0 ????? if not addr1 depending of direction? ???
+  .we1({1'b0, 1'b0}),
+  .q1({PRIOR_D, PRIOR_C, OOD[7:0]}) //42-56
+);
+
+//
+sis6091 u_182(
+  .clk0(clk),
+  .cen0(OBJ_N6M), //31
+  .data0(OBJ2[9:0]), //6,7,8,10,12-19,22-25
+  .addr0(E2A[8:0]),//62-71
+  .we0({EVNWREN, EVNWREN}), //30
+  .q0(),
+
+  .clk1(clk),
+  .cen1(OBJ_P6M), //73
+  .data1(), //data 1 or addr1 ?
+  .addr1(), //75-80,1,3,4,5
+  .we1({1'b0, 1'b0}),
+  .q1({PRIOR_D, PRIOR_C, OOD[7:0]}) //42-56
+);
+
+//
+sis6091 u_183(
+  .clk0(clk),
+  .cen0(OBJ_N6M), //31
+  .data0(OBJ1[9:0]), //6,7,8,10,12-19,22-25
+  .addr0(O1A[8:0]),//62-71
+  .we0({1'b0, 1'b0}), //30
+  .q0(),
+
+  .clk1(clk),
+  .cen1(OBJ_P6M), //73
+  .data1(), //data 1 or addr1 ?
+  .addr1(), //75-80,1,3,4,5
+  .we1({1'b0, 1'b0}),
+  .q1({PRIOR_D, PRIOR_C, OOD[7:0]}) //42-56
+);
+
+//
+sis6091 u_184(
+  .clk0(clk),
+  .cen0(OBJ_N6M), //31
+  .data0(OBJ2[9:0]), //6,7,8,10,12-19,22-25
+  .addr0(O2A[8:0]),//62-71
+  .we0({1'b0, 1'b0}), //30
+  .q0(),
+
+  .clk1(clk),
+  .cen1(OBJ_P6M), //73
+  .data1(), //data 1 or addr1 ?
+  .addr1(), //75-80,1,3,4,5
+  .we1({1'b0, 1'b0}),
+  .q1({PRIOR_D, PRIOR_C, OOD[7:0]}) //42-56
+);
 
 endmodule 

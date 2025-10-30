@@ -87,6 +87,7 @@ wire N1H;
 wire BUSAK; 
 wire OBUSDIR;
 wire OBUSRQ; 
+wire ODMARQ;
 
 wire m68k_sound_cs_2, m68k_sound_cs_4, m68k_sound_cs_6;
 wire [15:0] m68k_sound_latch_0, m68k_sound_latch_1;
@@ -176,7 +177,8 @@ toki_main  u_main(
 
   .BUSAK(BUSAK),
   .OBUSDIR(OBUSDIR),
-  .OBUSRQ(OBUSRQ)
+  .OBUSRQ(OBUSRQ),
+  .ODMARQ(ODMARQ)
 );
 
 //////// VIDEO ////////////
@@ -281,7 +283,8 @@ toki_video u_video(
   .WRN6M(WRN6M),
   .BUSAK(BUSAK),
   .OBUSDIR(OBUSDIR),
-  .OBUSRQ(OBUSRQ)
+  .OBUSRQ(OBUSRQ),
+  .ODMARQ(ODMARQ)
 );
 
 //////// SOUND ////////////

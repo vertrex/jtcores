@@ -21,11 +21,11 @@ module HYPOS(
   output   [15:0] OBJ_DB,
   output          HREYD,
   output          VREYD,
-  output          SPR1,
-  output          SPR2,
+  output reg      SPR1,
+  output reg      SPR2,
   output          OBJEN,
   //output          XC4,
-  output  [4:0]   ND1
+  output  [4:0]   ND1 //4:0 or 3:0 ?
 );
 
 assign HREYD = 1'b0; // XXX not driven
@@ -38,10 +38,10 @@ assign OBJ_DB[15:0] = MDB[15:0];
 
 //PLD25 
 // XXX 
-/*
+
 reg ORIGIN;
 
-wire CTRL_LT, RD_VPOS, RD_HPOS, LT_VPOS, LT_HPOS, ND2_8, RD_CHAR, CARY_M;
+wire CTRL_LT, RD_VPOS, RD_HPOS, LT_VPOS, LT_HPOS, RD_CHAR, CARY_M;
 wire XC4;
 
 PLD25 pld25_u(
@@ -61,21 +61,21 @@ PLD25 pld25_u(
     .RD_HPOS(RD_HPOS),
     .LT_VPOS(LT_VPOS),
     .LT_HPOS(LT_HPOS),
-    .ND2_8(ND2_8),
+    .ND2_8(ND2[8]),
     .OBUSAK(OBUSAK),
     .RD_CHAR(RD_CHAR)
 );
 
 //74LS174 U134  
-reg OBJEN_1, SPR2_1, SPR1_1, YVRED_1, HREVD_1;
+reg OBJEN_1, YVRED_1, HREVD_1;
 
 always @(posedge CTRL_LT or negedge XOBDIR) begin
     if (!XOBDIR)
-        { OBJEN_1, ORIGIN, SPR2_1, SPR1_1, YVRED_1, HREVD_1} <= 6'b000000;   // asynchronous clear
+        { OBJEN_1, ORIGIN, SPR2, SPR1, YVRED_1, HREVD_1} <= 6'b000000;   // asynchronous clear
     else
         // MAME IS A BIT WRONG FOR THAT WE MAY WANT TO EXPLAIN AND CORRECT IT ?
         //15        /13    /11      /10    /9       /8 (flipx)
-        { OBJEN_1, ORIGIN, SPR2_1, SPR1_1, YVRED_1, HREVD_1} <= { OBJ_DB[15], OBJ_DB[13], OBJ_DB[11:8] }; 
+        { OBJEN_1, ORIGIN, SPR2, SPR1, YVRED_1, HREVD_1} <= { OBJ_DB[15], OBJ_DB[13], OBJ_DB[11:8] }; 
 end
 
 //74LS173 9H
@@ -97,7 +97,10 @@ always @(*) begin
       H11_qreg = {1'b1, OBJ_DB[8:0]};
     end
 
-assign {CARY_M, POS[8:4], ND2[3:0]} = (!RD_HPOS) ? H11_qreg : 10'b00000000;
+//assign {CARY_M, POS[8:4], ND2[3:0]} = (!RD_HPOS) ? H11_qreg : 10'b00000000;
+//assign ND2[3:0] = (!RD_HPOS) ? H11_qreg[3:0] : 4'b0;
+//assign POS[8:4] = (!RD_HPOS) ? H11_qreg[8:4] : 5'b0;
+//assign CARY_M = (!RD_HPOS) ? H11_qreg[9] : 1'b0;
 
 //74F841 12H 
 
@@ -108,16 +111,32 @@ always @(*) begin
       H12_qreg = {1'b1, OBJ_DB[8:0]};
     end
 
-assign {CARY_M, POS[8:4], ND1[3:0]} = (!RD_VPOS) ? H12_qreg : 10'b00000000;
+//assign {CARY_M, POS[8:4], ND1[3:0]} = (!RD_VPOS) ? H12_qreg[3:0] : 10'b00000000;
 
+assign ND1[3:0] = (!RD_VPOS) ? H12_qreg[3:0] : 4'b0;
+//assign POS[8:4] = (!RD_VPOS) ? H12_qreg[8:4] : 5'b0;
+assign POS[8:5] = (!RD_HPOS) ? H11_qreg[8:5] : (!RD_VPOS) ? H12_qreg[8:5] : OBJ_DB[8:5];
+assign POS[4] = (!RD_HPOS) ? H11_qreg[4] : (!RD_VPOS) ? H12_qreg[4] : (!RD_CHAR) ? OBJ_DB[4] : 1'b0;
+
+//assign CARY_M = (!RD_VPOS) ? H12_qreg[9] : 1'b0;
 //74F827 13H
 
 ////OE assign ot 1
-assign {POS[4], ND2[3:0]} = (!RD_CHAR) ? OBJ_DB[4:0] : 5'b0;
-assign {CARY_M, POS[8:5]} = OBJ_DB[9:5];
+//assign {POS[4], ND2[3:0]} = (!RD_CHAR) ? OBJ_DB[4:0] : 5'b0;
+//assign ND2[3:0] = (!RD_CHAR) ? OBJ_DB[3:0] : 4'b0;
+
+assign ND2[3:0] = (!RD_CHAR) ? OBJ_DB[3:0] : (!RD_HPOS) ? H11_qreg[3:0] : 4'b0; 
+
+//assign POS[4] = (!RD_CHAR) ? OBJ_DB[4] : 1'b0;
+
+//assign {CARY_M, POS[8:5]} = OBJ_DB[9:5];
+//assign POS[8:5] = OBJ_DB[8:5];
+//assign CARY_M = OBJ_DB[9];
+
+assign CARY_M = (!RD_HPOS) ? H11_qreg[9] : (!RD_VPOS) ? H12_qreg[9] : OBJ_DB[9];
 
 //74F283 14H 
 assign {XC4, ND2[7:4]} = {3'b0, CARY_M} + POS[7:4] + OFST[3:0];
-*/
+
 
 endmodule 
