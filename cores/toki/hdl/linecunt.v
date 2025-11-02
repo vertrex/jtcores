@@ -1,19 +1,20 @@
 module LINECUNT(
+   input         clk,
    input  [15:0] OVD,
    input   [3:0] VA,
-   input         ODHREY,
+   input         ODHREV,
    input         RESETA,
    input         SPR1_3,
    input         SPR2_3,
    input         CTLT1,
    input         CTLT2,
-   input         HREY,
+   input         HREV,
    input         OBJ_N6M,
    input         ODD_LD,
    input         EVN_LD,
    input         HBLB,
    input         OBJ2_7,
-   input         Y1B,
+   input         V1B,
    input         T8H,
 
    //

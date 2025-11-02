@@ -88,7 +88,7 @@ module toki_video(
   input             PRIOR_A,
   input             PRIOR_B,
   input             HREV,
-  input             YREV,
+  input             VREV,
 
   input       [12:1] KDA,
   input       [17:1] MAB,
@@ -123,14 +123,14 @@ wire VSYNC;
 
 //REVERSE SCREEN X/Y HD74LS86P A1/2
 wire [7:0] exh = {hpos[7] ^ HREV, hpos[6] ^ HREV, hpos[5] ^ HREV, hpos[4] ^ HREV, hpos[3] ^ HREV, hpos[2] ^ HREV, hpos[1] ^ HREV, hpos[0] ^ HREV};
-wire [7:0] exv = {vpos[7] ^ YREV, vpos[6] ^ YREV, vpos[5] ^ YREV, vpos[4] ^ YREV, vpos[3] ^ YREV, vpos[2] ^ YREV, vpos[1] ^ YREV, vpos[0] ^ YREV};
+wire [7:0] exv = {vpos[7] ^ VREV, vpos[6] ^ VREV, vpos[5] ^ VREV, vpos[4] ^ VREV, vpos[3] ^ VREV, vpos[2] ^ VREV, vpos[1] ^ VREV, vpos[0] ^ VREV};
 
 // 
 //PROM26 
 //
 
 //reg HBL;
-wire OBJT1, OBJT2, STARTY, VORIGIN, VBL_ROM;
+wire OBJT1, OBJT2, STARTV, VORIGIN, VBL_ROM;
 
 assign prom_26_cs = 1'b1;
 //assign prom_26_addr[7:0] = vpos[7:0]; // generate CPU VBLANK on O5 (pin 6)  
@@ -143,7 +143,7 @@ always @(posedge clk)
 
 assign OBJT1 =   prom_26_data[0];
 assign OBJT2 =   prom_27_data[1]; //need to be latched 
-assign STARTY =  prom_27_data[2];
+assign STARTV =  prom_27_data[2];
 assign VORIGIN = prom_27_data[3];
 assign INT_T =   prom_26_data[4];
 //nc
@@ -348,11 +348,11 @@ obj obj_u(
   .MDB_RAM_OUT(MDB_RAM_OUT[15:0]),
   .MDB_CPU_OUT(MDB_RAM_OUT[15:0]),
   .BUSAK(BUSAK),
-  .STARTY(STARTY),
+  .STARTV(STARTV),
   .ODMARQ(ODMARQ),
   .VORIGIN(VORIGIN), 
   .H_POS(hpos[8:0]),
-  .YREV(YREV),
+  .VREV(VREV),
   .HBLB(HBLB),
   .T3F(T3F),
   .T8H(T8H),

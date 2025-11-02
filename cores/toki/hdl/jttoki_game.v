@@ -71,7 +71,7 @@ wire S4MASK;
 wire PRIOR_A;
 wire PRIOR_B;
 wire HREV;
-wire YREV;
+wire VREV;
 wire [12:1] KDA;
 wire [17:1] MAB;
 //wire [15:0] MDB_OUT;
@@ -149,7 +149,7 @@ toki_main  u_main(
   .PRIOR_A(PRIOR_A),
   .PRIOR_B(PRIOR_B),
   .HREV(HREV),
-  .YREV(YREV),
+  .VREV(VREV),
 
   .KDA(KDA),
   .MAB(MAB),
@@ -258,7 +258,7 @@ toki_video u_video(
   .PRIOR_A(PRIOR_A),
   .PRIOR_B(PRIOR_B),
   .HREV(HREV),
-  .YREV(YREV),
+  .VREV(VREV),
 
   .KDA(KDA),
   .MAB(MAB),

@@ -3,7 +3,8 @@
 *  IF OBJ IS USED ...
 *  XXX DOCUMENT THAT 
 */
-module HYPOS(
+module HVPOS(
+  input           clk,
   input    [15:0] MDB,
   input     [1:0] FDA,
   input           RDCLK,
@@ -19,17 +20,17 @@ module HYPOS(
   output    [8:0] ND2,//XXX
   output          OBUSAK,
   output   [15:0] OBJ_DB,
-  output          HREYD,
-  output          VREYD,
+  output          HREVD,
+  output          VREVD,
   output reg      SPR1,
   output reg      SPR2,
-  output          OBJEN,
+  output reg      OBJEN_1,
   //output          XC4,
   output  [4:0]   ND1 //4:0 or 3:0 ?
 );
 
-assign HREYD = 1'b0; // XXX not driven
-assign VREYD = 1'b0; // XXX not driven
+assign HREVD = 1'b0; // XXX not driven
+assign VREVD = 1'b0; // XXX not driven
 
 //74LS244P 10J 
 //74LS22P 19J
@@ -67,15 +68,15 @@ PLD25 pld25_u(
 );
 
 //74LS174 U134  
-reg OBJEN_1, YVRED_1, HREVD_1;
+reg VRED_1, HREVD_1;
 
 always @(posedge CTRL_LT or negedge XOBDIR) begin
     if (!XOBDIR)
-        { OBJEN_1, ORIGIN, SPR2, SPR1, YVRED_1, HREVD_1} <= 6'b000000;   // asynchronous clear
+        { OBJEN_1, ORIGIN, SPR2, SPR1, VRED_1, HREVD_1} <= 6'b000000;   // asynchronous clear
     else
         // MAME IS A BIT WRONG FOR THAT WE MAY WANT TO EXPLAIN AND CORRECT IT ?
         //15        /13    /11      /10    /9       /8 (flipx)
-        { OBJEN_1, ORIGIN, SPR2, SPR1, YVRED_1, HREVD_1} <= { OBJ_DB[15], OBJ_DB[13], OBJ_DB[11:8] }; 
+        { OBJEN_1, ORIGIN, SPR2, SPR1, VRED_1, HREVD_1} <= { OBJ_DB[15], OBJ_DB[13], OBJ_DB[11:8] }; 
 end
 
 //74LS173 9H
@@ -92,7 +93,7 @@ assign OFST[3:0] = ~RD_VPOS ? OBJ_DB[3:0] : RD_HPOS ? OBJ_DB[7:4] : 4'b00;
 //74F841 11H 
 reg [9:0] H11_qreg;
 
-always @(*) begin
+always @(posedge clk) begin //@* originally
     if (LT_HPOS)
       H11_qreg = {1'b1, OBJ_DB[8:0]};
     end
@@ -106,7 +107,7 @@ always @(*) begin
 
 reg [9:0] H12_qreg;
 
-always @(*) begin
+always @(posedge clk) begin //@* origina.ly
     if (LT_VPOS)
       H12_qreg = {1'b1, OBJ_DB[8:0]};
     end

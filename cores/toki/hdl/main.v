@@ -47,7 +47,7 @@ module toki_main(
   output            PRIOR_A,
   output            PRIOR_B,
   output            HREV,
-  output            YREV,
+  output            VREV,
 
   output     [12:1] KDA,
   output     [17:1] MAB,
@@ -456,7 +456,7 @@ ADRS ADRS_u(
   .PRIOR_B(PRIOR_B),
 
   .HREV(HREV),
-  .YREV(YREV)
+  .VREV(VREV)
 );
 
 //MDMARQ : Memory DMA Request

@@ -6,7 +6,7 @@ module SCNDDMA(
     input          EVNMR2,
     input    [5:0] DMA2_EA,
     input          XOBDIR,
-    input          DIY_2,
+    input          DIV_2,
     input    [5:0] DMA2_OA,
     input          ODDWR2,
     input          RAM2VLD,
@@ -16,11 +16,14 @@ module SCNDDMA(
     input          OIBDIR,
     input    [8:0] ND2,
     input   [15:9] OBJ_DB,
+    input          SPR2_2,
+    input          SPR1_2,
+    input          MATCHV, 
     //output 
     output  [15:0] OVD,
     output   [3:0] VA,
     output         NOOBJ,
-    output         ODHREY, //ODHREV ??
+    output         ODHREV, //ODHREV ??
     output         SPR1_3,
     output         SPR2_3
 );
@@ -36,7 +39,7 @@ sis6091 u_151(
 
   .clk1(clk),
   .cen1(), //73
-  .data1({SPR2_3,SPR1_3, ODHREY, NOOBJ,VA[3:0], CTA[8:1]}), //data 1 or addr1 ?
+  .data1({SPR2_3,SPR1_3, ODHREV, NOOBJ,VA[3:0], CTA[8:1]}), //data 1 or addr1 ?
   .addr1(), //75-80,1,3,4,5
   .we1({1'b0, 1'b0}),
   .q1() //42-56
@@ -58,7 +61,7 @@ sis6091 u152(
 
   .clk1(clk),
   .cen1(),
-  .data1({SPR2_3,SPR1_3, ODHREY, NOOBJ,VA[3:0], CTA[8:1]}),
+  .data1({SPR2_3,SPR1_3, ODHREV, NOOBJ,VA[3:0], CTA[8:1]}),
   .addr1(),
   .we1({1'b0, 1'b0}), //xobdir diy i2 ?  //read /write xobdir ?
   .q1()
@@ -79,7 +82,7 @@ sis6091 u153(
   .clk1(clk),
   .cen1(OIBDIR), //OIBIDR ????
   .data1({OVD[15:0]}),
-  .addr1({CTA[8:0], H_1}),
+  .addr1({CTA[9:1], H_1}), //8:0 or 9:1 ????? XXX
   .we1({1'b0, 1'b0}),
   .q1()
 );
@@ -89,7 +92,7 @@ sis6091 u153(
 assign OVD[15:0] = 16'b0;
 assign VA[3:0] = 4'b0;
 assign NOOBJ = 1'b0;
-assign ODHREY = 1'b0;
+assign ODHREV = 1'b0;
 assign SPR1_3 = 1'b0;
 assign SPR2_3 = 1'b0;
 

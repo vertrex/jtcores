@@ -32,7 +32,7 @@ game:
       - ram_dma.v
       #- sound.v
       - z80_cs.v
-      - hypos.v
+      - hvpos.v
       - objdma.v
       - scnddma.v
       - objps.v

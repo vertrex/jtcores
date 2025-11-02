@@ -57,7 +57,7 @@ module ADRS(
 
     // 74LS368 17M
     output  reg HREV,
-    output  reg YREV
+    output  reg VREV
 
 );
 //PLD 21, 22M, p3
@@ -116,7 +116,7 @@ always @(posedge clk) begin
        { S4MASK, OBJMASK, S2MASK, S1MASK } <= 4'b0;
        { PRIOR_B, PRIOR_A } <= 2'b0;
        HREV <= 1'b0;
-       YREV <= 1'b0;
+       VREV <= 1'b0;
        end 
      else if (MASKS == 1'b0)  begin 
        { S4MASK, OBJMASK, S2MASK, S1MASK } <= MDB[3:0];
@@ -124,7 +124,7 @@ always @(posedge clk) begin
        { PRIOR_B, PRIOR_A } <= MDB[9:8];
        // 74LS368 17M
        HREV <= ~MDB[14];
-       YREV <= ~MDB[15];
+       VREV <= ~MDB[15];
       end
 end 
 
