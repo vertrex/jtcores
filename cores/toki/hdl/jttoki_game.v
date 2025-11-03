@@ -43,8 +43,6 @@ jtframe_cen48 u_cen(
 wire  [8:0] hpos;
 wire  [8:0] vpos;
 
-wire [10:1] obj_addr;
-wire [15:0] obj_out;
 wire  [6:1] scroll_addr;
 wire [15:0] scroll_out;
 wire        bk1_hsync; 
@@ -135,10 +133,6 @@ toki_main  u_main(
   .cpu_rom_ok(cpu_rom_ok),
   .cpu_rom_data(cpu_rom_data),
 
-  //Shared video RAM 
-  .obj_addr(obj_addr),
-  .obj_out(obj_out),
-
   //Sound latch
   .MUSIC(MUSIC),
 
@@ -207,12 +201,7 @@ toki_video u_video(
   .g(green),
   .b(blue),
 
-  //Shared video RAM
-  .obj_addr(obj_addr),
-  .obj_out(obj_out),
-
   //GFX ROM 
-
   .char_rom_1_data(char_rom_1_data),
   .char_rom_1_ok(char_rom_1_ok),
   .char_rom_1_addr(char_rom_1_addr),

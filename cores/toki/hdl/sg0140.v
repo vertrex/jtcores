@@ -12,7 +12,7 @@
 
 module sg0140(
   input       clk,
-  input       cen, //n6m 
+  input       cen,
   input [1:0] MODE,
 
   //BK1 

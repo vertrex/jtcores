@@ -20,9 +20,11 @@ game:
       - 74LS139.v
       - 74LS154.v
       - 74LS161.v
+      - 74F269.v
       - pld20.v
       - pld21.v
       - pld23.v
+      - pld24.v
       - pld25.v
       - mdma.v
       - adrs.v

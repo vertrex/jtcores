@@ -35,9 +35,6 @@ module toki_main(
   output reg [18:1] cpu_rom_addr,
   output reg        cpu_rom_cs,
 
-  input      [10:1] obj_addr,
-  output     [15:0] obj_out,
-
   output            MUSIC, //active low
 
   output            S1MASK,
@@ -311,7 +308,7 @@ jtframe_68kdtack_cen  u_dtack(
 // 0x0c0004, 0x0c0005 : system port        (ro) 
 //
 //reg ram_cs, obj_cs, palette_cs, bk1_cs, bk2_cs, vram_cs, 
-reg obj_cs;
+//reg obj_cs;
 reg dsw_cs, inputs_cs, system_cs;
 
 //XXX  if <300000 or z ?
@@ -323,8 +320,6 @@ always @(posedge clk)
 // XXX page3 rev_y & rev_x etc 
 always @(*) begin
       cpu_rom_cs = ~cpu_as_n & (cpu_a[23:1] < 23'h30000);
-      //obj no dma
-      obj_cs     = ~cpu_as_n & (cpu_a[23:1] >= 23'h36c00 && cpu_a[23:1] < 23'h37000); //2048
       //IO
       dsw_cs     = ~cpu_as_n & (cpu_a[23:1] == 23'h60000); // && cpu_a[23:1] < 24'hc0001); //2 
       inputs_cs  = ~cpu_as_n & (cpu_a[23:1] == 23'h60001); // && cpu_a[23:1] < 24'hc0003); //2 
@@ -402,11 +397,8 @@ PLD20 PLD20_u(
 //74LS244
 wire  MEMDIR = cpu_wr_n;
 wire  ROM0, ROM1, RAM, MBUFEN, MBUFDR;
-//wire  RST_S1H, SEL_S1H, RST_S1Y, SEL_S1Y;
-//wire  RST_S2H, SEL_S2H, RST_S2Y, SEL_S2Y;
 wire  MDMARQ;
 wire  RD_DISPW, RD_PLYER, RD_EXTIF;
-
 //wire RESET_A = ~rst;
 
 ADRS ADRS_u(
@@ -510,7 +502,6 @@ jtframe_ram16 #(.AW(15)) u_cpu_ram(
 );
 
 // XXX SPRITE SEEMS TO USE 8 6091 on board ! 
-
 ///////// SPRITE RAM //////////
 //
 // obj ram (2048)
@@ -537,7 +528,7 @@ jtframe_dual_ram16 #(.AW(10)) u_obj_ram(
 );
 */
 
-wire [15:0] sprite_do;
+/*wire [15:0] sprite_do;
 
 ram_dma #(.W(10)) u_sprite_ram(
   .clk(clk),
@@ -549,6 +540,6 @@ ram_dma #(.W(10)) u_sprite_ram(
 
   .addr_out(obj_addr[10:1]),
   .q(obj_out)
-);
+);*/
 
 endmodule

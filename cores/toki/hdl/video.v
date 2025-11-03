@@ -28,10 +28,6 @@ module toki_video(
   output [3:0]      g,
   output [3:0]      b,
 
-  // Shared video RAM
-  output     [10:1] obj_addr,
-  input      [15:0] obj_out,
-
   // ROM data
   //input      [15:0] gfx1_rom_data,
   //input             gfx1_rom_ok,
