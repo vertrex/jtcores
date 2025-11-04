@@ -199,7 +199,7 @@ LS74 u148(
 // 256 value au final calculer les addresses reel 
 // car en sortie des 2 bus driver 
 ttl_74F269 u147(
-    .CP(RDCLK),  //goes out from QUADBUFFER XXX 74LS244 which is not yet impl
+    .CP(RDCLK),  //goes out from QUADBUFFER XXX 74LS244 which is not yet impl but it's justu a buffer
     .PE_n(MSBLD),     // Parallel Enable (active LOW) -> charge quand 0
     .CEP_n(MSBET),    // Count Enable Parallel (active LOW)
     .CET_n(Q_148),    // Count Enable Trickle (active LOW)
@@ -210,14 +210,7 @@ ttl_74F269 u147(
 );
 
 //74LS244P u149 16J 
-// XXX impl 
-//assign Y1_4 = (!OE1_n) ? A1_4 : 4'bz;  // Tri-state si OE1_n = 1
-//assign Y5_8 = (!OE2_n) ? A5_8 : 4'bz;  // Tri-state si OE2_n = 1
-
 //74LS244P u1418 15J 
-// XXX impl
-//assign Y1_4 = (!OE1_n) ? A1_4 : 4'bz;  // Tri-state si OE1_n = 1
-//assign Y5_8 = (!OE2_n) ? A5_8 : 4'bz;  // Tri-state si OE2_n = 1
 
 // 011011??_????????  
 // 0x6c00 - 0x6fff = 1024 * 2 (16bits) => 2048 => 1 sis6091 2**10 *2
@@ -227,10 +220,7 @@ ttl_74F269 u147(
 //>>> bin(0x36c00)
 //'0b11_01101100_00000000'
 //obj_cs     = ~cpu_as_n & (cpu_a[23:1] >= 23'h36c00 && cpu_a[23:1] < 23'h37000);
-// ?? rond barret = 1  //// == 0
-
-// SELECT MAB and incremnet so we can copy all data via hypos MDB
-
+assign {DMARD, MAB_OUT[15:1]} = !OIBDIR ? { 6'b011011 , FDA_OUT[10:1]} : {16'b0};
 
 //2x SG0140 special mode !
 // XXX easier to create an other sg0140 ? 
@@ -288,5 +278,7 @@ sg0140 u1412(
 //74LS244 u1413 22K
 // XXX IMPL THAT out goes tothe counter 269  
 //assign Y1_4 = (!OE1_n) ? A1_4 : 4'bz;  // Tri-state si OE1_n = 1
+//assign {RDCLK_, OBUSDIR ,OBUSRQ, OIBDIR} can assign directly to sg0140
+//output
 
 endmodule
