@@ -74,7 +74,10 @@ module toki_main(
   input             OBUSDIR,
   input             OBUSRQ,
 
-  output            ODMARQ
+  output            ODMARQ,
+
+  input             OIBDIR,
+  input      [10:1] FDA
 );
 
 wire p1_right    = joystick1[0];
@@ -174,11 +177,15 @@ fx68k fx68k (
 // 74LS244P 17K,17P, 22K
 //assign MAB[17:1] = { cpu_a[17], (BUSOPN == 1'b0) ? cpu_a[16:1] : 16'bz };
 
-assign MAB[17:1] = BUSOPN == 1'b0 ? cpu_a[17:1] : 
-                  MBUSDIR == 1'b0 ? {2'b0, 3'b111, KDA[12:1]} :
-                  { cpu_a[17], 16'b0 } ;
+assign MAB[17:1] = !BUSOPN  ? cpu_a[17:1] : 
+                   !MBUSDIR ? {2'b0, 3'b111, KDA[12:1]} :
+                   !OIBDIR  ? {1'b0, 6'b011011 , FDA[10:1]} : //XXX REPLACE 1'b0 by DMARD !!!!
+                  //OIBDIR ==1'b0  == FDA_OUT ?  we must do the same for OBJ !
+                  //and handle obj DMARD !
+                  //DMARD this is video_DMARD to handle to from dma module
+                  { cpu_a[17], 16'b0 };
 
-
+//assign {DMARD, MAB_OUT[15:1]} = !OIBDIR ? { 6'b011011 , FDA[10:1]} : {16'b0};
 // XXX DMARD IS USED ON RAM ENABLE WE MUST STOP RAM WHEN DMARD IS USED OR
 // (SELECCT IT TO READ IT? ) ROMRAM PAGE 2 ! 
 //assign {DMARD , MAB[15:1]} = (MBUSDIR == 1'b0) ? { 1'b0 ,3'b111,  KDA[12:1]} : 16'bz;

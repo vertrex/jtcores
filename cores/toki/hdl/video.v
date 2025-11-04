@@ -107,7 +107,9 @@ module toki_video(
   
   output             OBUSDIR,
   output             OBUSRQ,
-  input              ODMARQ
+  input              ODMARQ,
+  output             OIBDIR,
+  output      [10:1] FDA
 );
 
 ////////// VIDEO SYNC /////////////
@@ -330,6 +332,29 @@ wire obj_on = ~(obj[3] & obj[2] & obj[1] & obj[0]); //check if != 'f if we use n
 wire prior_c = ~obj_on; //obj linebuf page 18  XXX   active low  ? 
 wire prior_d = ~obj_on; //obj linebuf page 18  XXX   active low  ?
 */
+wire FIRST_LD, SECND_LD, CTLT1, CTLT2, EVN_LD, ODD_LD, NV256, VCLK;
+
+PLD22 pld22_u(
+    .N6M(N6M),
+    .H1(hpos[0]),
+    .H2(hpos[1]),
+    .H4(hpos[3]),
+    .H8(hpos[4]),
+    .V10(vpos[5]), ///???? what the fuck is that 16? 
+    .SEI50_P29(N6M),
+    .OBJT1(), //XXX
+    .V256(vpos[8]),
+
+    .FIRST_LD(FIRST_LD),
+    .SECND_LD(SECND_LD),
+    .CTLT1(CTLT1),
+    .CTLT2(CTLT2),
+    .EVN_LD(EVN_LD),
+    .ODD_LD(ODD_LD),
+    .NV256(NV256),
+    .VCLK(VCLK)
+);
+
 assign gfx2_rom_addr = 'b0;
 assign gfx2_rom_cs = 1'b0;
 
@@ -353,13 +378,23 @@ obj obj_u(
   .T3F(T3F),
   .T8H(T8H),
   .RESETA(rst), //RST or ~RST ?
+  .FIRST_LD(FIRST_LD),
+  .SECND_LD(SECND_LD),
+  .CTLT1(CTLT1),
+  .CTLT2(CTLT2),
+  .EVN_LD(EVN_LD),
+  .ODD_LD(ODD_LD),
+  .NV256(NV256),
+  .VCLK(VCLK),
 
   .OBUSRQ(OBUSRQ),
   .OBUSDIR(OBUSDIR),
   .OBJON(OBJON),
   .OOD(OOD[7:0]),
   .PRIOR_C(PRIOR_C),
-  .PRIOR_D(PRIOR_D)
+  .PRIOR_D(PRIOR_D),
+  .OIBDIR(OIBDIR),
+  .FDA(FDA[10:1])
 );
 
 

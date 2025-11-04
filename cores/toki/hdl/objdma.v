@@ -17,72 +17,53 @@
 *  screen ?
 */
 module OBJDMA(
-    input           clk,
-    input           STARTV,
-    input           VCLK,
-    input           RDCLK,
-    input           RD_VPOS,
-    input   [10:1]  FDA,
-    input    [3:0]  ND1,
-    input    [8:4]  ND2,
-    input           HREVD_1, //_1 ? 
-    input           VREVD_1, //_1 ? 
-    input           SPR1_1, //_1 
-    input           SPR2_1, //_1 
-    input           OBJEN_1, //_1 
+    input             clk,
+    input             STARTV,
+    input             VCLK,
+    input             RDCLK,
+    input             RD_VPOS,
+    //input   [10:1]  FDA,
+    input      [3:0]  ND1,
+    input      [8:4]  ND2,
+    input             HREVD_1, //_1 ? 
+    input             VREVD_1, //_1 ? 
+    input             SPR1_1, //_1 
+    input             SPR2_1, //_1 
+    input             OBJEN_1, //_1 
     //input           ODH, //?
     //input           SPR1_1, out or bidir ? 
     //input           SPR2_1,  out  or bidir ?
-    input           DMLD, 
-    input           VFIND,
-    input           ODMARQ,
-    input           OBUSAK,
-    input           VORIGIN,
-    input     [8:0] H_POS, 
-    input           VREV,
-    input           NV256,
-    input           H_128,
-    input           H_256,
-    input           V1, //? 
+    input             DMLD, 
+    input             VFIND,
+    input             ODMARQ,
+    input             OBUSAK,
+    input             VORIGIN,
+    input       [8:0] H_POS, 
+    input             VREV,
+    input             NV256,
+    input             H_128,
+    input             H_256,
+    input             V1, //? 
     //output 
-    output          MATCHV,
-    output          XOBDIR,
-    output          RAM2VLD,
-    output   [10:1] FDA_OUT,
-    output   [15:1] MAB_OUT, 
-    output          DMARD,
-    output    [3:0] VMT,
-    output          EVNWR2, 
-    output          ODDWR2,
-    output          OIBDIR,
-    output          OBUSRQ,
-    output          OBUSDIR,
-    output    [5:0] DMA2_EA,
-    output    [5:0] DMA2_OA
+    output            MATCHV,
+    output            XOBDIR,
+    output            RAM2VLD,
+    output reg [10:1] FDA,
+    output            DMARD,
+    output      [3:0] VMT,
+    output            EVNWR2, 
+    output            ODDWR2,
+    output            OIBDIR,
+    output            OBUSRQ,
+    output            OBUSDIR,
+    output      [5:0] DMA2_EA,
+    output      [5:0] DMA2_OA
 );
-
-/// NOT DRIVEN TO DRIVE 
-assign MATCHV = 1'b0;
-assign XOBDIR = 1'b0;
-assign RAM2VLD = 1'b0;
-assign MAB_OUT[15:1] = 15'b0;
-assign DMARD = 1'b0;
-assign VMT[3:0] = 4'b0;
-assign EVNWR2 = 1'b0;
-assign ODDWR2 = 1'b0;
-assign OIBDIR = 1'b0;
-assign OBUSRQ = 1'b0;  
-assign OBUSDIR = 1'b1; //active low ? 
-assign DMA2_EA[5:0] = 6'b0;
-assign DMA2_OA[5:0] = 6'b0;
 
 wire [7:0] VPD;
 wire ODH; 
 wire VREVD_2; 
 wire SPR1_2, SPR2_2;
-//////////// 
-
-
 wire SDTS, XSDTS;
 
 LS74 u142(
@@ -105,7 +86,7 @@ LS161 u143(
     .ENP(1'b1),
     .ENT(1'b1),
     .D({1'b0, 1'b1, 1'b0,1'b0}),
-    .Q({FDA_OUT[2], FDA_OUT[1]}), //2NC
+    .Q({FDA[2], FDA[1]}), //2NC
     .RCO()//NC
 );
 
@@ -205,7 +186,7 @@ ttl_74F269 u147(
     .CET_n(Q_148),    // Count Enable Trickle (active LOW)
     .U_D(1'b1),      // Up/Down control: 1 = UP, 0 = DOWN
     .P(8'b0),        // Parallel data inputs P0..P7
-    .Q(FDA_OUT[10:3]),        // Outputs Q0..Q7
+    .Q(FDA[10:3]),        // Outputs Q0..Q7
     .TC_n(TC)      // Terminal Count (active LOW)
 );
 
@@ -220,7 +201,9 @@ ttl_74F269 u147(
 //>>> bin(0x36c00)
 //'0b11_01101100_00000000'
 //obj_cs     = ~cpu_as_n & (cpu_a[23:1] >= 23'h36c00 && cpu_a[23:1] < 23'h37000);
-assign {DMARD, MAB_OUT[15:1]} = !OIBDIR ? { 6'b011011 , FDA_OUT[10:1]} : {16'b0};
+//impl directly in main.v !  XXX exlain that in MAIN_V ! 
+//assign {DMARD, MAB_OUT[15:1]} = !OIBDIR ? { 6'b011011 , FDA[10:1]} : {16'b0};
+assign DMARD = !OIBDIR ? 1'b0 : 1'b1; //z ? 
 
 //2x SG0140 special mode !
 // XXX easier to create an other sg0140 ? 
@@ -249,6 +232,10 @@ sg0140 u1411(
   .Q() 
 );
 
+assign VMT[3:0] = 4'b0;
+assign EVNWR2 = 1'b0;
+assign ODDWR2 = 1'b0;
+
 // XXX easiter to create an other sg0140 impl ?
 sg0140 u1412(
   .clk(),
@@ -275,6 +262,11 @@ sg0140 u1412(
   .Q() 
 );
 
+assign DMA2_EA[5:0] = 6'b0;
+assign DMA2_OA[5:0] = 6'b0;
+assign OIBDIR = 1'b0;
+assign OBUSRQ = 1'b0;  
+assign OBUSDIR = 1'b1; //active low ? 
 //74LS244 u1413 22K
 // XXX IMPL THAT out goes tothe counter 269  
 //assign Y1_4 = (!OE1_n) ? A1_4 : 4'bz;  // Tri-state si OE1_n = 1
