@@ -25,18 +25,11 @@ module SEI0050BU(
   output T4H, //p26  hpos2 ?  char SIS 6091 ! 
   output HD, //p27   hsync 
   output VSYNC, //p28 csync
+  output VCLK,  //p29,30 15.56khz
 
   //NOT IN ORIGINAL BUT NEED BY JTCORE 
   output reg HS,  //HS 
   output reg VS  //VS 
-  //output LHBL,//~HBL ? 
-  //output reg LVBL// drived by VBL ROM ?  
-  //this is a ~750khz clk
-  //it's used to latch hpos,vpos 
-  //before they are inputed into the ROM address
-  //output reg char_cen,
-  //every 4 pixel or 1.5mhz we must copy the pixel 
-  //output reg char_rom_cen
 );
 
 assign L3 = HS | VS; // cblank ???
@@ -150,6 +143,8 @@ assign T4H = (hpos[2:0] == 3'b001);
 assign T8H = (hpos[2:0] == 3'b101); 
 //assign T8H = (hpos[2:0] == 3'b100); //encore moins de glitch qu'avec 100 (suelement les 4er pixel) mais decallage avec palette
 
+parameter VCLK_START = 276; // ?? 
+assign VCLK = (hpos[8:0] == VCLK_START);
 
 assign N1H = ~hpos[0];
 

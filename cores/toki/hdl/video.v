@@ -119,6 +119,7 @@ wire L3;
 wire HD;
 wire VSYNC;
 
+//XXX use them 
 //REVERSE SCREEN X/Y HD74LS86P A1/2
 wire [7:0] exh = {hpos[7] ^ HREV, hpos[6] ^ HREV, hpos[5] ^ HREV, hpos[4] ^ HREV, hpos[3] ^ HREV, hpos[2] ^ HREV, hpos[1] ^ HREV, hpos[0] ^ HREV};
 wire [7:0] exv = {vpos[7] ^ VREV, vpos[6] ^ VREV, vpos[5] ^ VREV, vpos[4] ^ VREV, vpos[3] ^ VREV, vpos[2] ^ VREV, vpos[1] ^ VREV, vpos[0] ^ VREV};
@@ -148,7 +149,7 @@ assign INT_T =   prom_26_data[4];
 //nc 
 assign VBL_ROM = prom_26_data[7];
 // HV SYNC
-wire T8H, T3F, T4H;
+wire T8H, T3F, T4H, VCLK;
 
 SEI0050BU sei0050bu_u(
   .clk(clk),
@@ -168,7 +169,7 @@ SEI0050BU sei0050bu_u(
   .T4H(T4H),
   .HD(HD),
   .VSYNC(VSYNC),
-
+  .VCLK(VCLK), 
   .HS(HS),
   .VS(VS)
 );
@@ -304,7 +305,7 @@ reg   [8:0] obj_line_buffer_addr;
 //wire swap = hpos[8:0] == 9'd383 ? 1'b0 : 1'b1; //+1 ? //swap a 10
 wire swap = hpos[8:0] == 9'd7 ? 1'b0 : 1'b1; //+1 ? //swap a 10
 
-//* PUT BACK OR REWRITE PROPERLY
+// PUT BACK OR REWRITE PROPERLY
 scan_obj_ram scan_obj_ram_u(
   .clk(clk),
   .rst(rst),
@@ -332,7 +333,7 @@ wire obj_on = ~(obj[3] & obj[2] & obj[1] & obj[0]); //check if != 'f if we use n
 wire prior_c = ~obj_on; //obj linebuf page 18  XXX   active low  ? 
 wire prior_d = ~obj_on; //obj linebuf page 18  XXX   active low  ?
 */
-wire FIRST_LD, SECND_LD, CTLT1, CTLT2, EVN_LD, ODD_LD, NV256, VCLK;
+wire FIRST_LD, SECND_LD, CTLT1, CTLT2, EVN_LD, ODD_LD, NV256;
 
 PLD22 pld22_u(
     .N6M(N6M),
@@ -341,8 +342,7 @@ PLD22 pld22_u(
     .H4(hpos[3]),
     .H8(hpos[4]),
     .V10(vpos[5]), ///???? what the fuck is that 16? 
-    .SEI50_P29(N6M),
-    .OBJT1(), //XXX
+    .OBJT1(OBJT1), //XXX
     .V256(vpos[8]),
 
     .FIRST_LD(FIRST_LD),
@@ -351,16 +351,31 @@ PLD22 pld22_u(
     .CTLT2(CTLT2),
     .EVN_LD(EVN_LD),
     .ODD_LD(ODD_LD),
-    .NV256(NV256),
-    .VCLK(VCLK)
+    .NV256(NV256)
+    //.VCLK(VCLK) //this is just driven
 );
 
 assign gfx2_rom_addr = 'b0;
 assign gfx2_rom_cs = 1'b0;
 
+
+wire V1B;
 wire OBJON;
 wire [7:0] OOD;
 wire PRIOR_C, PRIOR_D;
+wire DIV_2;
+
+assign V1B = vpos[0];
+
+LS74 u_5a(
+  .CLK(clk),
+  .CEN(hpos[1]),
+  .D(V1B),
+  .PRE(1'b1),
+  .CLR(1'b1),
+  .Q(DIV_2),
+  .QN()
+);
 
 obj obj_u(
   .clk(clk),
@@ -386,6 +401,11 @@ obj obj_u(
   .ODD_LD(ODD_LD),
   .NV256(NV256),
   .VCLK(VCLK),
+  .OBJ_P6M(P6M),
+  .OBJ_N6M(N6M),
+  .RDCLK(N6M),
+  .V1B(V1B),
+  .DIV_2(DIV_2),
 
   .OBUSRQ(OBUSRQ),
   .OBUSDIR(OBUSDIR),

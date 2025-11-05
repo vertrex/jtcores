@@ -48,7 +48,7 @@ module OBJDMA(
     output            MATCHV,
     output            XOBDIR,
     output            RAM2VLD,
-    output reg [10:1] FDA,
+    output     [10:1] FDA,
     output            DMARD,
     output      [3:0] VMT,
     output            EVNWR2, 
@@ -77,6 +77,7 @@ LS74 u142(
 );
 
 wire LSBLD;
+wire [1:0] NC2;
 
 LS161 u143(
     .clk(clk),
@@ -86,7 +87,7 @@ LS161 u143(
     .ENP(1'b1),
     .ENT(1'b1),
     .D({1'b0, 1'b1, 1'b0,1'b0}),
-    .Q({FDA[2], FDA[1]}), //2NC
+    .Q({NC2[1:0], FDA[2], FDA[1]}), //2NC
     .RCO()//NC
 );
 

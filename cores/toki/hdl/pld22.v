@@ -5,7 +5,7 @@ module PLD22(
     input  H4,
     input  H8,
     input  V10, //16?
-    input  SEI50_P29,
+    //input  SEI50_P29,
     input  OBJT1,
     input  V256,
 
@@ -15,8 +15,8 @@ module PLD22(
     output CTLT2, // active-low
     output EVN_LD, // active-low
     output ODD_LD, // active-low
-    output NV256, // active-high
-    output VCLK  // active-high
+    output NV256 // active-high
+    //output VCLK  // active-high
 );
 
     //decode that 
@@ -35,6 +35,5 @@ module PLD22(
     // NV256 = /V256  -> NV256 = ~V256
     // VCLK = SEI50_P29
     assign NV256 = ~V256;
-    assign VCLK =  SEI50_P29;
-
+    //assign VCLK =  SEI50_P29;
 endmodule
