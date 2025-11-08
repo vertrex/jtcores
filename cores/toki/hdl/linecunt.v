@@ -13,7 +13,7 @@ module LINECUNT(
    input         ODD_LD,
    input         EVN_LD,
    input         HBLB,
-   input         OBJ2_7,
+   input         OBJT2_7,
    input         V1B,
    input         T8H,
 

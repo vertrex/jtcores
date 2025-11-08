@@ -1,37 +1,38 @@
 module SCNDDMA(
     input          clk,
-    input   [10:2] FDA,
-    input    [3:0] VMT,
-    input          ODH,
-    input          EVNMR2,
-    input    [5:0] DMA2_EA,
-    input          XOBDIR,
-    input          DIV_2,
-    input    [5:0] DMA2_OA,
-    input          ODDWR2,
-    input          RAM2VLD,
-    input          RDCLK,
-    input          H_1,
-    input    [9:1] CTA,
-    input          OIBDIR,
+    input   [10:2] FDA,     //F data addr 
+    input    [3:0] VMT,     //? 
+    input          ODH,     // ? 
+    input          EVNWR2,  //Even Wren 2 
+    input    [5:0] DMA2_EA, //2DMA even addr 
+    input          XOBDIR,  //x object dir 
+    input          DIV_2,  
+    input    [5:0] DMA2_OA, //2DMA object addr  
+    input          ODDWR2,  //Odd Wren 2 
+    input          RAM2VLD, // Ram 2 
+    input          RDCLK,   //R data clock 
+    input          H1,     //hpos[0] 
+    input          OIBDIR, // Object IB direction 
     input    [8:0] ND2,
-    input   [15:9] OBJ_DB,
-    input          SPR2_2,
-    input          SPR1_2,
+    input   [15:9] OBJ_DB,//Object Data bus 
+    input          SPR2_2, //Spr2 2 
+    input          SPR1_2, //spr1 2 
     input          MATCHV, 
     //output 
-    output  [15:0] OVD,
-    output   [3:0] VA,
-    output         NOOBJ,
-    output         ODHREV, //ODHREV ??
-    output         SPR1_3,
-    output         SPR2_3
+    output  [15:0] OVD,   //Object Valida? data 
+    output   [3:0] VA,    //V? addr 
+    output         NOOBJ,  //No Object 
+    output         ODHREV, //Object Data H reverse  
+    output         SPR1_3, //Sprite 1 _3 
+    output         SPR2_3  //Sprite 2 _3 ?
 );
+
+wire [8:1] CTA;
 
 // 64 obj EVEN 
 sis6091 u_151(
   .clk0(clk),
-  .cen0(EVNMR2), //31
+  .cen0(EVNWR2), //31
   .data0({SPR2_2, SPR1_2, ODH, MATCHV , VMT[3:0] ,FDA[10:3]}), //6,7,8,10,12-19,22-25
   .addr0({4'b0, DMA2_EA[5:0]}),//62-71
   .we0({1'b0, 1'b0}), //30
@@ -39,10 +40,10 @@ sis6091 u_151(
 
   .clk1(clk),
   .cen1(), //73
-  .data1({SPR2_3,SPR1_3, ODHREV, NOOBJ,VA[3:0], CTA[8:1]}), //data 1 or addr1 ?
+  .data1(), //data 1 or addr1 ?
   .addr1(), //75-80,1,3,4,5
   .we1({1'b0, 1'b0}),
-  .q1() //42-56
+  .q1({SPR2_3,SPR1_3, ODHREV, NOOBJ,VA[3:0], CTA[8:1]}) //42-56
 );
 //XXX where goes XOBDIR ? DIY_2 ? check on other sis6901 if it's sometime used
 //?
@@ -51,6 +52,9 @@ sis6091 u_151(
 // store at oa/ea ? 
 // addr + vmt ? match y ? + odh + sprite 
 // output addr to next chips 
+
+//XXX create a bus arbitrer for output ! 
+/* 
 sis6091 u152(
   .clk0(clk),
   .cen0(ODDWR2),
@@ -61,14 +65,14 @@ sis6091 u152(
 
   .clk1(clk),
   .cen1(),
-  .data1({SPR2_3,SPR1_3, ODHREV, NOOBJ,VA[3:0], CTA[8:1]}),
+  .data1(),
   .addr1(),
   .we1({1'b0, 1'b0}), //xobdir diy i2 ?  //read /write xobdir ?
-  .q1()
+  .q1({SPR2_3,SPR1_3, ODHREV, NOOBJ,VA[3:0], CTA[8:1]}) //42-56
 );
+*/
 
-
-// 512 addr for obj ? 
+// 256addr for obj ? 
 // store at FDA => nd2, obj (graphical data?)
 // retrieve at CTA, H[1]
 sis6091 u153(
@@ -82,7 +86,7 @@ sis6091 u153(
   .clk1(clk),
   .cen1(OIBDIR), //OIBIDR ????
   .data1({OVD[15:0]}),
-  .addr1({CTA[9:1], H_1}), //8:0 or 9:1 ????? XXX
+  .addr1({1'b0, CTA[8:1], H1}), //8:0 or 9:1 ????? XXX
   .we1({1'b0, 1'b0}),
   .q1()
 );

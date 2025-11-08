@@ -1,26 +1,32 @@
+// Define dual-linebuffer (line odd or even) for obj 1 & obj 2 
+// Odd and Even line are switched at each hbl 
+// Object 1 & 2 are written to current WREN line (either odd or even)
+// and read from other line 
+// selected object is data is outputed 
+
 module LINEBUF(
     input         clk,
-    input         EVNWREN,
-    input         OBJ_N6M,
-    input   [9:0] OBJ1,
-    input   [9:0] OBJ2,
-    input   [8:0] E1A,
-    input         EVNCLR,
-    input         DIV_7P,
-    input         OBJ_P6M,
-    input   [8:0] E2A,
-    input   [8:0] O1A,
-    input         ODDCLR,
-    input         NDIV_7P,
-    input   [8:0] O2A,
+    input         EVNWREN,  // Even write en 
+    input         OBJ_N6M,  // ~Clk 6mhz  
+    input   [9:0] OBJ1,     // Obj 1 data 
+    input   [9:0] OBJ2,     // Obj 2 data 
+    input   [8:0] E1A,      // Even 1 addr 
+    input         EVNCLR,   // Even clear 
+    input         DIV_7P,  
+    input         OBJ_P6M,  // Clk 6Mhz
+    input   [8:0] E2A,      // Even 2 addr 
+    input   [8:0] O1A,      // Obj 1 addr 
+    input         ODDCLR,   // Odd line clear 
+    input         NDIV_7P,  //~div 7p 
+    input   [8:0] O2A,      // Odd 2 addr 
     //output 
-    output        E1FIND,
-    output        E2FIND,
-    output        O1FIND,
-    output        O2FIND,
-    output  [7:0] OOD,
-    output        PRIOR_C,
-    output        PRIOR_D
+    output        E1FIND,  // Even 1 find (en?) 
+    output        E2FIND,  // Even 2 find (en?)
+    output        O1FIND,  // Odd 1 find  (en?)
+    output        O2FIND,  // Odd 2 find  (en?)
+    output  [7:0] OOD,     // object out data 
+    output        PRIOR_C, // object priority C
+    output        PRIOR_D  // object priority D
 );
 
 //////////// NOT DRIVEN /////////////// 
