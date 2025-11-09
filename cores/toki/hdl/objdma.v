@@ -30,10 +30,7 @@ module OBJDMA(
     input             SPR1_1, //_1 
     input             SPR2_1, //_1 
     input             OBJEN_1, //_1 
-    //input           SPR1_1, out or bidir ? 
-    //input           SPR2_1,  out  or bidir ?
-    input             DMLD, 
-    input             VFIND,
+    input             DLHD, 
     input             ODMARQ,
     input             OBUSAK,
     input             VORIGIN,
@@ -102,7 +99,7 @@ PLD24 u_pld24(
    .FDA_1(FDA[1]),
    .FDA_2(FDA[2]),
    .SDTS(SDTS),
-   .DMLD(DMLD),
+   .DLHD(DLHD),
    .OIBDIR(OIBDIR),
    .OVER256(OVER256),
    .INSCRN(INSCRN),
@@ -233,6 +230,7 @@ sg0140 u1411(
   .Q() 
 );
 
+wire VFIND = 1'b0;
 assign VMT[3:0] = 4'b0;
 assign EVNWR2 = 1'b0;
 assign ODDWR2 = 1'b0;
