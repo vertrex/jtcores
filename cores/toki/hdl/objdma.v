@@ -30,7 +30,6 @@ module OBJDMA(
     input             SPR1_1, //_1 
     input             SPR2_1, //_1 
     input             OBJEN_1, //_1 
-    //input           ODH, //?
     //input           SPR1_1, out or bidir ? 
     //input           SPR2_1,  out  or bidir ?
     input             DMLD, 
@@ -57,13 +56,14 @@ module OBJDMA(
     output            OBUSRQ,
     output            OBUSDIR,
     output      [5:0] DMA2_EA,
-    output      [5:0] DMA2_OA
+    output      [5:0] DMA2_OA,
+    output            ODH,
+    output            SPR1_2, 
+    output            SPR2_2
 );
 
 wire [7:0] VPD;
-wire ODH; 
 wire VREVD_2; 
-wire SPR1_2, SPR2_2;
 wire SDTS, XSDTS;
 
 LS74 u142(

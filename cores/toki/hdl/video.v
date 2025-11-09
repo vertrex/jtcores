@@ -117,7 +117,7 @@ module toki_video(
 wire HBL; 
 wire L3;
 wire HD;
-wire VSYNC;
+wire VSYNC; //seems to be ~ sei0050bu XXX (page 5)
 
 //XXX use them 
 //REVERSE SCREEN X/Y HD74LS86P A1/2
@@ -388,6 +388,12 @@ LS74 u_5a(
   .QN()
 );
 
+wire OBJ_HREV;
+wire OPSREV = HREV ^ OBJ_HREV;
+wire VH4 = ~hpos[2] ^ OPSREV; 
+wire VH8 = hpos[3] ^ ~hpos[2] ^ OPSREV;
+wire NH2 = ~hpos[1];
+
 obj obj_u(
   .clk(clk),
   .rst(rst),
@@ -422,6 +428,9 @@ obj obj_u(
   .HD(HD),
   .OBJT2_7(OBJT2_7),
   .D1V_7(D1V_7),
+  .OPSREV(OPSREV),
+  .VH4(VH4),
+  .VH8(VH8),
   //output
   .OBUSRQ(OBUSRQ),
   .OBUSDIR(OBUSDIR),
@@ -430,7 +439,8 @@ obj obj_u(
   .PRIOR_C(PRIOR_C),
   .PRIOR_D(PRIOR_D),
   .OIBDIR(OIBDIR),
-  .FDA(FDA[10:1])
+  .FDA(FDA[10:1]),
+  .OBJ_HREV(OBJ_HREV)
 );
 
 

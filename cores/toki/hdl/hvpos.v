@@ -20,17 +20,15 @@ module HVPOS(
   output    [8:0] ND2,//XXX
   output          OBUSAK,
   output   [15:0] OBJ_DB,
-  output          HREVD,
-  output          VREVD,
-  output reg      SPR1,
-  output reg      SPR2,
+  output reg      HREVD_1,
+  output reg      VREVD_1,
+  output reg      SPR1_1,
+  output reg      SPR2_1,
   output reg      OBJEN_1,
   //output          XC4,
-  output  [4:0]   ND1 //4:0 or 3:0 ?
+  output  [4:0]   ND1, //4:0 or 3:0 ?
+  output          RD_VPOS
 );
-
-assign HREVD = 1'b0; // XXX not driven
-assign VREVD = 1'b0; // XXX not driven
 
 //74LS244P 10J 
 //74LS22P 19J
@@ -39,10 +37,9 @@ assign OBJ_DB[15:0] = MDB[15:0];
 
 //PLD25 
 // XXX 
-
 reg ORIGIN;
 
-wire CTRL_LT, RD_VPOS, RD_HPOS, LT_VPOS, LT_HPOS, RD_CHAR, CARY_M;
+wire CTRL_LT, RD_HPOS, LT_VPOS, LT_HPOS, RD_CHAR, CARY_M;
 wire XC4;
 
 PLD25 pld25_u(
@@ -68,15 +65,14 @@ PLD25 pld25_u(
 );
 
 //74LS174 U134  
-reg VRED_1, HREVD_1;
 
 always @(posedge CTRL_LT or negedge XOBDIR) begin
     if (!XOBDIR)
-        { OBJEN_1, ORIGIN, SPR2, SPR1, VRED_1, HREVD_1} <= 6'b000000;   // asynchronous clear
+        { OBJEN_1, ORIGIN, SPR2_1, SPR1_1, VREVD_1, HREVD_1} <= 6'b000000;   // asynchronous clear
     else
         // MAME IS A BIT WRONG FOR THAT WE MAY WANT TO EXPLAIN AND CORRECT IT ?
         //15        /13    /11      /10    /9       /8 (flipx)
-        { OBJEN_1, ORIGIN, SPR2, SPR1, VRED_1, HREVD_1} <= { OBJ_DB[15], OBJ_DB[13], OBJ_DB[11:8] }; 
+        { OBJEN_1, ORIGIN, SPR2_1, SPR1_1, VREVD_1, HREVD_1} <= { OBJ_DB[15], OBJ_DB[13], OBJ_DB[11:8] }; 
 end
 
 //74LS173 9H

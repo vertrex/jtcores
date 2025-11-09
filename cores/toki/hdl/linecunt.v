@@ -16,7 +16,8 @@ module LINECUNT(
    input         OBJT2_7,
    input         V1B,
    input         T8H,
-
+   input         VH4,
+   input         VH8,
    //
    output  [3:0] OBJCOL,
    output        OBJ_HREV,
