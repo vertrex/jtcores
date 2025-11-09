@@ -12,12 +12,12 @@ module LINEBUF(
     input   [9:0] OBJ2,     // Obj 2 data 
     input   [8:0] E1A,      // Even 1 addr 
     input         EVNCLR,   // Even clear 
-    input         DIV_7P,  
+    input         D1V_7P,  
     input         OBJ_P6M,  // Clk 6Mhz
     input   [8:0] E2A,      // Even 2 addr 
     input   [8:0] O1A,      // Obj 1 addr 
     input         ODDCLR,   // Odd line clear 
-    input         NDIV_7P,  //~div 7p 
+    input         ND1V_7P,  //~div 7p 
     input   [8:0] O2A,      // Odd 2 addr 
     //output 
     output        E1FIND,  // Even 1 find (en?) 
@@ -46,7 +46,7 @@ wire [5:0] nc1;
 wire [5:0] nc2;
 wire [5:0] nc3;
 
-// XXXX MUST ADD DIV_7p directio n?
+// XXXX MUST ADD D1V_7p directio n?
 sis6091 u_181(
   .clk0(clk),
   .cen0(OBJ_N6M), //31

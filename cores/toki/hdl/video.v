@@ -121,8 +121,8 @@ wire VSYNC;
 
 //XXX use them 
 //REVERSE SCREEN X/Y HD74LS86P A1/2
-wire [7:0] exh = {hpos[7] ^ HREV, hpos[6] ^ HREV, hpos[5] ^ HREV, hpos[4] ^ HREV, hpos[3] ^ HREV, hpos[2] ^ HREV, hpos[1] ^ HREV, hpos[0] ^ HREV};
-wire [7:0] exv = {vpos[7] ^ VREV, vpos[6] ^ VREV, vpos[5] ^ VREV, vpos[4] ^ VREV, vpos[3] ^ VREV, vpos[2] ^ VREV, vpos[1] ^ VREV, vpos[0] ^ VREV};
+wire [7:0] EXH = {hpos[7] ^ HREV, hpos[6] ^ HREV, hpos[5] ^ HREV, hpos[4] ^ HREV, hpos[3] ^ HREV, hpos[2] ^ HREV, hpos[1] ^ HREV, hpos[0] ^ HREV};
+wire [7:0] EXV = {vpos[7] ^ VREV, vpos[6] ^ VREV, vpos[5] ^ VREV, vpos[4] ^ VREV, vpos[3] ^ VREV, vpos[2] ^ VREV, vpos[1] ^ VREV, vpos[0] ^ VREV};
 
 // 
 //PROM26 
@@ -141,9 +141,9 @@ always @(posedge clk)
 
 
 assign OBJT1 =   prom_26_data[0];
-assign OBJT2 =   prom_27_data[1]; //need to be latched 
-assign STARTV =  prom_27_data[2];
-assign VORIGIN = prom_27_data[3];
+//assign OBJT2 =   prom_27_data[1]; //need to be latched 
+assign STARTV =  prom_26_data[2];
+assign VORIGIN = prom_26_data[3];
 assign INT_T =   prom_26_data[4];
 //nc
 //nc 
@@ -177,10 +177,20 @@ SEI0050BU sei0050bu_u(
 assign LVBL = VBL_ROM;
 assign LHBL = HBL; // ?
 
+reg OBJT2_7;
+reg D1V_7; 
+reg [2:0] EXV_7;
+
 //CHAR_CEN IS T3F
 always @(posedge clk) begin 
   if (T8H)
-     HBLB <= HBL; //HBL sei50bu pin 23 
+    OBJT2_7 <= prom_26_data[1];
+    D1V_7 <= Y10;
+//     HBLB <= sei50bu p23 // XXX where we get that Y10???
+    HBLB <= HBL; //HBL sei50bu pin 23
+    EXV_7[0] <= EXV[0];
+    EXV_7[1] <= EXV[1];
+    EXV_7[2] <= EXV[2];
 end 
 
 ///////// SCREEN 4 : char tile //////////
@@ -363,7 +373,7 @@ wire V1B;
 wire OBJON;
 wire [7:0] OOD;
 wire PRIOR_C, PRIOR_D;
-wire DIV_2;
+wire D1V_2;
 
 assign V1B = vpos[0];
 
@@ -373,7 +383,7 @@ LS74 u_5a(
   .D(V1B),
   .PRE(1'b1),
   .CLR(1'b1),
-  .Q(DIV_2),
+  .Q(D1V_2),
   .QN()
 );
 
@@ -405,8 +415,13 @@ obj obj_u(
   .OBJ_N6M(N6M),
   .RDCLK(N6M),
   .V1B(V1B),
-  .DIV_2(DIV_2),
-
+  .D1V_2(D1V_2),
+  .OBJMASK(OBJMASK), 
+  .HREV(HREV),
+  .HD(HD),
+  .OBJT2_7(OBJT2_7),
+  .D1V_7(D1V_7),
+  //output
   .OBUSRQ(OBUSRQ),
   .OBUSDIR(OBUSDIR),
   .OBJON(OBJON),

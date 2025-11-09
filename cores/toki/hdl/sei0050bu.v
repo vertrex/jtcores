@@ -33,7 +33,6 @@ module SEI0050BU(
 );
 
 assign L3 = HS | VS; // cblank ???
-assign HD = 0;
 assign VSYNC = HS | VS;
 
 // Retro tink : 
@@ -146,6 +145,8 @@ assign T8H = (hpos[2:0] == 3'b101);
 parameter VCLK_START = 276; // ?? 
 assign VCLK = (hpos[8:0] == VCLK_START);
 
+parameter HD_START = VCLK_START + 8; 
+assign HD = ~(hpos[8:0] == HD_START);  //15.56 khz inversed signal  
 assign N1H = ~hpos[0];
 
 //sei50bu generate only line and PROM26 generate Y / LVBL ?

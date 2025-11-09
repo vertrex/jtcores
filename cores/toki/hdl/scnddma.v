@@ -6,7 +6,7 @@ module SCNDDMA(
     input          EVNWR2,  //Even Wren 2 
     input    [5:0] DMA2_EA, //2DMA even addr 
     input          XOBDIR,  //x object dir 
-    input          DIV_2,  
+    input          D1V_2,  
     input    [5:0] DMA2_OA, //2DMA object addr  
     input          ODDWR2,  //Odd Wren 2 
     input          RAM2VLD, // Ram 2 
