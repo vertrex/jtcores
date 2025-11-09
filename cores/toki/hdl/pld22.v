@@ -4,7 +4,7 @@ module PLD22(
     input  H2,
     input  H4,
     input  H8,
-    input  V10, //16?
+    input  V1B,
     //input  SEI50_P29,
     input  OBJT1,
     input  V256,
@@ -27,9 +27,9 @@ module PLD22(
     assign CTLT1 = ~((~N6M) & (~H1));
     assign CTLT2 = ~((~N6M) &  H1);
     //XXX decode that 
-    assign EVN_LD = ~((~N6M) &  H1  &  H2  &  H4  & (~H8) & (~V10) & (~OBJT1));
+    assign EVN_LD = ~((~N6M) &  H1  &  H2  &  H4  & (~H8) & (~V1B) & (~OBJT1));
     //XX decode that 
-    assign ODD_LD = ~((~N6M) &  H1  &  H2  &  H4  & (~H8) &  V10  & (~OBJT1));
+    assign ODD_LD = ~((~N6M) &  H1  &  H2  &  H4  & (~H8) &  V1B  & (~OBJT1));
 
     // active-high
     // NV256 = /V256  -> NV256 = ~V256

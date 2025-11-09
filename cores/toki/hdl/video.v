@@ -185,7 +185,7 @@ reg [2:0] EXV_7;
 always @(posedge clk) begin 
   if (T8H)
     OBJT2_7 <= prom_26_data[1];
-    D1V_7 <= Y10;
+    D1V_7 <= V1B;
 //     HBLB <= sei50bu p23 // XXX where we get that Y10???
     HBLB <= HBL; //HBL sei50bu pin 23
     EXV_7[0] <= EXV[0];
@@ -345,13 +345,17 @@ wire prior_d = ~obj_on; //obj linebuf page 18  XXX   active low  ?
 */
 wire FIRST_LD, SECND_LD, CTLT1, CTLT2, EVN_LD, ODD_LD, NV256;
 
+//page 5 osc 
+wire V1B;
+assign V1B = vpos[0];
+
 PLD22 pld22_u(
     .N6M(N6M),
     .H1(hpos[0]),
     .H2(hpos[1]),
     .H4(hpos[3]),
     .H8(hpos[4]),
-    .V10(vpos[5]), ///???? what the fuck is that 16? 
+    .V1B(V1B),
     .OBJT1(OBJT1), //XXX
     .V256(vpos[8]),
 
@@ -368,14 +372,11 @@ PLD22 pld22_u(
 assign gfx2_rom_addr = 'b0;
 assign gfx2_rom_cs = 1'b0;
 
-
-wire V1B;
 wire OBJON;
 wire [7:0] OOD;
 wire PRIOR_C, PRIOR_D;
 wire D1V_2;
 
-assign V1B = vpos[0];
 
 LS74 u_5a(
   .CLK(clk),
