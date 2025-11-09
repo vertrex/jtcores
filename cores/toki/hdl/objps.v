@@ -3,6 +3,7 @@
 
 module OBJPS(
     input        clk,
+    input        rst,
     input        OBJ_P6M, // clock 
     input        T3F,     
     input        D1V_7,
@@ -86,10 +87,38 @@ LS273 u169(
     .Q({pld_i9, OBJ2[9:4], sei100_2_38 })
 );
 
+// 
+wire [3:0] OBJ1_COLOR;
+
+sei0010bu u162_sei10(
+    .clk(clk),
+    .rst(rst),
+    .cen(OBJ_N6M),
+    .load(T3F_2),
+    .rev(1'b0),
+    .rom_data(PD[15:0]),
+    .color(OBJ1_COLOR[3:0])
+);
+
+//74LS244 
+wire PLD_O7;
+wire [3:0] OBJ1_COLOR_EN;
+assign OBJ1_COLOR_EN[3:0] = ~PLD_O7 ? OBJ1_COLOR[3:0] : 4'b0;
+
+wire [3:0] OBJ1_COLOR_SHIFT;
+//74LS273 
+LS273 u166(
+    .CLK(clk),
+    .CLRn(1'b1),
+    .CEN(OBJ_N6M),
+    .D({OBJ1_COLOR_SHIFT[3:0] , OBJ1_COLOR_EN[3:0]}),
+    .Q({OBJ1[3:0], OBJ1_COLOR_SHIFT[3:0]})
+);
+
+
+
 // XXX TODO 
-// 2 sei0100bu
-// 74ls244 
-// 74ls273 
+// 1 sei0100bu
 // pld29 
 // 74ls244
 

@@ -199,6 +199,7 @@ wire [9:0]  OBJ2;
 //in the linebuf 
 OBJPS objps_u(
     .clk(clk),
+    .rst(rst),
     .OBJ_P6M(OBJ_P6M),
     .T3F(T3F),
     .D1V_7(D1V_7),

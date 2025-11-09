@@ -1,14 +1,17 @@
 //24bit - shift reg
 module sei0010bu(
+  //p2 always set to 1 
   input  clk,
   input  rst,
-  input  cen,
+  input  cen,  //p3 
 
-  input  load, 
-  input  rev, 
+  input  load, //p40
+  input  rev,  //p38
 
-  input  [15:0] rom_data, //seems to be 24 bit on doc XXX
-  output reg [3:0]  color 
+  //p34 , p35 only used on 2 sei10bu on objps, is an enable ? it's 1'b0 on all
+  //others
+  input  [15:0] rom_data, //p5-20  seems to be 24 bit on doc XXX
+  output reg [3:0]  color //p22-25 
 );
 
 reg [3:0] pixel_0; 
