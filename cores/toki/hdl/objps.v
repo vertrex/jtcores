@@ -32,11 +32,6 @@ module OBJPS(
     output       DLHD    // data line hd ?
 );
 
-/////////////// NOT DRIVEN //////// 
-assign OBJON = 1'b0;
-assign DLHD = 1'b0;
-/////////////////////////////////
-
 wire LS175_Q1;
 wire NC0; 
 wire [1:0]  NC1;
@@ -89,21 +84,22 @@ LS273 u169(
 
 // 
 wire [3:0] OBJ1_COLOR;
+wire [1:0] NC3;
 
 sei0010bu u162_sei10(
     .clk(clk),
     .rst(rst),
     .cen(OBJ_N6M),
     .load(T3F_2),
-    .rev(1'b0),
-    .rom_data(PD[15:0]),
-    .color(OBJ1_COLOR[3:0])
+    .rev(u163_q[0]),
+    .rom_data({8'b0, PD[15:0]}),
+    .color({NC3[1:0], OBJ1_COLOR[3:0]})
 );
 
 //74LS244 
-wire PLD_O7;
+wire PLD_O19;
 wire [3:0] OBJ1_COLOR_EN;
-assign OBJ1_COLOR_EN[3:0] = ~PLD_O7 ? OBJ1_COLOR[3:0] : 4'b0;
+assign OBJ1_COLOR_EN[3:0] = ~PLD_O19 ? OBJ1_COLOR[3:0] : 4'b0;
 
 wire [3:0] OBJ1_COLOR_SHIFT;
 //74LS273 
@@ -115,11 +111,49 @@ LS273 u166(
     .Q({OBJ1[3:0], OBJ1_COLOR_SHIFT[3:0]})
 );
 
+wire NC;
+
+wire PLD_O18;
+wire HREV_HD; 
+wire NHREV_HD; 
+
+PLD29 u_pld29(
+    .HREV(HREV),
+    .HD(HD),
+    .D1V_7P(D1V_7P),
+    .E1FIND(E1FIND),
+    .E2FIND(E2FIND),
+    .O1FIND(O1FIND),
+    .O2FIND(O2FIND),
+    .OBJMASK(OBJMASK),
+    .NOOBJ_CT2_LATCH1(u163_q[7]),
+    .NOOBJ_CT2_LATCH2(pld_i9),
+
+    .HREV_HD(HREV_HD),  //sei0010bu serialized to DLHD ?  
+    .NHREV_HD(NHREV_HD),//sei0010bu serialized to DLHD ? 
+    .OBJON(OBJON),
+    .o16_n(NC),
+    .MASK_NOOBJ_2(PLD_O18),
+    .MASK_NOOBJ_1(PLD_O19)
+);
+
+wire       NC4;
+wire [3:0] OBJ2_COLOR;
+
+sei0010bu u168_sei10(
+    .clk(clk),
+    .rst(rst),
+    .cen(OBJ_N6M),
+    .load(T3F),
+    .rev(sei100_2_38),
+    .rom_data({1'b1, NHREV_HD, HREV_HD, 5'b1, PD[15:0]}),  //HREV_HD, NHREV_HD 
+    .color({DLHD, NC4, OBJ2_COLOR[3:0]}) //DLHD 
+);
 
 
-// XXX TODO 
-// 1 sei0100bu
-// pld29 
 // 74ls244
+assign OBJ2[3:0] = ~PLD_O18 ? OBJ2_COLOR[3:0] : 4'b0;
 
+// OBJ2 
+//PLD_O18
 endmodule 

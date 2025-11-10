@@ -121,14 +121,16 @@ always @(posedge clk) begin
     data <= 16'hffff;
 end 
 
+wire [1:0] NC;
+
 sei0010bu sei0010bu_u(
   .clk(clk),
   .rst(rst),
   .cen(N6M),
   .load(s21_hsync),
   .rev(1'b0),
-  .rom_data(data),
-  .color(color)
+  .rom_data({8'b0, data}),
+  .color({NC[1:0], color})
 );
 
 assign code = ram_out[15:12];

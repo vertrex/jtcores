@@ -97,14 +97,16 @@ always @(posedge clk) begin
   end 
 end
 
+wire [1:0] NC;
+
 sei0010bu sei0010bu_u(
   .clk(clk), 
   .rst(rst),
   .cen(N6M),
   .load(T3F), //load new pixel
   .rev(1'b0),
-  .rom_data({char_rom_2_data[7:0], char_rom_1_data[7:0]}),
-  .color(char_color)
+  .rom_data({8'b0, char_rom_2_data[7:0], char_rom_1_data[7:0]}),
+  .color({NC[1:0], char_color})
 );
     
 //seem like that on the sch

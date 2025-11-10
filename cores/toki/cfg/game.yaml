@@ -30,6 +30,7 @@ game:
       - pld23.v
       - pld24.v
       - pld25.v
+      - pld29.v
       - mdma.v
       - adrs.v
       - scrn4.v
