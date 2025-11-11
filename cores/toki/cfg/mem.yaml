@@ -72,9 +72,11 @@ sdram:
           offset : CHAR_2_OFFSET
           #cs: LVBL
     - buses:
+        # obj rom
         - name: gfx2_rom
           addr_width: 20
           data_width: 16
+
         - name: gfx3_rom
           addr_width: 19
           data_width: 16

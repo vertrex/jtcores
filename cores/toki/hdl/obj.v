@@ -35,7 +35,11 @@ module obj(
   input         OPSREV,
   input         VH4,
   input         VH8,
+  input  [15:0] obj_rom_data,
+  input         obj_rom_ok,
 //output 
+  output [19:1] obj_rom_addr,
+  output        obj_rom_cs,
   output        OBUSDIR,
   output        OBUSRQ,
   output        OBJON,
@@ -262,7 +266,11 @@ LINECUNT linecunt_u(
    .T8H(T8H),
    .VH4(VH4),
    .VH8(VH8),
+   .obj_rom_data(obj_rom_data),
+   .obj_rom_ok(obj_rom_ok),
    //
+   .obj_rom_addr(obj_rom_addr),
+   .obj_rom_cs(obj_rom_cs),
    .OBJCOL(OBJCOL[3:0]),
    .OBJ_HREV(OBJ_HREV),
    .OSP1(OSP1),

@@ -431,7 +431,12 @@ obj obj_u(
   .OPSREV(OPSREV),
   .VH4(VH4),
   .VH8(VH8),
+  .obj_rom_data(gfx2_rom_data),
+  .obj_rom_ok(gfx2_rom_ok),
+
   //output
+  .obj_rom_cs(gfx2_rom_cs),
+  .obj_rom_addr(gfx2_rom_addr),
   .OBUSRQ(OBUSRQ),
   .OBUSDIR(OBUSDIR),
   .OBJON(OBJON),

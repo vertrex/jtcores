@@ -152,8 +152,7 @@ sei0010bu u168_sei10(
 
 
 // 74ls244
+//PLD_O18
 assign OBJ2[3:0] = ~PLD_O18 ? OBJ2_COLOR[3:0] : 4'b0;
 
-// OBJ2 
-//PLD_O18
 endmodule 
