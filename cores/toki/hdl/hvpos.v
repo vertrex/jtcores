@@ -48,7 +48,7 @@ PLD25 pld25_u(
     .RDCLK(RDCLK),
     .ORIGIN(ORIGIN),
     .OIBDIR(OIBDIR),
-    .POS_8(), //XXX 
+    .POS_8(POS[8]), //XXX 
     .CARY_M(CARY_M), //XXX loop from other 
     .XC4(XC4), // XXX 
     .BUSAK(BUSAK),

@@ -369,9 +369,6 @@ PLD22 pld22_u(
     //.VCLK(VCLK) //this is just driven
 );
 
-assign gfx2_rom_addr = 'b0;
-assign gfx2_rom_cs = 1'b0;
-
 wire OBJON;
 wire [7:0] OOD;
 wire PRIOR_C, PRIOR_D;

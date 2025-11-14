@@ -85,19 +85,11 @@ sis6091 u153(
 
   .clk1(clk),
   .cen1(OIBDIR), //OIBIDR ????
-  .data1({OVD[15:0]}),
+  .data1(),
   .addr1({1'b0, CTA[8:1], H1}), //8:0 or 9:1 ????? XXX
   .we1({1'b0, 1'b0}),
-  .q1()
+  .q1({OVD[15:0]})
 );
 //OIBIDR ?
-
-///////// NOT DRIVEN,  TO DRIVE //////////
-assign OVD[15:0] = 16'b0;
-assign VA[3:0] = 4'b0;
-assign NOOBJ = 1'b0;
-assign ODHREV = 1'b0;
-assign SPR1_3 = 1'b0;
-assign SPR2_3 = 1'b0;
 
 endmodule

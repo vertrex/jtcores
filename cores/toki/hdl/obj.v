@@ -106,6 +106,7 @@ wire DLHD;
 // ram get FDA as in 8bits (256) address and decode sprite as input 
 OBJDMA objdma_u(
     .clk(clk),
+    .rst(rst),
     .STARTV(STARTV),
     .VCLK(VCLK),
     .RDCLK(RDCLK),
@@ -266,6 +267,7 @@ LINECUNT linecunt_u(
    .T8H(T8H),
    .VH4(VH4),
    .VH8(VH8),
+   .NOOBJ(NOOBJ),
    .obj_rom_data(obj_rom_data),
    .obj_rom_ok(obj_rom_ok),
    //

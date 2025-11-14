@@ -18,6 +18,7 @@
 */
 module OBJDMA(
     input             clk,
+    input             rst,
     input             STARTV,
     input             VCLK,
     input             RDCLK,
@@ -42,14 +43,14 @@ module OBJDMA(
     input             V1, //? 
     //output 
     output            MATCHV,
-    output            XOBDIR,
+    output            XOBDIR,  //~OIBDIR 
     output            RAM2VLD,
     output     [10:1] FDA,
     output            DMARD,
     output      [3:0] VMT,
     output            EVNWR2, 
     output            ODDWR2,
-    output            OIBDIR,
+    output            OIBDIR,  //~XOBDIR
     output            OBUSRQ,
     output            OBUSDIR,
     output      [5:0] DMA2_EA,
@@ -78,7 +79,7 @@ wire [1:0] NC2;
 
 LS161 u143(
     .clk(clk),
-    .rst(XOBDIR), //XXX == clr 
+    .rst(XOBDIR), //XXX == clr ?  
     .CEN(RDCLK),
     .LOAD_n(LSBLD),
     .ENP(1'b1),
@@ -107,7 +108,7 @@ PLD24 u_pld24(
    .VFIND(VFIND),
 /// 
    .MATCHV(MATCHV),
-   .OBJEN_3(),
+   .OBJEN_3(OBJEN_3),
    .LSBLD(LSBLD),
    .XOBDIR(XOBDIR),
    .RAM2VLD(RAM2VLD),
@@ -205,67 +206,48 @@ assign DMARD = !OIBDIR ? 1'b0 : 1'b1; //z ?
 
 //2x SG0140 special mode !
 // XXX easier to create an other sg0140 ? 
-sg0140 u1411(
-  .clk(),
-  .cen(), 
-  .MODE(),
-
-  //BK1 
-  .PIC_A(), 
-  //input     PIC_A_EN 6Mhz //enable color  ? 
-  .COL_A(),  
-  .COL_A_EN(),// LATCH PALETTE 
-  .MASK_A(), // CLEAR COLOR ? 
-
-  // CHAR
-  .PIC_B(),
-  //input     PIC_B_EN 6Mhz //enable color  ? 
-  .COL_B(),
-  .COL_B_EN(),   // LATCH PALETTE 
-  .MASK_B(), //CLEAR COLOR ? 
-
-  //out 
-  .ON_A(), //pin 8 
-  .ON_B(), //pin 7
-  .Q() 
+sg0140_vcheck u1411(
+  .clk(clk),
+  .rst(rst),
+  .VPD(VPD[7:0]),
+  .ODMARQ(ODMARQ),
+  .OBUSAK(OBUSAK),
+  .SDTS(SDTS),
+  .VORIGIN(VORIGIN),
+  .OVER256(OVER256),
+  .OVER48(OVER48), //??
+  .VREVD_2(VREVD_2),
+  .OBJEN_3(OBJEN_3),
+  .H2(H_POS[2]),
+  //.SW(1'b0),
+  .VCLK(VCLK),
+  .VREV(VREV),
+  .NV256(NV256),
+  //output 
+  .VMT(VMT[3:0]),
+  .EVNWR2(EVNWR2),
+  .ODDWR2(ODDWR2),
+  .OIBDIR(OIBDIR),
+  .OBUSRQ(OBUSRQ)
 );
 
+assign OBUSDIR = OIBDIR; // check that on board ?
+
 wire VFIND = 1'b0;
+wire OVER48 = 1'b0;
 assign VMT[3:0] = 4'b0;
 assign EVNWR2 = 1'b0;
 assign ODDWR2 = 1'b0;
 
 // XXX easiter to create an other sg0140 impl ?
-sg0140 u1412(
-  .clk(),
-  .cen(), 
-  .MODE(),
-
-  //BK1 
-  .PIC_A(), 
-  //input     PIC_A_EN 6Mhz //enable color  ? 
-  .COL_A(),  
-  .COL_A_EN(),// LATCH PALETTE 
-  .MASK_A(), // CLEAR COLOR ? 
-
-  // CHAR
-  .PIC_B(),
-  //input     PIC_B_EN 6Mhz //enable color  ? 
-  .COL_B(),
-  .COL_B_EN(),   // LATCH PALETTE 
-  .MASK_B(), //CLEAR COLOR ? 
-
-  //out 
-  .ON_A(), //pin 8 
-  .ON_B(), //pin 7
-  .Q() 
+sg0140_sort40 u1412(
+  .clk(clk),
+  //.cen(),
+  .rst(rst)
 );
 
-assign DMA2_EA[5:0] = 6'b0;
-assign DMA2_OA[5:0] = 6'b0;
-assign OIBDIR = 1'b0;
-assign OBUSRQ = 1'b0;  
-assign OBUSDIR = 1'b1; //active low ? 
+//assign DMA2_EA[5:0] = 6'b0;
+//assign DMA2_OA[5:0] = 6'b0;
 //74LS244 u1413 22K
 // XXX IMPL THAT out goes tothe counter 269  
 //assign Y1_4 = (!OE1_n) ? A1_4 : 4'bz;  // Tri-state si OE1_n = 1

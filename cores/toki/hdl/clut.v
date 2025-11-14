@@ -52,8 +52,8 @@ wire S4ON, S1ON;
 
 sg0140    sg0140_u(
   .clk(clk),
+  //.rst(1'b0),
   .cen(N6M), 
-  .MODE(2'b00), //  ABSEL
 
   .PIC_A(S1PIC),
   .COL_A(S1COL), 
@@ -64,11 +64,12 @@ sg0140    sg0140_u(
   .COL_B(S4COL), 
   .COL_B_EN(S4CLLT),
   .MASK_B(S4MASK),
+  .MODE(2'b00), //  ABSEL
 
+  //output 
+  .Q(s1_s4_out),
   .ON_A(S1ON),
-  .ON_B(S4ON),
-  
-  .Q(s1_s4_out) 
+  .ON_B(S4ON)
 ); 
 
 // PROM 27 3J
