@@ -206,7 +206,7 @@ toki_video u_video(
   .g(green),
   .b(blue),
 
-  //GFX ROM 
+  //CHAR ROM 
   .char_rom_1_data(char_rom_1_data),
   .char_rom_1_ok(char_rom_1_ok),
   .char_rom_1_addr(char_rom_1_addr),
@@ -216,27 +216,32 @@ toki_video u_video(
   .char_rom_2_ok(char_rom_2_ok),
   .char_rom_2_addr(char_rom_2_addr),
   .char_rom_2_cs(char_rom_2_cs),
+  //OBJ ROM 
+  .obj_rom_1_data(obj_rom_1_data),
+  .obj_rom_1_ok(obj_rom_1_ok),
+  .obj_rom_1_addr(obj_rom_1_addr),
+  .obj_rom_1_cs(obj_rom_1_cs),
 
-  .obj_rom_data(obj_rom_data),
-  .obj_rom_ok(obj_rom_ok),
-  .obj_rom_addr(obj_rom_addr),
-  .obj_rom_cs(obj_rom_cs),
-
+  .obj_rom_2_data(obj_rom_2_data),
+  .obj_rom_2_ok(obj_rom_2_ok),
+  .obj_rom_2_addr(obj_rom_2_addr),
+  .obj_rom_2_cs(obj_rom_2_cs),
+  // BK1 
   .bk1_rom_data(bk1_rom_data),
   .bk1_rom_ok(bk1_rom_ok),
   .bk1_rom_addr(bk1_rom_addr),
   .bk1_rom_cs(bk1_rom_cs),
-
+  // BK2 
   .bk2_rom_data(bk2_rom_data),
   .bk2_rom_ok(bk2_rom_ok),
   .bk2_rom_addr(bk2_rom_addr),
   .bk2_rom_cs(bk2_rom_cs),
-
+  // PROM 26 
   .prom_26_data(prom_26_data),
   .prom_26_ok(prom_26_ok),
   .prom_26_cs(prom_26_cs),
   .prom_26_addr(prom_26_addr),
-
+  // PROM 27 
   .prom_27_data(prom_27_data),
   .prom_27_ok(prom_27_ok),
   .prom_27_cs(prom_27_cs),

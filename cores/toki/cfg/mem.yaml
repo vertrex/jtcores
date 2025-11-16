@@ -16,8 +16,6 @@ params:
   #- { name: PROM27_OFFSET,    value: "22'h19080" }     # 131072/2 0x10_000
   #- { name: CHAR_2_OFFSET,    value: "22'h8000"}
 clocks:
-
-clocks:
   clk:
     - freq:  1000000
       outputs:
@@ -58,6 +56,7 @@ clocks:
 sdram:
   banks:
     - buses:
+      # in bram ?
         - name: cpu_rom
           addr_width: 19
           data_width: 16
@@ -73,10 +72,12 @@ sdram:
           #cs: LVBL
     - buses:
         # obj rom
-        - name: obj_rom
-          addr_width: 20
+        - name: obj_rom_1
+          addr_width: 19
           data_width: 16
-
+        - name: obj_rom_2
+          addr_width: 19
+          data_width: 16
         - name: bk1_rom
           addr_width: 19
           data_width: 16
@@ -92,6 +93,8 @@ sdram:
         - name: bk2_rom
           addr_width: 19
           data_width: 16
+
+    # ..
         - name: z80_rom
           addr_width: 13
           data_width: 8

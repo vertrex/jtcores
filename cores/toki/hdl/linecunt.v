@@ -19,11 +19,15 @@ module LINECUNT(
    input         VH4,  // cen 
    input         VH8,  // cen 
    input         NOOBJ,  // ? 
-   input  [15:0] obj_rom_data,
-   input         obj_rom_ok,
+   input  [15:0] obj_rom_1_data,
+   input         obj_rom_1_ok,
+   input  [15:0] obj_rom_2_data,
+   input         obj_rom_2_ok,
 //output 
-   output [19:1] obj_rom_addr,
-   output        obj_rom_cs,
+   output [18:1] obj_rom_1_addr,
+   output        obj_rom_1_cs,
+   output [18:1] obj_rom_2_addr,
+   output        obj_rom_2_cs,
    output  [3:0] OBJCOL,
    output        OBJ_HREV,
    output        OSP1,
@@ -89,21 +93,22 @@ LS273 u175_21E(
 //ROM 20C
 //HN62404 
 //4M-bit 
+assign obj_rom_1_cs = 1'b1; //OE => 74LS273 22E Q7 XXX
 
 //ROM 22C 
 //HN62404
 //4M-bit 
-assign obj_rom_cs = 1'b1; //OE => 74LS273 22E Q7 XXX
+assign obj_rom_2_cs = 1'b1; //OE => 74LS273 22E Q7 XXX
 //split in two ? on original use two separated rom of 16bits 
 //read same address on the two but enable one or the other with an inverter
 //U177 22F
 //WE USE ONE ROM NOT TWO SO IT WILL NOT WORK AS IT WE NEED TO << 1 ?  
 //assign obj_rom_addr[19:1] = {u174_Q[6:4], SG0140_Q[4:0], u174_Q[3:0], VH8, u175_Q[3:0], VH4};
-assign obj_rom_addr[19:1] = {u174_Q[6:4], ADDR[4:0], u174_Q[3:0], VH8, u175_Q[3:0], VH4, 1'b1};
+assign obj_rom_1_addr[18:1] = {u174_Q[6:4], ADDR[4:0], u174_Q[3:0], VH8, u175_Q[3:0], VH4};
+assign obj_rom_2_addr[18:1] = {u174_Q[6:4], ADDR[4:0], u174_Q[3:0], VH8, u175_Q[3:0], VH4};
 //wait for obj_rom_ok ? XXX
 
-assign PD[15:0] = obj_rom_data[15:0];
-
+assign PD[15:0] = ~ROM_CE ? obj_rom_1_data[15:0] : obj_rom_2_data[15:0];
 
 //SEI0140 16D 
 //MODE=OHMAX 
@@ -153,7 +158,7 @@ LS273 u176(
 );
 
 //74LS04 U177
-wire ROM_CE_N = ~ROM_CE;
+//wire ROM_CE_N = ~ROM_CE;
 
 //74LS273
 //14D 
