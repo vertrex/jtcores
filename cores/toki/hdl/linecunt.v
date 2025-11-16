@@ -39,19 +39,6 @@ module LINECUNT(
    output  [8:0] E2A      // even 2 address 
 );
 
-////////// NOT DRIVEN ///////////// 
-assign OSP1 = 1'b0;
-assign OSP2 = 1'b0;
-assign EVNCLR = 1'b0;
-assign ODDCLR = 1'b0;
-assign O1A[8:0] = 9'b0;
-assign E1A[8:0] = 9'b0;
-assign ODDWREN = 1'b0;
-assign EVNWREN = 1'b0;
-assign O2A[8:0] = 9'b0;
-assign E2A[8:0] = 9'b0;
-///////////////////////////////////
-
 // 74LS174 20F 
 wire [5:0] u171_Q;
 
@@ -132,26 +119,51 @@ sg0140_ohmax sg0140_u174_16D(
    .clk(clk),
    .rst(RESETA), // pin 40 
    //41, 9, 10, 28-36 1'b0
-   .A_EN(CTLT1),
-   .B_EN(CTLT2),
+   .CTLT1(CTLT1),
+   .CTLT2(CTLT2),
    //38 CLT1 clk   / ? 
    //39 CLT2 clk 2 / en2 ? 
    //36,37 1'b1 OHMAX mode
+   //.Q({NOOBJ_CT2, ADDR[4:0] ,OH[8:4]})
+
    .MODE(2'b11), //OHMAX mode
-   //3 HREV //HREY ?
-   .HREV(1'b1), // XXX
-   .D({OVD[7:4], NOOBJ, OVD[8]}),  //11-16
-   .Q({NOOBJ_CT2, ADDR[4:0] ,OH[8:4]})
+   .NOOBJ(NOOBJ),
+   .OVD(OVD[8:4]),
+   .HREV(1'b1), ////3 HREV //HREY ?
+   //output 
+   .OH(OH[8:4]),
+   .ADDR(ADDR[4:0]),
+   .NOOBJ_CT2(NOOBJ_CT2)
+   //.D({OVD[7:4], NOOBJ, OVD[8]}),  //11-16
 );
-
-
 
 
 //74LS273 
 //22E 
 
+wire [8:0] FH;
+wire ROM_CE;
+
+LS273 u176(
+   .CLK(clk),
+   .CLRn(1'b1),
+   .CEN(CTLT2),
+   .D({OH[8], OVD[15],  SPR2_3, SPR1_3 ,OVD[3:0]}),
+   .Q({FH[8], ROM_CE, OSP2 ,OSP1 ,OH[3:0]})
+);
+
+//74LS04 U177
+wire ROM_CE_N = ~ROM_CE;
+
 //74LS273
 //14D 
+LS273 u1716(
+   .CLK(clk),
+   .CLRn(1'b1),
+   .CEN(CTLT2),
+   .D(OH[7:0]),
+   .Q(FH[7:0])
+);
 
 // transform object H position into an address that will match the line buffer
 // position ? so we can get the data via the address ?
@@ -165,14 +177,49 @@ sg0140_ohmax sg0140_u174_16D(
 //SEI0060BU
 //12CD
 
+SEI0060BU sei60bu_u1711(
+   .clk(clk),
+   .cen(OBJ_N6M),
+   .ADDR(FH[8:0]),
+   .ODD_LD(ODD_LD),
+   .EVN_LD(EVN_LD),
+   .HBLB(HBLB),
+   .OBJT2_7(OBJT2_7),
+   .V1B(V1B),
+   .T8H(T8H),
+   .HREV(HREV),
+   .OA(O1A[8:0]),
+   .EA(E1A[8:0]),
+   .EVNCLR(EVNCLR),
+   .ODDCLR(ODDCLR)
+);
+
+
 //74LS04 
 //22F 
 
+assign ODDWREN = ~ODDCLR;
+assign EVNWREN = ~EVNCLR;
 
 //SEI0060BU
 //16CD 
 
-
+SEI0060BU sei60bu_u1712(
+   .clk(clk),
+   .cen(OBJ_N6M),
+   .ADDR(OH[8:0]),
+   .ODD_LD(ODD_LD),
+   .EVN_LD(EVN_LD),
+   .HBLB(HBLB),
+   .OBJT2_7(OBJT2_7),
+   .V1B(V1B),
+   .T8H(T8H),
+   .HREV(HREV),
+   .OA(O2A[8:0]),
+   .EA(E2A[8:0]),
+   .EVNCLR(EVNCLR),
+   .ODDCLR(ODDCLR)
+);
 
 
 endmodule 

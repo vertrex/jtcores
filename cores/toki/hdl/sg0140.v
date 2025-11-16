@@ -80,26 +80,35 @@ module sg0140_ohmax(
   input       cen,
   input [1:0] MODE,
 
-  input [5:0] D, 
+  //input [5:0] D, 
+  input NOOBJ,
+  input [4:0] OVD,
   input HREV, //pin 3 (MASK_A ?)
-  input A_EN, //pin 38 //
-  input B_EN, //pin 39 //PIC_A_EN (6mhz)
+  input CTLT1 , //pin 38 //
+  input CTLT2, //pin 39 //PIC_A_EN (6mhz)
   
-
-  output reg [10:0] Q 
-
-  
-
-//  output reg  ON_A, 
-//  output reg  ON_B, 
+  //Q 
+  output reg [8:4] OH ,
+  output reg [4:0] ADDR,
+  output reg NOOBJ_CT2
 ); 
 
-always @(posedge clk or posedge rst)
-  if (rst)
-    Q <= 11'b0;
-  else 
-    Q <= { D[5:0], D[4:0]};
+always @(posedge clk or posedge rst) begin 
+  if (rst) begin 
+    OH <= 5'b0;
+    ADDR  <= 5'b0;
+    end 
 
+  if (CTLT1)
+    OH[8:4]  <= OVD[4:0]; 
+
+  if (CTLT2)
+    ADDR[4:0] <= OVD[4:0]; 
+
+  if (CTLT2)
+    NOOBJ_CT2 <= NOOBJ;
+  //Q <= { NOOBJ_CT2, D[4:0], D[4:0]};
+  end 
 endmodule
 
 ///////////////////////////////////////////////////
@@ -123,11 +132,14 @@ module sg0140_vcheck(
   input             VREV,    // screen rev ?
   input             NV256,   // < hpos 256 pix ?
   //output 
-  output reg  [3:0] VMT,
-  output reg        EVNWR2,
-  output reg        ODDWR2,
+  output reg  [3:0] VMT, // == VA address of obj in rom (rom_words_index)  
+  //address is 19:1 
+  output reg        EVNWR2, // use DMA2_EA of other sg0140 ? 
+  output reg        ODDWR2, // use DMA2_OA of other sg0140 in scndma
+
   output reg        OIBDIR,
-  output reg        OBUSRQ
+  output reg        OBUSRQ,
+  output reg        VFIND //update other sg140 to find next ? 
 );
 
 reg [19:0] UNUSED;
@@ -135,16 +147,40 @@ reg [19:0] UNUSED;
 always @(posedge clk or posedge rst) begin 
   if (rst) begin 
     end 
-  else if (clk) begin  //cen ? 
-      VMT <= 4'b0; //XXX 
-      EVNWR2 <= 1'b1; //XXX 
-      ODDWR2<= 1'b1; //XXX 
-      OIBDIR <= 1'b1; //XXX 
-      OBUSRQ <= 1'b1;
+  else if (VCLK) begin  //cen ? 
+      //OUTPUT VMT (part of address in rom ) dpeending on other paramter 
+      //make some calculus if ver256, have origin, bus 
+      //is on etc . 
+      //
+      //if VPD > odd or evn ?
+      //OBUSAK , SDTDS, VORIGIN, OVER256, OVER48 
+      //OBJEN <VREVD, VREV TO CHECK 
+      //if all is ok we can write ?
+
+      if (~NV256 & ~ODMARQ) begin 
+        if (H2 == 1'b1) begin 
+          VMT <= VPD[3:0];  //ND1 [3:0 ]
+          EVNWR2 <= 1'b0; 
+          OIBDIR <= 1'b0; 
+          VFIND <= 1'b0; 
+          OBUSRQ <= 1'b0;
+          end 
+        else  begin 
+          VMT <= VPD[7:4]; //ND2[8:4]
+          ODDWR2 <= 1'b0;
+          OIBDIR <= 1'b0; 
+          VFIND <= 1'b0;
+          OBUSRQ <= 1'b0; 
+          end 
+        end 
+
+      else begin 
+        EVNWR2 <= 1'b1; //active low  //XXX 
+        ODDWR2<= 1'b1; //active low XXX 
+        OIBDIR <= 1'b1; //XXX 
+        OBUSRQ <= 1'b1;
+        end 
   end
-
-  UNUSED <= {NV256, VREV, VCLK, H2, OBJEN_3, VREVD_2, OVER48, OVER256, VORIGIN, SDTS, OBUSAK, ODMARQ, VPD[7:0]}; 
-
 end 
 
 
@@ -156,19 +192,55 @@ endmodule
 
 module sg0140_sort40(
   input       clk,
-  input       rst //pin 40
-  //input       cen,
-  //input [1:0] MODE,
+  input       rst, //pin 40
 
-  //input [5:0] D, 
-  //input HREV, //pin 3 (MASK_A ?)
-  //input A_EN, //pin 38 //
-  //input B_EN, //pin 39 //PIC_A_EN (6mhz)
+  input   RDCLK, //main clk ? 
+
+  // condition ? 
+  //input   OVER48, //active high 
+  input   VFIND,
+  input   XSDTS,
+  input   ILD2,
+  input   NH2,  //~h_pos[1] 
+
+  //clk & enable ? 
+  input   V1B,  //vpos[0]
+  input   H2,   // 38 A_EN ?  //h_pos[1]
+  input   H2_2, //h_pos[1] EN ? 
   
-
-  //output reg [10:0] Q 
+  // 5 output signal do DMA2 ???? 
+  input   H16,  //h_pos[4]
+  input   H32,  //h_pos[5]
+  input   H64,  //h_pos[6]
+  input   H128, //h_pos[7]
+  input   H256, //h_pos[8]
+  
+  output reg  OVER48,
+  output reg  [5:0] DMA2_EA,
+  output reg  [5:0] DMA2_OA
 );
 
 
+always @(posedge clk, posedge rst) begin 
+  if (rst) begin 
+      DMA2_EA <= 6'b0; 
+      DMA2_OA <= 6'b0;
+      end 
+  else if (RDCLK) begin 
+    if (~VFIND & ~XSDTS & ~ILD2) begin 
+      if (V1B == 1'b1)  begin  //ligne impair  ? 
+        DMA2_OA <= {H256, H128, H64, H32, H16, NH2}; 
+        end 
+      else begin 
+        DMA2_EA <= {H256, H128, H64, H32, H16, NH2};
+        end 
+      OVER48 <= 1'b1; 
+      end
+    else 
+      OVER48 <= 1'b0;
+  end 
+
+end 
+  
 
 endmodule 

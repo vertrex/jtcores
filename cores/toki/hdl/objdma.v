@@ -42,7 +42,7 @@ module OBJDMA(
     input             H_256,
     input             V1, //? 
     //output 
-    output            MATCHV,
+    output            MATCHV, // == NOOBJ 
     output            XOBDIR,  //~OIBDIR 
     output            RAM2VLD,
     output     [10:1] FDA,
@@ -55,7 +55,7 @@ module OBJDMA(
     output            OBUSDIR,
     output      [5:0] DMA2_EA,
     output      [5:0] DMA2_OA,
-    output            ODH,
+    output            ODH, // == ODHREV
     output            SPR1_2, 
     output            SPR2_2
 );
@@ -95,6 +95,7 @@ wire MSBLD;
 wire MSBET; 
 wire ILD2; 
 wire OVER256;
+wire VFIND;
 
 PLD24 u_pld24(
    .FDA_1(FDA[1]),
@@ -107,7 +108,7 @@ PLD24 u_pld24(
    .OBJEN_2(OBJEN_2),
    .VFIND(VFIND),
 /// 
-   .MATCHV(MATCHV),
+   .MATCHV(MATCHV), // ==NOOBJ 
    .OBJEN_3(OBJEN_3),
    .LSBLD(LSBLD),
    .XOBDIR(XOBDIR),
@@ -204,54 +205,69 @@ ttl_74F269 u147(
 //assign {DMARD, MAB_OUT[15:1]} = !OIBDIR ? { 6'b011011 , FDA[10:1]} : {16'b0};
 assign DMARD = !OIBDIR ? 1'b0 : 1'b1; //z ? 
 
+
+// check if sprite intersect with current line ? 
+// sprite is 16x16 
+// 
+wire OVER48;
+
 //2x SG0140 special mode !
 // XXX easier to create an other sg0140 ? 
 sg0140_vcheck u1411(
   .clk(clk),
   .rst(rst),
-  .VPD(VPD[7:0]),
+  .VPD(VPD[7:0]), // {ND2[8:4], ND1[3:0]} 
   .ODMARQ(ODMARQ),
   .OBUSAK(OBUSAK),
   .SDTS(SDTS),
   .VORIGIN(VORIGIN),
-  .OVER256(OVER256),
+  .OVER256(OVER256),  
   .OVER48(OVER48), //??
-  .VREVD_2(VREVD_2),
-  .OBJEN_3(OBJEN_3),
+  .VREVD_2(VREVD_2),  // sprite 1 or sprite 2 (to know to which ram send it ?)
+  .OBJEN_3(OBJEN_3), //obj metadata sprite valid ? 
   .H2(H_POS[2]),
   //.SW(1'b0),
   .VCLK(VCLK),
   .VREV(VREV),
   .NV256(NV256),
   //output 
-  .VMT(VMT[3:0]),
-  .EVNWR2(EVNWR2),
-  .ODDWR2(ODDWR2),
-  .OIBDIR(OIBDIR),
-  .OBUSRQ(OBUSRQ)
+  .VMT(VMT[3:0]), // == VA1,2,3,4 address oj obj  in ROM  
+  .EVNWR2(EVNWR2),  // enable other sg0140 DMA2_EA 
+  .ODDWR2(ODDWR2),  //enable other sg0140 DMA2_OA 
+  .OIBDIR(OIBDIR), //change bus dir to activate dma? 
+  .OBUSRQ(OBUSRQ), //addres bus request to activate dma ?
+  .VFIND(VFIND)  //activate other SG140 
 );
-
-assign OBUSDIR = OIBDIR; // check that on board ?
-
-wire VFIND = 1'b0;
-wire OVER48 = 1'b0;
-assign VMT[3:0] = 4'b0;
-assign EVNWR2 = 1'b0;
-assign ODDWR2 = 1'b0;
-
-// XXX easiter to create an other sg0140 impl ?
-sg0140_sort40 u1412(
-  .clk(clk),
-  //.cen(),
-  .rst(rst)
-);
-
-//assign DMA2_EA[5:0] = 6'b0;
-//assign DMA2_OA[5:0] = 6'b0;
 //74LS244 u1413 22K
 // XXX IMPL THAT out goes tothe counter 269  
 //assign Y1_4 = (!OE1_n) ? A1_4 : 4'bz;  // Tri-state si OE1_n = 1
 //assign {RDCLK_, OBUSDIR ,OBUSRQ, OIBDIR} can assign directly to sg0140
 //output
+
+assign OBUSDIR = OIBDIR; // check that on board ?
+
+// XXX easiter to create an other sg0140 impl ?
+sg0140_sort40 u1412(
+  .clk(clk),
+  .rst(rst),
+  //.cen(),
+  .RDCLK(RDCLK),
+  .VFIND(VFIND),
+  .XSDTS(XSDTS),
+  .ILD2(ILD2),
+  .NH2(~H_POS[1]),
+  .V1B(V1),
+  .H2(H_POS[1]),
+  .H2_2(H_POS[1]),
+  .H16(H_POS[4]),
+  .H32(H_POS[5]),
+  .H64(H_POS[6]),
+  .H128(H_POS[7]),
+  .H256(H_POS[8]),
+
+  .OVER48(OVER48), //activate other sg0140 
+  .DMA2_EA(DMA2_EA),
+  .DMA2_OA(DMA2_OA)
+);
 
 endmodule
