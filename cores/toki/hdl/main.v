@@ -179,7 +179,7 @@ fx68k fx68k (
 
 assign MAB[17:1] = !BUSOPN  ? cpu_a[17:1] : 
                    !MBUSDIR ? {2'b0, 3'b111, KDA[12:1]} :
-                   !OIBDIR  ? {1'b0, 6'b011011 , FDA[10:1]} : //XXX REPLACE 1'b0 by DMARD !!!!
+                   !OIBDIR  ? {1'b0, 6'b011011, FDA[10:1]} : //XXX REPLACE 1'b0 by DMARD !!!!
                   //OIBDIR ==1'b0  == FDA_OUT ?  we must do the same for OBJ !
                   //and handle obj DMARD !
                   //DMARD this is video_DMARD to handle to from dma module

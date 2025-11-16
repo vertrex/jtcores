@@ -25,10 +25,10 @@ module scrn_bk(
   input           [8:0] hpos, 
   input           [8:0] vpos,
 
-  input          [15:0] gfx_rom_data,
-  input                 gfx_rom_ok,
-  output  reg    [18:1] gfx_rom_addr,
-  output                gfx_rom_cs,
+  input          [15:0] rom_data,
+  input                 rom_ok,
+  output  reg    [18:1] rom_addr,
+  output                rom_cs,
 
   output          [3:0] color,
   output          [3:0] code,
@@ -95,7 +95,7 @@ sis6091 #(.AW(10)) u_bk1_ram(
   .q1(ram_out)
 );
 
-assign gfx_rom_cs = 1'b1;
+assign rom_cs = 1'b1;
 //ram_out clock :  scrolled_hpos[0] 
 //scrolled_hpos clock : N6M 
 //scrolled_vpos clock : N6M 
@@ -105,8 +105,8 @@ always @(posedge clk) begin
      if (scrolled_hpos[1:0] == 2'b01) begin // XXX THIS WHAT MAKE GLITCH !!!!!!h
        //IF s21_hsync on voie clairemnet les bar sans le gitch au dcebut donc
        //decalage de 128 trouver la bonne vlaue ici ou dans le sei021bu
-      //put only gfx_rom_cs here ? 
-      gfx_rom_addr[18:1] <= {ram_out[11:0], scrolled_hpos[3], scrolled_vpos[3:0], scrolled_hpos[2]}; 
+      //put only rom_cs here ? 
+      rom_addr[18:1] <= {ram_out[11:0], scrolled_hpos[3], scrolled_vpos[3:0], scrolled_hpos[2]}; 
     end
   end 
 end 
@@ -115,8 +115,8 @@ reg [15:0] data;
 
 //it some time glitch because there is not enough throughptu ?
 always @(posedge clk) begin 
-  if (gfx_rom_ok)
-    data <= gfx_rom_data;
+  if (rom_ok)
+    data <= rom_data;
   else 
     data <= 16'hffff;
 end 

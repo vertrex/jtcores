@@ -49,20 +49,20 @@ module toki_video(
   output     [15:0] char_rom_2_addr,
   output            char_rom_2_cs,
 
-  input      [15:0] gfx2_rom_data,
-  input             gfx2_rom_ok,
-  output     [19:1] gfx2_rom_addr,
-  output            gfx2_rom_cs,
+  input      [15:0] obj_rom_data,
+  input             obj_rom_ok,
+  output     [19:1] obj_rom_addr,
+  output            obj_rom_cs,
 
-  input      [15:0] gfx3_rom_data,
-  input             gfx3_rom_ok,
-  output     [18:1] gfx3_rom_addr,
-  output            gfx3_rom_cs,
+  input      [15:0] bk1_rom_data,
+  input             bk1_rom_ok,
+  output     [18:1] bk1_rom_addr,
+  output            bk1_rom_cs,
 
-  input      [15:0] gfx4_rom_data,
-  input             gfx4_rom_ok,
-  output     [18:1] gfx4_rom_addr,
-  output            gfx4_rom_cs,
+  input      [15:0] bk2_rom_data,
+  input             bk2_rom_ok,
+  output     [18:1] bk2_rom_addr,
+  output            bk2_rom_cs,
 
   input      [7:0]  prom_26_data,
   input             prom_26_ok,
@@ -257,10 +257,10 @@ scrn_bk bk1_u(
   .hpos(hpos[8:0]),
   .vpos(vpos[8:0]),
 
-  .gfx_rom_data(gfx3_rom_data),
-  .gfx_rom_ok(gfx3_rom_ok),
-  .gfx_rom_addr(gfx3_rom_addr),
-  .gfx_rom_cs(gfx3_rom_cs),
+  .rom_data(bk1_rom_data),
+  .rom_ok(bk1_rom_ok),
+  .rom_addr(bk1_rom_addr),
+  .rom_cs(bk1_rom_cs),
 
   .color(bk1_color),
   .code(bk1_code),
@@ -294,10 +294,10 @@ scrn_bk bk2_u(
   .hpos(hpos[8:0]),
   .vpos(vpos[8:0]),
 
-  .gfx_rom_data(gfx4_rom_data),
-  .gfx_rom_ok(gfx4_rom_ok), //glitch if at same time than sound because not enoughtrouput XXX !
-  .gfx_rom_addr(gfx4_rom_addr),
-  .gfx_rom_cs(gfx4_rom_cs),
+  .rom_data(bk2_rom_data),
+  .rom_ok(bk2_rom_ok), //glitch if at same time than sound because not enoughtrouput XXX !
+  .rom_addr(bk2_rom_addr),
+  .rom_cs(bk2_rom_cs),
 
   .color(bk2_color),
   .code(bk2_code),
@@ -328,10 +328,10 @@ scan_obj_ram scan_obj_ram_u(
   .ram_addr(obj_addr),
   .ram_out(obj_out),
 
-  .gfx_rom_data(gfx2_rom_data),
-  .gfx_rom_ok(gfx2_rom_ok),
-  .gfx_rom_addr(gfx2_rom_addr),
-  .gfx_rom_cs(gfx2_rom_cs),
+  .gfx_rom_data(obj_rom_data),
+  .gfx_rom_ok(obj_rom_ok),
+  .gfx_rom_addr(obj_rom_addr),
+  .gfx_rom_cs(obj_rom_cs),
 
   .line_buffer_addr(hpos[7:0] + 1), //+ 1 to latch the pixel ? 
   .line_buffer_out(obj)
@@ -428,12 +428,12 @@ obj obj_u(
   .OPSREV(OPSREV),
   .VH4(VH4),
   .VH8(VH8),
-  .obj_rom_data(gfx2_rom_data),
-  .obj_rom_ok(gfx2_rom_ok),
+  .obj_rom_data(obj_rom_data),
+  .obj_rom_ok(obj_rom_ok),
 
   //output
-  .obj_rom_cs(gfx2_rom_cs),
-  .obj_rom_addr(gfx2_rom_addr),
+  .obj_rom_cs(obj_rom_cs),
+  .obj_rom_addr(obj_rom_addr),
   .OBUSRQ(OBUSRQ),
   .OBUSDIR(OBUSDIR),
   .OBJON(OBJON),
@@ -445,11 +445,14 @@ obj obj_u(
   .OBJ_HREV(OBJ_HREV)
 );
 
+//assign OBUSRQ = 1'b1;
+//assign OBUSDIR = 1'b1;
+//assign OIBDIR = 1'b1;
 
-//assign obj = 8'hff;
-//wire obj_on = 1'b0;
-//wire prior_c = 1'b0;
-//wire prior_d = 1'b0;
+//assign OBJON = 1'b0;
+//assign PRIOR_C = 1'b0;
+//assign PRIOR_D = 1'b0;
+//assign OOD= 8'hff;
 
 // XXX @ ... ?
 wire MASK =  HBLB & L3;//XXX; L3 IS NOT GOOD in sei50bu.v !

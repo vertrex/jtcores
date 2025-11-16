@@ -73,11 +73,11 @@ sdram:
           #cs: LVBL
     - buses:
         # obj rom
-        - name: gfx2_rom
+        - name: obj_rom
           addr_width: 20
           data_width: 16
 
-        - name: gfx3_rom
+        - name: bk1_rom
           addr_width: 19
           data_width: 16
           offset : GFX_3_OFFSET
@@ -89,7 +89,7 @@ sdram:
           #cs: LVBL
     - buses:
       #rom + music on same bus make glitch not fast enough
-        - name: gfx4_rom
+        - name: bk2_rom
           addr_width: 19
           data_width: 16
         - name: z80_rom

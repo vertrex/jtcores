@@ -114,7 +114,7 @@ always @(posedge clk) begin
 
 
 assign palette_addr[10:1] =  
-                             //prom_27_data[0] == 1'b1 ?  { prom_27_data[3:2], OOD[7:0] } : 
+                             prom_27_data[0] == 1'b1 ?  { prom_27_data[3:2], OOD[7:0] } : 
                              prom_27_data[1] == 1'b0 ?  { prom_27_data[3:2], s1_s4_out[7:0] } :
                                                         { prom_27_data[3:2], SCRN2[7:0] };
 

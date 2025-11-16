@@ -99,16 +99,19 @@ always @(posedge clk or posedge rst) begin
     ADDR  <= 5'b0;
     end 
 
-  if (CTLT1)
-    OH[8:4]  <= OVD[4:0]; 
+  else if (clk)begin 
+     if (CTLT1)
+      OH[8:4]  <= OVD[4:0]; 
 
-  if (CTLT2)
-    ADDR[4:0] <= OVD[4:0]; 
+    if (CTLT2)
+      ADDR[4:0] <= OVD[4:0]; 
 
-  if (CTLT2)
-    NOOBJ_CT2 <= NOOBJ;
-  //Q <= { NOOBJ_CT2, D[4:0], D[4:0]};
+    if (CTLT2)
+      NOOBJ_CT2 <= NOOBJ;
+    //Q <= { NOOBJ_CT2, D[4:0], D[4:0]};
   end 
+  
+end 
 endmodule
 
 ///////////////////////////////////////////////////
