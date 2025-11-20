@@ -164,7 +164,7 @@ module sg0140_vcheck(
   input             OVER256,// active low 15.61khz high always at same moment, evn and odd is high too
   
 
-  input             OVER48, // stable freuqnecy 
+  input             OVER48, // just an ack that VFIND was received by other sg0140 and we can continue ? 
   input             VREVD_2,// OBJ_DB[9] active low (active during attract when there is the magician), generally active when there is sprite but not during cave stuff  is that   isd that the 8 bit if > 256 or in other screen like {VREV, VPD} % 16  
   input             OBJEN_3,// it seem to only appear when there is a new object on the screen like toki, a fireball
   // or a new ennemy then it doesn't appear if it's already in memory ? 
@@ -197,8 +197,10 @@ module sg0140_vcheck(
   // but here we get it low before OIBDIR is getting low which is strange
   output reg        OBUSRQ, // ACTIVE LOW, low one cycle before OIBDIR CHANGE 
   
-  output reg        VFIND   // update other sg140 to find next ? 
+  output            VFIND   // == OVER256 (send OVER256 to next sg0140 ?)   
 );
+
+assign VFIND = OVER256;
 
 reg [8:0] line_number; 
 
@@ -206,58 +208,73 @@ always @(posedge clk or posedge rst) begin
   if (rst) begin
     OBUSRQ <= 1'b1; 
     OIBDIR <= 1'b1; 
-    VFIND <= 1'b1; 
     EVNWR2 <= 1; 
     ODDWR2 <= 1;
     end 
-/*
+
   else if (clk) begin 
     //reset line number
     //at vblank
     //
-    if (SDTS) 
-      line_number <= 0;
-    else if (VCLK) 
-      line_number <= line_number +  1; 
+    if (~RDCLK) begin // &SDTS ?  
 
-    if (ODMARQ)
-      //we acknowledge we receive dma request 
-      //and we're ready 
-      OBUSRQ <= 1'b0;
-    else 
-      OBUSRQ <= 1'b1; 
+      if (~SDTS) 
+        line_number <= 0;
+      else if (VCLK) 
+        line_number <= line_number +  1; 
 
-    // CPU IS READY WE  CAN READ DATA FROM MEMORY 
-    if (OBUSAK) 
-      OIBDIR <= 1'b0; 
-    //OIBDIR must be low until we get NV256 low  ? 
-    //becaue if NV256 is low it mean the dma counter finished 
-    if (OVER256 == 1'b0)
-      OIBDIR <= 1'b1;
+      if (~ODMARQ) begin 
+        //we acknowledge we receive dma request 
+        //and we're ready 
+        OBUSRQ <= 1'b0;
+        end 
 
-    if (RDCLK) begin // &SDTS ?  
-      //if line_number[0] 
-      EVNWR2 <= 0; 
-     //    else ?
-      ODDWR2 <= 0; 
+      // CPU IS READY WE  CAN READ DATA FROM MEMORY 
+      if (~OBUSAK)  begin 
+        OBUSRQ <= 1'b1; 
+        OIBDIR <= 1'b0; 
+        end 
+
+      //OIBDIR must be low until we get OVER256 low  ? 
+      //becaue if OVER256 is low it mean the dma counter finished
+      //so we can stop reading  from the memory bus 
+      // by setting oibdir to 0
+      if (OVER256 == 1'b0) begin 
+        OIBDIR <= 1'b1;
+        end 
 
       // if  < NV256  & OBJ_EN  ? to avoid reprocess it ? 
       // TEST ON TOKI sprite ?
       //output to EVNWR2 or ODDWR2 depending of line number [0] ? 
       if (line_number >= {1'b0, VPD[7:0]} + 15 && line_number <= {1'b0, VPD[7:0]} + 15) begin 
-          VMT[3:0] <= ((line_number - {VREVD_2, VPD[7:0]}) % 16);
-          //EVNWR2 <= 0; 
-         //    else ?
-          //ODDWR2 <= 0;
-        end 
-      else begin
-        EVNWR2 <= 1; 
-        ODDWR2 <= 1;
+        VMT[3:0] <= ((line_number - {VREVD_2, VPD[7:0]}) % 16);
       end 
 
-    end 
+      // EVNWR & ODDWR are clocked @rdclk 
+      // and are activated between OVER256 & OVER48 
 
-  end */
+      //XXX We;re stuck here becauuse we never put the line 
+      //down because the counter never start 
+      //so it never end because we never get OVER256 & OVER48 down
+      //as counter never start need to check u144..u147
+
+      if (~OVER256 & ~OVER48) begin 
+        if (line_number[0]) begin 
+          EVNWR2 <= 1'b0;
+          ODDWR2 <= 1'b1;
+          end 
+        else begin 
+          ODDWR2 <= 1'b0;
+          EVNWR2 <= 1'b1; 
+          end 
+        end 
+      else begin 
+        EVNWR2 <= 1'b1; 
+        ODDWR2 <= 1'b1;
+        end 
+    
+    end 
+  end 
 end 
 
 
@@ -275,7 +292,8 @@ module sg0140_sort40(
 
   // condition ? 
   //input   OVER48, //active high 
-  input   VFIND,
+  input   VFIND, //OVER256 active high when dma is counting 
+
   input   XSDTS,
   input   ILD2,
   input   NH2,  //~h_pos[1] 
@@ -292,7 +310,7 @@ module sg0140_sort40(
   input   H128, //h_pos[7]
   input   H256, //h_pos[8]
   
-  output reg  OVER48,
+  output reg  OVER48, //just ack that we receive vfind from the other sg0140 ? to syncrhonize ?
   output reg  [5:0] DMA2_EA,
   output reg  [5:0] DMA2_OA
 );
@@ -304,19 +322,20 @@ always @(posedge clk, posedge rst) begin
       DMA2_OA <= 6'b0;
       end 
   else if (RDCLK) begin  // &~XSDTS ? 
-    //if (~VFIND & ~XSDTS & ~ILD2) begin 
       if (V1B == 1'b1)  begin  //ligne impair  ? 
         DMA2_OA <= {H256, H128, H64, H32, H16, H2}; 
         end 
       else begin 
         DMA2_EA <= {H256, H128, H64, H32, H16, H2};
         end 
-      //OVER48 <= 1'b1; 
-      //end
-    //else 
-      OVER48 <= 1'b0;
-  end 
 
+        // CHECK CLOCK HERE BECAUSE VFIND TAKE SOME TIME SO IT MAY USE AN
+        // OTHER CLOCK TO CHANGE ILD2 ? XSDTS ??
+      if (VFIND == 1'b1) 
+        OVER48 <= 1'b0;
+      else 
+        OVER48 <= 1'b1;
+  end 
 end 
   
 

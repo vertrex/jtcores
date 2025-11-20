@@ -137,6 +137,10 @@ sis6091 u_141(
   .q1({NC[1:0], OBJEN_2, SPR2_2, SPR1_2, VREVD_2, ODH, INSCRN ,VPD[7:0]}) //xxx check that
 );
 
+/** 
+*  Obj DMA genreate FDA[10:3] addr to copy obj from cpu ram to sis6091 
+*/ 
+
 wire TC;
 wire Q_144;
 
