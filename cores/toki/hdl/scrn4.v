@@ -52,7 +52,7 @@ module scrn4(
 ///////// VIDEO RAM //////////
 wire [15:0] ram_out;
 
-sis6091 #(.AW(10)) u_vram_ram(
+sis6091 u_vram_ram(
   .clk0(clk),
   .cen0(WRN6M),
   //.data0(ram_do[15:0]), 

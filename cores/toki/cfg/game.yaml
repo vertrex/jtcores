@@ -17,6 +17,7 @@ game:
       - sei80bu.v
       - dual_ram_buffer.v
       - sis6091.v
+      - sis6091B.v
       - 74LS74.v
       - 74LS138.v
       - 74LS139.v

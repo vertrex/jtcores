@@ -46,8 +46,10 @@ wire [5:0] nc1;
 wire [5:0] nc2;
 wire [5:0] nc3;
 
+// XXX  THIS MODULE USE ONLY 6091B that are different than 6091 !!!
+
 // XXXX MUST ADD D1V_7p directio n?
-sis6091 u_181(
+sis6091B u_181(
   .clk0(clk),
   .cen0(OBJ_N6M), //31
   .data0({6'b0, OBJ1[9:0]}), //6,7,8,10,12-19,22-25
@@ -64,8 +66,8 @@ sis6091 u_181(
   .q1({nc0, Q_EVN1}) //42-56
 );
 
-//
-sis6091 u_182(
+//6091 B 
+sis6091B u_182(
   .clk0(clk),
   .cen0(OBJ_N6M), //31
   .data0({6'b0, OBJ2[9:0]}), //6,7,8,10,12-19,22-25
@@ -83,7 +85,7 @@ sis6091 u_182(
 );
 
 //
-sis6091 u_183(
+sis6091B u_183(
   .clk0(clk),
   .cen0(OBJ_N6M), //31
   .data0({6'b0, OBJ1[9:0]}), //6,7,8,10,12-19,22-25
@@ -101,7 +103,7 @@ sis6091 u_183(
 );
 
 //
-sis6091 u_184(
+sis6091B u_184(
   .clk0(clk),
   .cen0(OBJ_N6M), //31
   .data0({6'b0, OBJ2[9:0]}), //6,7,8,10,12-19,22-25

@@ -1,9 +1,3 @@
-// Generic 16-bit dual port RAM with clock enable
-// parameters:
-//      AW      => Address bit width, 10 for 1kB
-//      SIMFILE => binary file to load during simulation
-//      SIMHEXFILE => hexadecimal file to load during simulation
-
 /* 
 * SIS 6091 PIN 
 
@@ -51,28 +45,27 @@ Data = D0 only remove D1
 we must add a clear to set full ram to zero ! 
 */
 
-//fix AW=10 because it's always 10 anyway
-module sis6091 #(parameter AW=10)
+module sis6091
 (
     // Port 0
     input          clk0,
     input          cen0,
     input   [15:0] data0,
-    input   [AW:1] addr0,
+    input   [10:1] addr0,
     input   [ 1:0] we0,
     output  [15:0] q0,  //sis 6091 have only one output 
     // Port 1
     input          clk1,
     input          cen1,
     input   [15:0] data1, //sis 6091 have not data 1 it either use first add or scnd ?
-    input   [AW:1] addr1,
+    input   [10:1] addr1,
     input   [ 1:0] we1,
     output  [15:0] q1
 );
 
 jtframe_dual_ram_cen #(
     .DW        ( 8             ),
-    .AW        ( AW            )
+    .AW        ( 10            )
 )
 u_lo(
     .clk0       ( clk0              ),
@@ -93,7 +86,7 @@ u_lo(
 
 jtframe_dual_ram_cen #(
     .DW        ( 8             ),
-    .AW        ( AW            )
+    .AW        ( 10            )
 )
 u_hi(
     .clk0       ( clk0              ),

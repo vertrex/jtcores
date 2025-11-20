@@ -45,6 +45,7 @@ module PLD24(
                  ((~FDA_1) &  FDA_2 &  SDTS);
     assign RAM2VLD = ~t_o16;  // active-low output
 
+    // start dma counter ?
     assign MSBLD  = ( SDTS & (~OIBDIR)) |
                  ((~SDTS) &  DLHD);
 

@@ -29,8 +29,9 @@ module SCNDDMA(
 
 wire [8:1] CTA;
 
+// XXX IT'S a 6091 B pin are different than 6091 
 // 64 obj EVEN 
-sis6091 u_151(
+sis6091B u_151(
   .clk0(clk),
   .cen0(D1V_2), //DIV2 //31 //EVNWR@ active write 
   .data0({SPR2_2, SPR1_2, ODH, MATCHV , VMT[3:0] ,FDA[10:3]}), //6,7,8,10,12-19,22-25
@@ -53,9 +54,10 @@ sis6091 u_151(
 // addr + vmt ? match y ? + odh + sprite 
 // output addr to next chips 
 
+// XXX IT'S A SIS6091B !!! pin are different than SIS6091 ! 
 //XXX create a bus arbitrer for output ! 
 /* 
-sis6091 u152(
+sis6091B u152(
   .clk0(clk),
   .cen0(ODDWR2),
   .data0({SPR2_2, SPR1_2, ODH, MATCHV , VMT[3:0] ,FDA[10:3]}), 
@@ -80,11 +82,11 @@ sis6091 u153(
   .cen0(RDCLK), //RAM2VLD ???? 
   .data0({OBJ_DB[15:9] , ND2[8:0]}), 
   .addr0({1'b0, FDA[10:2]}),
-  .we0({RAM2VLD, RAM2VLD}), //RDCLK ???? 
+  .we0({RAM2VLD, RAM2VLD}), //RDCLK ????   //~OIBIDR ? write tor ram ?
   .q0(),
 
   .clk1(clk),
-  .cen1(OIBDIR), //OIBIDR ????
+  .cen1(OIBDIR), //~OIBDIR 
   .data1(),
   .addr1({1'b0, CTA[8:1], H1}), //8:0 or 9:1 ????? XXX
   .we1({1'b0, 1'b0}),

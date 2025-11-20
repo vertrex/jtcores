@@ -20,18 +20,18 @@ module obj(
   input         CTLT2,
   input         EVN_LD,
   input         ODD_LD,
-  input         NV256,
+  input         NV256, //~V8
   input         VCLK,
   input         OBJ_P6M,
   input         OBJ_N6M,
   input         RDCLK,
-  input         V1B,
-  input         D1V_2,
+  input         V1B,  //vpos[0] 
+  input         D1V_2,  //V1B @hpos[1]
   input         OBJMASK, 
   input         HREV, 
   input         HD, 
   input         OBJT2_7,
-  input         D1V_7,
+  input         D1V_7,  //V1B @T8H
   input         OPSREV,
   input         VH4,
   input         VH8,
@@ -59,7 +59,7 @@ module obj(
 wire XOBDIR, OBUSAK;
 wire HREVD_1, VREVD_1, SPR1_1, SPR2_1, OBJEN_1;
 wire [15:0] OBJ_DB;
-wire [4:0]  ND1;
+wire [3:0]  ND1;
 
 wire [8:0] ND2; // XXX ??????
 wire       RD_VPOS;
@@ -85,7 +85,7 @@ HVPOS hvpos_u(
     .SPR1_1(SPR1_1),   //? SPR1[0] or [1] ? 
     .SPR2_1(SPR2_1),   //?  
     .OBJEN_1(OBJEN_1), //skip or enable sprite  
-    .ND1(ND1[4:0]), // ? 
+    .ND1(ND1[3:0]), // ? 
     .RD_VPOS(RD_VPOS)
 ); 
 

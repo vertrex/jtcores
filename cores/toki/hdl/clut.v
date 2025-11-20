@@ -126,7 +126,7 @@ wire [15:0] palette_out;
 ///////// PALETTE RAM //////////
 // palette ram (2048)
 // populated by DMA 
-sis6091 #(.AW(10)) u_palette_ram(
+sis6091 u_palette_ram(
   .clk0(clk),
   //.cen0(WRN6M),
   .cen0(WRN6M),

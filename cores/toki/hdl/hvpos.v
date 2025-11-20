@@ -9,24 +9,19 @@ module HVPOS(
   input     [1:0] FDA,
   input           RDCLK,
   input           OIBDIR,
-  //input         POS_8,
-  //input         CARY_M,
-  //input         XC4, 
   input           BUSAK,
   input           OBUSRQ,
   input           XOBDIR,
   //ouput 
-  //
-  output    [8:0] ND2,//XXX
+  output    [8:0] ND2,
   output          OBUSAK,
   output   [15:0] OBJ_DB,
-  output reg      HREVD_1,
-  output reg      VREVD_1,
-  output reg      SPR1_1,
-  output reg      SPR2_1,
-  output reg      OBJEN_1,
-  //output          XC4,
-  output  [4:0]   ND1, //4:0 or 3:0 ?
+  output          HREVD_1,
+  output          VREVD_1,
+  output          SPR1_1,
+  output          SPR2_1,
+  output          OBJEN_1,
+  output  [3:0]   ND1,
   output          RD_VPOS
 );
 
@@ -36,9 +31,7 @@ module HVPOS(
 assign OBJ_DB[15:0] = MDB[15:0]; 
 
 //PLD25 
-// XXX 
-reg ORIGIN;
-
+wire ORIGIN;
 wire CTRL_LT, RD_HPOS, LT_VPOS, LT_HPOS, RD_CHAR, CARY_M;
 wire XC4;
 
@@ -48,7 +41,7 @@ PLD25 pld25_u(
     .RDCLK(RDCLK),
     .ORIGIN(ORIGIN),
     .OIBDIR(OIBDIR),
-    .POS_8(POS[8]), //XXX 
+    .POS_8(POS[8]),
     .CARY_M(CARY_M), //XXX loop from other 
     .XC4(XC4), // XXX 
     .BUSAK(BUSAK),
@@ -65,15 +58,15 @@ PLD25 pld25_u(
 );
 
 //74LS174 U134  
-
-always @(posedge CTRL_LT or negedge XOBDIR) begin
-    if (!XOBDIR)
-        { OBJEN_1, ORIGIN, SPR2_1, SPR1_1, VREVD_1, HREVD_1} <= 6'b000000;   // asynchronous clear
-    else
-        // MAME IS A BIT WRONG FOR THAT WE MAY WANT TO EXPLAIN AND CORRECT IT ?
-        //15        /13    /11      /10    /9       /8 (flipx)
-        { OBJEN_1, ORIGIN, SPR2_1, SPR1_1, VREVD_1, HREVD_1} <= { OBJ_DB[15], OBJ_DB[13], OBJ_DB[11:8] }; 
-end
+LS174 u134(
+  .CLK(clk),
+  .CLRn(XOBDIR),
+  .CEN(CTRL_LT),
+  .D({ OBJ_DB[15], OBJ_DB[13], OBJ_DB[11:8] }),
+ // MAME IS A BIT WRONG FOR THAT WE MAY WANT TO EXPLAIN AND CORRECT IT ?
+ //15        /13    /11      /10    /9       /8 (flipx)
+  .Q({OBJEN_1, ORIGIN, SPR2_1, SPR1_1, VREVD_1, HREVD_1})
+);
 
 //74LS173 9H
 //74LS173 10H 
@@ -83,15 +76,19 @@ wire [8:0] POS;
 
 //OFFSET X or OFFSET Y ! 
 //mame is exact : offset y [3:0]  offset x [7:4]
-wire   [3:0] OFST;
-assign OFST[3:0] = ~RD_VPOS ? OBJ_DB[3:0] : RD_HPOS ? OBJ_DB[7:4] : 4'b00;
+reg [3:0] OFST;
+
+always @(posedge clk) begin 
+  if (CTRL_LT)                                                  // XXX 4'b0 or RD_VPOS ? 
+    OFST[3:0] <= ~RD_VPOS ? OBJ_DB[3:0] : ~RD_HPOS ? OBJ_DB[7:4] : 4'b0;
+end 
 
 //74F841 11H 
 reg [9:0] H11_qreg;
 
 always @(posedge clk) begin //@* originally
     if (LT_HPOS)
-      H11_qreg = {1'b1, OBJ_DB[8:0]};
+      H11_qreg <= {1'b1, OBJ_DB[8:0]};
     end
 
 //assign {CARY_M, POS[8:4], ND2[3:0]} = (!RD_HPOS) ? H11_qreg : 10'b00000000;
@@ -105,7 +102,7 @@ reg [9:0] H12_qreg;
 
 always @(posedge clk) begin //@* origina.ly
     if (LT_VPOS)
-      H12_qreg = {1'b1, OBJ_DB[8:0]};
+      H12_qreg <= {1'b1, OBJ_DB[8:0]};
     end
 
 //assign {CARY_M, POS[8:4], ND1[3:0]} = (!RD_VPOS) ? H12_qreg[3:0] : 10'b00000000;
@@ -123,7 +120,6 @@ assign POS[4] = (!RD_HPOS) ? H11_qreg[4] : (!RD_VPOS) ? H12_qreg[4] : (!RD_CHAR)
 //assign ND2[3:0] = (!RD_CHAR) ? OBJ_DB[3:0] : 4'b0;
 
 assign ND2[3:0] = (!RD_CHAR) ? OBJ_DB[3:0] : (!RD_HPOS) ? H11_qreg[3:0] : 4'b0; 
-
 //assign POS[4] = (!RD_CHAR) ? OBJ_DB[4] : 1'b0;
 
 //assign {CARY_M, POS[8:5]} = OBJ_DB[9:5];

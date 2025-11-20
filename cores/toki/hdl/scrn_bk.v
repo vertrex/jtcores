@@ -79,7 +79,7 @@ assign sg_sync = scrolled_hpos[1];
 
 wire [15:0] ram_out;
 
-sis6091 #(.AW(10)) u_bk1_ram(
+sis6091 u_bk1_ram(
   .clk0(clk),
   .cen0(WRN6M),
   .data0(MDB_RAM_OUT[15:0]),

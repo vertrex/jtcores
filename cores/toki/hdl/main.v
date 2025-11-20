@@ -488,7 +488,7 @@ MDMA mdma_u(
   .DMARD(DMARD)
 );
 
-assign br_n = MBUSRQ;  
+assign br_n = ~(MBUSRQ ^ OBUSRQ);  
 //                  '0b101  000'
 //                  scrollram[40]&  0x8000 -> bit 16 up ! 
 //flip_screen_set((m_scrollram[0x28]&0x8000)==0); 

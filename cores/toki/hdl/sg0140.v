@@ -118,72 +118,146 @@ endmodule
 ///////////// SG0140 VCHECK ///////////////////////
 ///////////////////////////////////////////////////
 
+//see explanation on hvpos : 
+//it calcualte and output the line % 16 diff to know which pixel is the line
+// on and use that as address, 
+// but it never get vpos but it get all info to calcualte it himself 
+// so maybe it just keep a counter at start of 4'b0 
+// and then calcualte with the VPD the %16 of the line 
+// and output it that's all !
+// then tehre is EVNWR2 & ODDWR2 it wwrite one time to one and one t ime the
+// other 
+// we may want to switch that for each line 
+// we have a counter so it's easy
+// maybe it was to avoid giving all the signal but that seems super complex 
+// way of doing it ...
+// we may also not pass signal for over 256 
+// or if objen is not enable 
+//
+
 module sg0140_vcheck(
   input             clk,
   input             rst, //pin 40
-  input       [7:0] VPD,      //
-  input             ODMARQ,   // 
-  input             OBUSAK,   // ? 
-  input             SDTS,     //? 
-  input             VORIGIN,  // ? 
-  input             OVER256,  // vpos >256 ? ou hpos ?  ~nv256 ? 
-  input             OVER48,   //48*8 => 384 (hpos max) 224 pix h ? 
-  input             VREVD_2,  //? 
-  input             OBJEN_3,  //? 
-  input             H2,      //every 4 pixel ?  
-  input             VCLK,    //6mhz ? 
-  input             VREV,    // screen rev ?
-  input             NV256,   // < hpos 256 pix ?
-  //output 
-  output reg  [3:0] VMT, // == VA address of obj in rom (rom_words_index)  
-  //address is 19:1 
-  output reg        EVNWR2, // use DMA2_EA of other sg0140 ? 
-  output reg        ODDWR2, // use DMA2_OA of other sg0140 in scndma
+  //VPD [0:4] seems low by default and high when activated 
+  //VPD [7:5] seem  high by default and low  when activated
+  //  ram_words[0][3:0n ( 16 + pos )
+  //  is that just synchronize with screen VCLK and has an internal counter to
+  //  know on which line we are ? 
+  //  it count line it self and make the dif f?????? 
+  //
 
-  output reg        OIBDIR,
-  output reg        OBUSRQ,
-  output reg        VFIND //update other sg140 to find next ? 
+  // {OFST[3:0], } when toki only it's always the same value :
+  input       [7:0] VPD,     
+  // set by main.addrs to start object DMA request 
+  // it alert the controller that a transfer will happen
+  input             ODMARQ, // always same frequency 
+  // OBUSAK = ~BUSAK & ~BUSRQ  bus request acknowledge by the cpu 
+  // CPU assert that the bus is ready and can be used by 
+  // the DMA controller and will stop driving address bus
+  input             OBUSAK, // always same frequency 
+  input             SDTS,   // 59.61khz when high evnwr2 & oddwr2 is high (there are active low) 
+  input             VORIGIN,// always same frequency : 
+  // ACTIVE HIGH when DMA is counting 
+  // it's the inverse of the DMA counter activation Q_148 
+  // which is high when DMA counter compute address
+  // so we certainly need to get OBUSRQ LOW UNTIL OVER256 i high 
+  input             OVER256,// active low 15.61khz high always at same moment, evn and odd is high too
+  
+
+  input             OVER48, // stable freuqnecy 
+  input             VREVD_2,// OBJ_DB[9] active low (active during attract when there is the magician), generally active when there is sprite but not during cave stuff  is that   isd that the 8 bit if > 256 or in other screen like {VREV, VPD} % 16  
+  input             OBJEN_3,// it seem to only appear when there is a new object on the screen like toki, a fireball
+  // or a new ennemy then it doesn't appear if it's already in memory ? 
+  
+  input             H2,     // every 4 pixel ? 
+  input             RDCLK,  // 6mhz 
+  input             VCLK,   // 15.61khz
+  input             VREV,   // should be used only as reverse axis strange
+  input             NV256,  // 59.61 high at half period when over256 is high (>256 v  over256 >256 h ?)  // ? 
+  //output 
+  output reg  [3:0] VMT,    // output y pos - current line % 16   
+  //address is 19:1 
+  output reg        EVNWR2, // use DMA2_EA of other sg0140 ?    @6mhz  
+  output reg        ODDWR2, // use DMA2_OA of other sg0140 in scndma  @6mhz 
+
+  //RELATED TO OBUSAK  (~BUSAK & ~UBSRQ) but when does it end ?  
+  //active low after OBUSAK, it will write address from FDA[10:1] to the
+  //memory address bus so we can read data from the memory of the cpu 
+  //and copy all object to other memory during this time frame 
+  //
+  //it's also assigned to OBUSDIR that is use in main.PLD to assert BUSOPEN 
+  // OBUSDIR is also used to main bgack_n low via pld20
+  // so it effectively keep the bus ack low until obusdir / oibdir finish 
+  output reg        OIBDIR,  //ACTIVE LOW, becore low avec OBUSRQ change to become high again 
+                             // until ???
+
+  // asserted by dma controller (us) after receving the ODMARQ  to tell 
+  // that it's ready to handle request
+  // generally become low when finish the request 
+  // but here we get it low before OIBDIR is getting low which is strange
+  output reg        OBUSRQ, // ACTIVE LOW, low one cycle before OIBDIR CHANGE 
+  
+  output reg        VFIND   // update other sg140 to find next ? 
 );
 
-reg [19:0] UNUSED;
+reg [8:0] line_number; 
 
 always @(posedge clk or posedge rst) begin 
-  if (rst) begin 
+  if (rst) begin
+    OBUSRQ <= 1'b1; 
+    OIBDIR <= 1'b1; 
+    VFIND <= 1'b1; 
+    EVNWR2 <= 1; 
+    ODDWR2 <= 1;
     end 
-  else if (VCLK) begin  //cen ? 
-      //OUTPUT VMT (part of address in rom ) dpeending on other paramter 
-      //make some calculus if ver256, have origin, bus 
-      //is on etc . 
-      //
-      //if VPD > odd or evn ?
-      //OBUSAK , SDTDS, VORIGIN, OVER256, OVER48 
-      //OBJEN <VREVD, VREV TO CHECK 
-      //if all is ok we can write ?
+/*
+  else if (clk) begin 
+    //reset line number
+    //at vblank
+    //
+    if (SDTS) 
+      line_number <= 0;
+    else if (VCLK) 
+      line_number <= line_number +  1; 
 
-      if (~NV256 & ~ODMARQ) begin 
-        if (H2 == 1'b1) begin 
-          VMT <= VPD[3:0];  //ND1 [3:0 ]
-          EVNWR2 <= 1'b0; 
-          OIBDIR <= 1'b0; 
-          VFIND <= 1'b0; 
-          OBUSRQ <= 1'b0;
-          end 
-        else  begin 
-          VMT <= VPD[7:4]; //ND2[8:4]
-          ODDWR2 <= 1'b0;
-          OIBDIR <= 1'b0; 
-          VFIND <= 1'b0;
-          OBUSRQ <= 1'b0; 
-          end 
-        end 
+    if (ODMARQ)
+      //we acknowledge we receive dma request 
+      //and we're ready 
+      OBUSRQ <= 1'b0;
+    else 
+      OBUSRQ <= 1'b1; 
 
-      else begin 
-        EVNWR2 <= 1'b1; //active low  //XXX 
-        ODDWR2<= 1'b1; //active low XXX 
-        OIBDIR <= 1'b1; //XXX 
-        OBUSRQ <= 1'b1;
+    // CPU IS READY WE  CAN READ DATA FROM MEMORY 
+    if (OBUSAK) 
+      OIBDIR <= 1'b0; 
+    //OIBDIR must be low until we get NV256 low  ? 
+    //becaue if NV256 is low it mean the dma counter finished 
+    if (OVER256 == 1'b0)
+      OIBDIR <= 1'b1;
+
+    if (RDCLK) begin // &SDTS ?  
+      //if line_number[0] 
+      EVNWR2 <= 0; 
+     //    else ?
+      ODDWR2 <= 0; 
+
+      // if  < NV256  & OBJ_EN  ? to avoid reprocess it ? 
+      // TEST ON TOKI sprite ?
+      //output to EVNWR2 or ODDWR2 depending of line number [0] ? 
+      if (line_number >= {1'b0, VPD[7:0]} + 15 && line_number <= {1'b0, VPD[7:0]} + 15) begin 
+          VMT[3:0] <= ((line_number - {VREVD_2, VPD[7:0]}) % 16);
+          //EVNWR2 <= 0; 
+         //    else ?
+          //ODDWR2 <= 0;
         end 
-  end
+      else begin
+        EVNWR2 <= 1; 
+        ODDWR2 <= 1;
+      end 
+
+    end 
+
+  end */
 end 
 
 
@@ -229,17 +303,17 @@ always @(posedge clk, posedge rst) begin
       DMA2_EA <= 6'b0; 
       DMA2_OA <= 6'b0;
       end 
-  else if (RDCLK) begin 
-    if (~VFIND & ~XSDTS & ~ILD2) begin 
+  else if (RDCLK) begin  // &~XSDTS ? 
+    //if (~VFIND & ~XSDTS & ~ILD2) begin 
       if (V1B == 1'b1)  begin  //ligne impair  ? 
-        DMA2_OA <= {H256, H128, H64, H32, H16, NH2}; 
+        DMA2_OA <= {H256, H128, H64, H32, H16, H2}; 
         end 
       else begin 
-        DMA2_EA <= {H256, H128, H64, H32, H16, NH2};
+        DMA2_EA <= {H256, H128, H64, H32, H16, H2};
         end 
-      OVER48 <= 1'b1; 
-      end
-    else 
+      //OVER48 <= 1'b1; 
+      //end
+    //else 
       OVER48 <= 1'b0;
   end 
 

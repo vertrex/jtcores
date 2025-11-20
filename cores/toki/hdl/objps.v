@@ -131,11 +131,14 @@ PLD29 u_pld29(
 
     .HREV_HD(HREV_HD),  //sei0010bu serialized to DLHD ?  
     .NHREV_HD(NHREV_HD),//sei0010bu serialized to DLHD ? 
-    .OBJON(OBJON),
-    .o16_n(NC),
+    .OBJON(OBJON),  // XXX right ? or bad dump 
+    .o16_n(NC),     // why it's dumped ?
     .MASK_NOOBJ_2(PLD_O18),
     .MASK_NOOBJ_1(PLD_O19)
 );
+
+
+//assign OBJON = (OBJ1[3:0] == 4'hf) || (OBJ2[3:0] == 4'hf);
 
 wire       NC4;
 wire [3:0] OBJ2_COLOR;

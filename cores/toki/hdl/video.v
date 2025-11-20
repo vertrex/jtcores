@@ -179,6 +179,14 @@ SEI0050BU sei0050bu_u(
   .VS(VS)
 );
 
+reg [9:0] frame_counter = 0;
+
+//if @always LVBL it glitch ? how that can work on miste ror pocket ?
+always @(posedge clk) begin 
+  if (LVBL)
+    frame_counter = frame_counter + 1;
+end 
+
 assign LVBL = VBL_ROM;
 assign LHBL = HBL; // ?
 
@@ -394,7 +402,7 @@ wire OBJ_HREV;
 wire OPSREV = HREV ^ OBJ_HREV;
 wire VH4 = ~hpos[2] ^ OPSREV; 
 wire VH8 = hpos[3] ^ ~hpos[2] ^ OPSREV;
-wire NH2 = ~hpos[1];
+//wire NH2 = ~hpos[1];
 
 obj obj_u(
   .clk(clk),
