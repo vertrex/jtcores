@@ -92,7 +92,7 @@ HVPOS hvpos_u(
 wire MATCHV;
 wire OBNE, ODH, SPR1_2;
 wire RAM2VLD;
-wire DMARD;
+//wire DMARD;
 wire [3:0] VMT;
 wire EVNWR2, ODDWR2;
 wire [5:0] DMA2_EA;
@@ -137,7 +137,7 @@ OBJDMA objdma_u(
     .XOBDIR(XOBDIR),
     .RAM2VLD(RAM2VLD),
     .FDA(FDA[10:1]),
-    .DMARD(DMARD),
+    //.DMARD(DMARD),
     .VMT(VMT[3:0]),
     .EVNWR2(EVNWR2), 
     .ODDWR2(ODDWR2),
@@ -236,6 +236,8 @@ OBJPS objps_u(
     .OBJ2(OBJ2[9:0]),
     .DLHD(DLHD)
 );
+
+
 
 wire OSP1, OSP2;
 wire EVNCLR, ODDCLR, ODDWREN, EVNREN;

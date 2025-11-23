@@ -1,35 +1,34 @@
+// Module de remplacement pour 74F269 compatible FPGA Synchrone
 module ttl_74F269 (
-    input  wire        CP,       // Horloge (front montant)
-    input  wire        PE_n,     // Parallel Enable (actif bas) -> charge les entrées P
-    input  wire        CEP_n,    // Count Enable Parallel (actif bas)
-    input  wire        CET_n,    // Count Enable Trickle (actif bas)
-    input  wire        U_D,      // 1 = Up, 0 = Down
-    input  wire [7:0]  P,        // Entrées parallèles P0..P7
-    output reg  [7:0]  Q,        // Sorties Q0..Q7
-    output wire        TC_n      // Terminal Count (actif bas)
+    input wire clk,      // Main system clock (48MHz)
+    input wire CP,       // Clock Pulse (utilisé comme ENABLE ici)
+    
+    input wire PE_n,     // Parallel Enable (Active Low) -> LOAD
+    input wire CEP_n,    // Count Enable Parallel (Active Low)
+    input wire CET_n,    // Count Enable Trickle (Active Low)
+    input wire U_D,      // Up/Down (1=Up)
+    
+    input wire [7:0] P,  // Parallel Input
+    output reg [7:0] Q,  // Output
+    output wire TC_n     // Terminal Count Output
 );
 
-    // --- Processus principal : clear asynchrone, comptage synchrone ---
-    always @(posedge CP) begin
-        if (!PE_n)
-            Q <= P;                            // Chargement parallèle (synchrone)
-        else if ((!CEP_n) && (!CET_n)) begin
-            if (U_D)
-                Q <= Q + 8'd1;                 // Compte vers le haut
-            else
-                Q <= Q - 8'd1;                 // Compte vers le bas
+    // Terminal Count Logic (Asynchronous in spec, but synchronous here is safer)
+    assign TC_n = (CET_n == 1'b0) && (
+                  (U_D == 1'b1 && Q == 8'hFF) || 
+                  (U_D == 1'b0 && Q == 8'h00)
+                  ) ? 1'b0 : 1'b1; // Active Low
+
+    always @(posedge clk) begin
+        if (CP) begin
+            if (!PE_n) begin
+                // Load Synchrone
+                Q <= P;
+            end else if (!CEP_n && !CET_n) begin
+                // Count Synchrone
+                if (U_D) Q <= Q + 8'b1;
+                else     Q <= Q - 8'b1;
+            end
         end
-        else
-            Q <= Q;                            // Maintien
     end
-
-    // --- Terminal Count (actif bas) ---
-    // Produit un niveau bas lorsque le compteur atteint 0xFF (UP)
-    // ou 0x00 (DOWN), si le comptage est activé.
-    assign TC_n = ( (!CEP_n) && (!CET_n) &&
-                    ((U_D && (Q == 8'hFF)) ||
-                     (!U_D && (Q == 8'h00))) )
-                    ? 1'b0 : 1'b1;
-
 endmodule
-

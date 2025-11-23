@@ -184,7 +184,7 @@ reg [9:0] frame_counter = 0;
 //if @always LVBL it glitch ? how that can work on miste ror pocket ?
 always @(posedge clk) begin 
   if (LVBL)
-    frame_counter = frame_counter + 1;
+    frame_counter = frame_counter + 10'b1;
 end 
 
 assign LVBL = VBL_ROM;

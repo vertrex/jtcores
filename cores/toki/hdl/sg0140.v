@@ -93,6 +93,28 @@ module sg0140_ohmax(
   output reg NOOBJ_CT2
 ); 
 
+always @(posedge clk) begin
+        if (rst) begin
+            OH        <= 5'b0;
+            ADDR      <= 5'b0;
+            NOOBJ_CT2 <= 1'b0;
+        end else begin
+            // Phase 1 : Capture de la position H (ou High Address)
+            // CTLT1 est Active Low, on charge quand il est à 0
+            if (!CTLT1) begin
+                OH <= OVD;
+            end
+
+            // Phase 2 : Capture de l'adresse ROM et du flag Objet
+            // CTLT2 est Active Low, on charge quand il est à 0
+            if (!CTLT2) begin
+                ADDR      <= OVD;
+                NOOBJ_CT2 <= NOOBJ;
+            end
+        end
+    end
+
+/*
 always @(posedge clk or posedge rst) begin 
   if (rst) begin 
     OH <= 5'b0;
@@ -112,6 +134,7 @@ always @(posedge clk or posedge rst) begin
   end 
   
 end 
+*/
 endmodule
 
 ///////////////////////////////////////////////////
@@ -157,6 +180,9 @@ module sg0140_vcheck(
   input             OBUSAK, // always same frequency 
   input             SDTS,   // 59.61khz when high evnwr2 & oddwr2 is high (there are active low) 
   input             VORIGIN,// always same frequency : 
+  //VORIGIN START ONE cycle BEFORE NV256 at 255 and just keep high for one cycle
+  //it can be used to launch something nv256 is used to stay until end of line
+
   // ACTIVE HIGH when DMA is counting 
   // it's the inverse of the DMA counter activation Q_148 
   // which is high when DMA counter compute address
@@ -173,7 +199,7 @@ module sg0140_vcheck(
   input             RDCLK,  // 6mhz 
   input             VCLK,   // 15.61khz
   input             VREV,   // should be used only as reverse axis strange
-  input             NV256,  // 59.61 high at half period when over256 is high (>256 v  over256 >256 h ?)  // ? 
+  input             NV256,  // 59.61 high at half period when over256 is low when vpos >= 256   < 0  
   //output 
   output reg  [3:0] VMT,    // output y pos - current line % 16   
   //address is 19:1 
@@ -200,28 +226,138 @@ module sg0140_vcheck(
   output            VFIND   // == OVER256 (send OVER256 to next sg0140 ?)   
 );
 
+    assign VFIND = OVER256;
+
+// --- 1. Compteur de Ligne Écran (Synchrone) ---
+    reg [8:0] current_y;
+    reg old_vclk;
+    reg old_nv256;
+
+    always @(posedge clk) begin
+        if (rst) begin
+            current_y <= 0;
+            old_vclk  <= 0;
+            old_nv256 <= 0;
+        end else begin
+            old_vclk <= VCLK;
+            old_nv256 <= NV256;
+
+            // Reset au début de la frame (VORIGIN)
+            if (NV256 && !old_nv256) 
+                current_y <= 0;
+            // Incrément à chaque ligne (VCLK Rising Edge)
+            else if (VCLK && !old_vclk) 
+                current_y <= current_y + 8'b1;
+        end
+    end
+
+    // --- 2. Gestion Bus DMA (State Machine simplifiée) ---
+    always @(posedge clk) begin
+        if (rst) begin
+            OBUSRQ <= 1'b1; // Active Low (1 = Inactif)
+            OIBDIR <= 1'b1; // Active Low (1 = Inactif)
+        end else begin
+            // Demande le bus si ODMARQ arrive
+            if (!ODMARQ) 
+              OBUSRQ <= 1'b0;
+
+            
+            // Si le CPU donne le bus (ACK), on prend la main
+            if (!OBUSAK && !OBUSRQ) begin
+                OIBDIR <= 1'b0; // Enable Drivers
+                // Note: Sur le schéma, OBUSRQ remonte parfois quand OIBDIR descend
+                // mais pour l'instant gardons-le bas tant qu'on a besoin du bus
+            end
+
+            // Fin du DMA (OVER256 remonte à 1 quand le compteur 74F269 a fini)
+            if (OVER256 == 0) begin
+                // DMA en cours...
+            end else if (OIBDIR == 0) begin
+                // DMA Fini, on relâche tout
+                OIBDIR <= 1'b1;
+                OBUSRQ <= 1'b1;
+            end
+        end
+    end
+
+    // --- 3. VCHECK Logic (Comparaison Y) ---
+    
+    // Calcul de la ligne du sprite. 
+    // TODO: Vérifier si VREVD_2 est le bit 8 de la position ou un flip.
+    // En général sur ces hardwares: {VREVD_2, VPD} forme la position 9 bits.
+    wire [8:0] sprite_pos_y = {VREVD_2, VPD}; 
+    
+    // Différence non-signée (attention au wrapping)
+    wire [8:0] diff_y = current_y - sprite_pos_y;
+    
+    // Sprite Visible ? (Si on est entre la ligne Y et Y+15)
+    // OVER256=0 signifie que le DMA est actif, on checke alors les sprites.
+    // OBJEN_3 doit être actif (sprite non vide/activé).
+    wire check_en = (!OVER256) && (!OBJEN_3); 
+   //if (visible && !OVER48) begin
+    //J'ai le droit d'écrire un sprite
+   //write_enable <= 1; // Active Low (donc 0)
+//end 
+    // Condition: Diff < 16
+    // Note: Si VREV (Flip Screen) est actif, la logique s'inverse (15 - diff)
+    wire is_visible = (diff_y < 16);
+
+    always @(posedge clk) begin
+        if (rst) begin
+            EVNWR2 <= 1'b1;
+            ODDWR2 <= 1'b1;
+            VMT    <= 4'b0;
+        end else if (RDCLK) begin
+            // Default: Pas d'écriture
+            EVNWR2 <= 1'b1;
+            ODDWR2 <= 1'b1;
+            
+            //if (check_en && is_visible ) begin //XXX & !OVER48 
+            if (is_visible ) begin //XXX & !OVER48 
+                // Calcul de l'adresse texture (Ligne 0 à 15)
+                if (VREV) 
+                    VMT <= ~diff_y[3:0]; // Flip Vertical (Top-Down vs Bottom-Up)
+                else      
+                    VMT <= diff_y[3:0];
+
+                // Sélection RAM Even/Odd
+                // Souvent basé sur le bit 0 de la position X ou un compteur interne.
+                // Ton ancien code utilisait line_number[0], mais c'est souvent H2 
+                // ou l'adresse sprite qui décide. Essayons une alternance simple.
+                if (H2) begin // ou current_y[0] ? A tester.
+                    EVNWR2 <= 1'b0; // Active Low
+                end else begin
+                    ODDWR2 <= 1'b0; // Active Low
+                end
+            end
+        end
+    end
+/* 
 assign VFIND = OVER256;
 
 reg [8:0] line_number; 
+
 
 always @(posedge clk or posedge rst) begin 
   if (rst) begin
     OBUSRQ <= 1'b1; 
     OIBDIR <= 1'b1; 
-    EVNWR2 <= 1; 
-    ODDWR2 <= 1;
+    EVNWR2 <= 1'b1; 
+    ODDWR2 <= 1'b1;
+    line_number <= 9'b0;
     end 
 
   else if (clk) begin 
     //reset line number
     //at vblank
     //
-    if (~RDCLK) begin // &SDTS ?  
+    if (RDCLK) begin // &SDTS ?  
 
-      if (~SDTS) 
+      //if (~NV256) 
+      if (VORIGIN)
         line_number <= 0;
       else if (VCLK) 
-        line_number <= line_number +  1; 
+        line_number <= line_number +  9'b1; 
 
       if (~ODMARQ) begin 
         //we acknowledge we receive dma request 
@@ -246,7 +382,7 @@ always @(posedge clk or posedge rst) begin
       // if  < NV256  & OBJ_EN  ? to avoid reprocess it ? 
       // TEST ON TOKI sprite ?
       //output to EVNWR2 or ODDWR2 depending of line number [0] ? 
-      if (line_number >= {1'b0, VPD[7:0]} + 15 && line_number <= {1'b0, VPD[7:0]} + 15) begin 
+      if (line_number >= {1'b0, VPD[7:0] } && line_number <= {1'b0, VPD[7:0]} + 15) begin 
         VMT[3:0] <= ((line_number - {VREVD_2, VPD[7:0]}) % 16);
       end 
 
@@ -258,6 +394,7 @@ always @(posedge clk or posedge rst) begin
       //so it never end because we never get OVER256 & OVER48 down
       //as counter never start need to check u144..u147
 
+      //~SDTS ? 
       if (~OVER256 & ~OVER48) begin 
         if (line_number[0]) begin 
           EVNWR2 <= 1'b0;
@@ -277,7 +414,7 @@ always @(posedge clk or posedge rst) begin
   end 
 end 
 
-
+*/
 endmodule
 
 ///////////////////////////////////////////////////
@@ -315,7 +452,45 @@ module sg0140_sort40(
   output reg  [5:0] DMA2_OA
 );
 
+// 1. Construction de l'adresse brute (Raw Address)
+  // On concatène les bits H pour former l'index du slot (0 à 63)
+  // L'ordre est MSB -> LSB
+  wire [5:0] raw_addr = {H256, H128, H64, H32, H16, H2};
 
+  // 2. Détection de la limite de sprites (Limit 48)
+  // 48 en binaire = 110000
+  // Donc si raw_addr >= 48, on active OVER48.
+  wire limit_reached = (raw_addr >= 6'd48);
+
+  always @(posedge clk) begin
+      if (rst) begin
+          DMA2_EA <= 6'b0;
+          DMA2_OA <= 6'b0;
+          OVER48  <= 1'b1; // Active High ? (A vérifier si VCHECK attend 0 ou 1)
+      end else if (RDCLK) begin
+          // Mise à jour du flag OVER48
+          // Si VFIND est inactif (pas de DMA), on reset peut-être ? 
+          // Gardons la logique simple : monitoring constant de l'adresse.
+          OVER48 <= ~limit_reached;
+
+          // Dispatch de l'adresse vers Even ou Odd RAM
+          // V1B (Ligne 0, 1, 2...) détermine quelle RAM est en écriture pour la PROCHAINE ligne.
+          // Si V1B=1 (Ligne impaire), on prépare le buffer pour la ligne paire suivante (Even) ? 
+          // Ou l'inverse. Suivons la logique du code précédent pour l'instant.
+          
+          if (V1B) begin
+              // Sur ligne impaire, on adresse la RAM ODD (ou l'inverse selon convention)
+              DMA2_OA <= raw_addr;
+              // DMA2_EA <= ... (On ne touche pas ou on met à 0 ?)
+          end else begin
+              // Sur ligne paire
+              DMA2_EA <= raw_addr;
+          end
+      end
+  end
+
+
+/*
 always @(posedge clk, posedge rst) begin 
   if (rst) begin 
       DMA2_EA <= 6'b0; 
@@ -337,6 +512,6 @@ always @(posedge clk, posedge rst) begin
         OVER48 <= 1'b1;
   end 
 end 
-  
+  */
 
 endmodule 

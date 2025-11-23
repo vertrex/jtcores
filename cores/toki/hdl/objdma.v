@@ -23,14 +23,13 @@ module OBJDMA(
     input             VCLK,
     input             RDCLK,
     input             RD_VPOS,
-    //input   [10:1]  FDA,
     input      [3:0]  ND1,
     input      [8:4]  ND2,
-    input             HREVD_1, //_1 ? 
-    input             VREVD_1, //_1 ? 
-    input             SPR1_1, //_1 
-    input             SPR2_1, //_1 
-    input             OBJEN_1, //_1 
+    input             HREVD_1,
+    input             VREVD_1,
+    input             SPR1_1, 
+    input             SPR2_1,
+    input             OBJEN_1,
     input             DLHD, 
     input             ODMARQ,
     input             OBUSAK,
@@ -40,22 +39,22 @@ module OBJDMA(
     input             NV256,
     input             H_128,
     input             H_256,
-    input             V1, //? 
+    input             V1,
     //output 
-    output            MATCHV, // == NOOBJ 
-    output            XOBDIR,  //~OIBDIR 
+    output            MATCHV,
+    output            XOBDIR,
     output            RAM2VLD,
     output     [10:1] FDA,
-    output            DMARD,
+    //output            DMARD,
     output      [3:0] VMT,
     output            EVNWR2, 
     output            ODDWR2,
-    output            OIBDIR,  //~XOBDIR
+    output            OIBDIR,
     output            OBUSRQ,
     output            OBUSDIR,
     output      [5:0] DMA2_EA,
     output      [5:0] DMA2_OA,
-    output            ODH, // == ODHREV
+    output            ODH,
     output            SPR1_2, 
     output            SPR2_2
 );
@@ -79,13 +78,14 @@ wire [1:0] NC2;
 
 LS161 u143(
     .clk(clk),
-    .rst(XOBDIR), //XXX == clr ?  
-    .CEN(RDCLK),
+    .CEN(RDCLK), //RDCLK ?
+    .rst(1'b0),
+    .CLR_n(XOBDIR),  //????
     .LOAD_n(LSBLD), 
     .ENP(1'b1),
     .ENT(1'b1),
     .D({1'b0, 1'b1, 1'b0,1'b0}),
-    .Q({NC2[1:0], FDA[2], FDA[1]}), //2NC
+    .Q({NC2[1:0], FDA[2:1]}), //2NC
     .RCO()//NC
 );
 
@@ -99,10 +99,14 @@ wire VFIND;
 wire INSCRN;
 
 PLD24 u_pld24(
-   .FDA_1(FDA[1]),
-   .FDA_2(FDA[2]),
+   .FDA(FDA[2:1]),
    .SDTS(SDTS),
-   .DLHD(DLHD),
+   .DLHD(DLHD), // XXX ?DLHD is correct this will reset DMA by setting MSBLD it's latched by sei10by serializer if 
+   //by HREV_HD or NHREV_HD ...
+   //hd is sei0050 bu vlock start + 8 & DL is REV which is seem to be reserve 
+   //so it will be more logic to drive U_D ? that count up or down ? 
+   //what does that change if reversed ?  for the other it may be logic if we 
+   //start at fix point after vlock it count 1 line to do dma 
    .OIBDIR(OIBDIR),
    .OVER256(OVER256),
    .INSCRN(INSCRN),
@@ -124,15 +128,15 @@ wire [1:0] NC;
 sis6091 u_141(
   .clk0(clk),
   .cen0(RDCLK),
-  .data0({2'b0, OBJEN_1,SPR2_1, SPR1_1,VREVD_1, HREVD_1,ND2[8:4] , ND1[3:0]}),
+  .data0({2'b0, OBJEN_1,SPR2_1, SPR1_1,VREVD_1, HREVD_1, ND2[8:4], ND1[3:0]}),
   .addr0({2'b0, FDA[10:3]}),
   .we0({RD_VPOS, RD_VPOS}),
   .q0(),
 
   .clk1(clk),
-  .cen1(),
+  .cen1(RDCLK),
   .data1(),
-  .addr1(), 
+  .addr1({2'b0, FDA[10:3]}), 
   .we1({1'b0, 1'b0}),
   .q1({NC[1:0], OBJEN_2, SPR2_2, SPR1_2, VREVD_2, ODH, INSCRN ,VPD[7:0]}) //xxx check that
 );
@@ -145,6 +149,7 @@ wire TC;
 wire Q_144;
 
 LS74 u144(
+    //.CLK(clk),
     .CLK(clk),
     .CEN(RDCLK),// Clock input
     .D(TC), // Data inputs
@@ -157,7 +162,8 @@ LS74 u144(
 wire Q_146;
 
 LS74 u146(
-    .CLK(clk),
+    //.CLK(clk),
+    .CLK(clk),// Clock input
     .CEN(RDCLK),// Clock input
     .D(MSBLD), // Data inputs   //START DMA COUNTER ? 
     .PRE(1'b1), // Preset inputs (active low)
@@ -169,7 +175,8 @@ LS74 u146(
 wire Q_148;
 
 LS74 u148(
-    .CLK(clk),
+    //.CLK(clk),
+    .CLK(1'b0),// Clock input
     .CEN(1'b0),// Clock input
     .D(1'b0), // Data inputs
     .PRE(Q_144), // Preset inputs (active low)
@@ -184,10 +191,26 @@ LS74 u148(
 // 256 value au final calculer les addresses reel 
 // car en sortie des 2 bus driver 
 ttl_74F269 u147(
-    .CP(RDCLK),  //goes out from QUADBUFFER XXX 74LS244 which is not yet impl but it's justu a buffer
-    .PE_n(MSBLD),     // Parallel Enable (active LOW) -> charge quand 0
-    .CEP_n(MSBET),    // Count Enable Parallel (active LOW)
-    .CET_n(Q_148),    // Count Enable Trickle (active LOW)
+    //.clk(clk),
+    .clk(clk), //negedge ?  //goes out from QUADBUFFER XXX 74LS244 which is not yet impl but it's justu a buffer
+    .CP(RDCLK), //negedge ?  //goes out from QUADBUFFER XXX 74LS244 which is not yet impl but it's justu a buffer
+    .PE_n(MSBLD),  ///XXX MSBLD RESET THE COUNTER EACH TIME FIX TAHT OR HOW THE MODULE IS WRITTEN OR WE CAN'T FINiSH DMA
+    //  MSBLD   SDTS & OIBDIR DLHD
+    // 
+    // DHLD 
+    //   //by HREV_HD or NHREV_HD ...
+   //hd is sei0050 bu vlock start + 8 & DL is REV which is seem to be reserve 
+   //so it will be more logic to drive U_D ? that count up or down ? 
+   //what does that change if reversed ?  for the other it may be logic if we 
+   //start at fix point after vlock it count 1 line to do dma 
+    //
+    // SDTS = @VCLK Q= STARTV   (so maybe logic to have ~SDTS & DLHD so it
+    // start at vclk and stop at vclk + 8 or it start a vlck + 8 and start
+    // a vclk
+    //
+    //XXX todo here !// Parallel Enable (active LOW) -> charge quand 0
+    .CEP_n(~MSBET),    // Count Enable Parallel (active LOW)
+    .CET_n(Q_148),    // Master enable DMA 
     .U_D(1'b1),      // Up/Down control: 1 = UP, 0 = DOWN
     .P(8'b0),        // Parallel data inputs P0..P7
     .Q(FDA[10:3]),        // Outputs Q0..Q7
@@ -207,7 +230,7 @@ ttl_74F269 u147(
 //obj_cs     = ~cpu_as_n & (cpu_a[23:1] >= 23'h36c00 && cpu_a[23:1] < 23'h37000);
 //impl directly in main.v !  XXX exlain that in MAIN_V ! 
 //assign {DMARD, MAB_OUT[15:1]} = !OIBDIR ? { 6'b011011 , FDA[10:1]} : {16'b0};
-assign DMARD = !OIBDIR ? 1'b0 : 1'b1; //z ? 
+//assign DMARD = !OIBDIR ? 1'b0 : 1'b1; //z ? 
 
 
 // check if sprite intersect with current line ? 
@@ -321,7 +344,7 @@ sg0140_vcheck u1411(
   .OBJEN_3(OBJEN_3), //obj metadata sprite valid ? 
   .H2(H_POS[2]),
   //.SW(1'b0),
-  .RDCLK(RDCLK),
+  .RDCLK(clk),
   .VCLK(VCLK),
   .VREV(VREV),
   .NV256(NV256),

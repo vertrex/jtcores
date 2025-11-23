@@ -29,22 +29,27 @@ module SCNDDMA(
 
 wire [8:1] CTA;
 
+//wire [11:0] ram_data_in = {MATCHV, SPR2_2, SPR1_2, ND2[8:0]};
+wire [15:0] q_even;
+wire [15:0] q_odd;
 // XXX IT'S a 6091 B pin are different than 6091 
 // 64 obj EVEN 
 sis6091B u_151(
   .clk0(clk),
-  .cen0(D1V_2), //DIV2 //31 //EVNWR@ active write 
+  .cen0(D1V_2), //DIV2 //31 //EVNWR@ active write  to check
   .data0({SPR2_2, SPR1_2, ODH, MATCHV , VMT[3:0] ,FDA[10:3]}), //6,7,8,10,12-19,22-25
   .addr0({4'b0, DMA2_EA[5:0]}),//62-71
-  .we0({~EVNWR2, ~EVNWR2}), //30
+  .we0({~EVNWR2, ~EVNWR2}), //30 // &RDCLK
   .q0(),
 
   .clk1(clk),
   .cen1(D1V_2), //73
   .data1(), //data 1 or addr1 ?
+  //.addr1({4'b0, DMA2_EA[5:0]}), //75-80,1,3,4,5
   .addr1({4'b0, DMA2_EA[5:0]}), //75-80,1,3,4,5
   .we1({1'b0, 1'b0}),
-  .q1({SPR2_3,SPR1_3, ODHREV, NOOBJ,VA[3:0], CTA[8:1]}) //42-56
+  //.q1({SPR2_3,SPR1_3, ODHREV, NOOBJ,VA[3:0], CTA[8:1]}) //42-56
+  .q1(q_even)//42-56
 );
 //XXX where goes XOBDIR ? DIY_2 ? check on other sis6901 if it's sometime used
 //?
@@ -56,23 +61,25 @@ sis6091B u_151(
 
 // XXX IT'S A SIS6091B !!! pin are different than SIS6091 ! 
 //XXX create a bus arbitrer for output ! 
-/* 
+ 
 sis6091B u152(
   .clk0(clk),
-  .cen0(ODDWR2),
+  .cen0(D1V_2),
   .data0({SPR2_2, SPR1_2, ODH, MATCHV , VMT[3:0] ,FDA[10:3]}), 
   .addr0({4'b0, DMA2_OA[5:0]}),
-  .we0({1'b0, 1'b0}),
+  .we0({~ODDWR2, ~ODDWR2}),
   .q0(),
 
   .clk1(clk),
-  .cen1(),
+  .cen1(D1V_2),
   .data1(),
-  .addr1(),
-  .we1({1'b0, 1'b0}), //xobdir diy i2 ?  //read /write xobdir ?
-  .q1({SPR2_3,SPR1_3, ODHREV, NOOBJ,VA[3:0], CTA[8:1]}) //42-56
+  .addr1({4'b0, DMA2_OA[5:0]}),
+  .we1({1'b0, 1'b0}),// xobdir diy i2 ?  //read /write xobdir ?
+//  .q1({SPR2_3,SPR1_3, ODHREV, NOOBJ,VA[3:0], CTA[8:1]}) //42-56
+  .q1(q_odd)
 );
-*/
+
+assign {SPR2_3,SPR1_3, ODHREV, NOOBJ,VA[3:0], CTA[8:1]} =  H1 ? q_even : q_odd;
 
 // 256addr for obj ? 
 // store at FDA => nd2, obj (graphical data?)

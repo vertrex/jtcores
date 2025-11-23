@@ -138,7 +138,7 @@ LS161 LS161_7K_u(
   .clk(clk),
   .rst(rst),
   .CEN(WRN6M),
-  //.CLR_n(rst),
+  .CLR_n(1'b1),
   .LOAD_n(qn_6k1), //load /reset to 4'b0
   .ENP(dma_end_n),  // 1 ? 0 if end ? 
   .ENT(~rst),  //~rst ? XXX 
@@ -154,7 +154,8 @@ LS161 LS161_8K_u(
   .clk(clk),
   .rst(rst),
   .CEN(WRN6M),
-  //.CLR_n(~SYS_RESET),
+//  .CLR_n(~SYS_RESET),
+  .CLR_n(1'b1),
   .LOAD_n(qn_6k1),
   .ENP(dma_end_n),
   .ENT(rco_1),
@@ -167,6 +168,7 @@ LS161 LS161_9K_u(
   .clk(clk),
   .rst(rst),
   .CEN(WRN6M),
+  .CLR_n(1'b1),
   //.CLR_n(~SYS_RESET),
   .LOAD_n(qn_6k1),
   .ENP(dma_end_n),

@@ -130,21 +130,33 @@ reg [8:0] hcnt, vcnt;
 parameter HBLANK_START  = 262; 
 parameter HBLANK_END 	  = 6; 
 
-always @(posedge P6M) begin
-  if (hpos[1:0] == 2'b00)
-    T3F <= 1'b1;
-  if (hpos[1:0] == 2'b01)
-    T3F <= 1'b0;
+// Timing 3 fetch 
+// every 3 pixel on 8 
+//assign T3F = (hpos[1:0] == 1'b00)
+always @(posedge clk) begin
+  if (P6M) begin 
+    if (hpos[1:0] == 2'b00)
+      T3F <= 1'b1;
+    else if (hpos[1:0] == 2'b01)
+      T3F <= 1'b0;
+  end 
 end 
 
-//assign T3F = (hpos[1:0] == 1'b00)
+
+// Timing 4 Horizontal 
+// divide by 4 the timing 
+// (active every 4 pixel)  
 assign T4H = (hpos[2:0] == 3'b001);
+// Timing 8 Horizontal 
+// divide by 8 the timing 
+// (should be 3'b111) XXX 
 assign T8H = (hpos[2:0] == 3'b101); 
 //assign T8H = (hpos[2:0] == 3'b100); //encore moins de glitch qu'avec 100 (suelement les 4er pixel) mais decallage avec palette
 
 parameter VCLK_START = 276; // ?? 
 assign VCLK = (hpos[8:0] == VCLK_START);
 
+// HD : Horizontal Drive (HSYNC)
 parameter HD_START = VCLK_START + 8; 
 assign HD = ~(hpos[8:0] == HD_START);  //15.56 khz inversed signal  
 assign N1H = ~hpos[0];

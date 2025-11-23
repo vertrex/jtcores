@@ -6,14 +6,14 @@
 module HVPOS(
   input           clk,
   input    [15:0] MDB,
-  input     [1:0] FDA,
+  input     [2:1] FDA,
   input           RDCLK,
   input           OIBDIR,
   input           BUSAK,
   input           OBUSRQ,
   input           XOBDIR,
   //ouput 
-  output    [8:0] ND2,
+  output    [8:0] ND2,     // Nibble data 2 (Y[8:4])
   output          OBUSAK,
   output   [15:0] OBJ_DB,
   output          HREVD_1,
@@ -21,8 +21,8 @@ module HVPOS(
   output          SPR1_1,
   output          SPR2_1,
   output          OBJEN_1,
-  output  [3:0]   ND1,
-  output          RD_VPOS
+  output  [3:0]   ND1,     // Nibble data 1 (Y[3:0]) 
+  output          RD_VPOS  // Read vertical position
 );
 
 //74LS244P 10J 
@@ -32,12 +32,16 @@ assign OBJ_DB[15:0] = MDB[15:0];
 
 //PLD25 
 wire ORIGIN;
-wire CTRL_LT, RD_HPOS, LT_VPOS, LT_HPOS, RD_CHAR, CARY_M;
-wire XC4;
+wire CTRL_LT; // Control latch (latch sprite attribute : palette, flip, priority)
+wire RD_HPOS; // Read Horizontal position 
+wire LT_VPOS; // Latch vertical position 
+wire LT_HPOS; // Latch horizontal position
+wire RD_CHAR; // Read char 
+wire CARY_M;
+wire XC4;     // X clock, 4 bit counter
 
 PLD25 pld25_u(
-    .FDA_1(FDA[0]), //0 or 1 ???
-    .FDA_2(FDA[1]),
+    .FDA(FDA[2:1]), //0 or 1 ???
     .RDCLK(RDCLK),
     .ORIGIN(ORIGIN),
     .OIBDIR(OIBDIR),
@@ -87,7 +91,7 @@ end
 reg [9:0] H11_qreg;
 
 always @(posedge clk) begin //@* originally
-    if (LT_HPOS)
+    if (LT_HPOS) // & RDCLK ? 
       H11_qreg <= {1'b1, OBJ_DB[8:0]};
     end
 
@@ -101,7 +105,7 @@ always @(posedge clk) begin //@* originally
 reg [9:0] H12_qreg;
 
 always @(posedge clk) begin //@* origina.ly
-    if (LT_VPOS)
+    if (LT_VPOS)  // & RDCLK ?
       H12_qreg <= {1'b1, OBJ_DB[8:0]};
     end
 
