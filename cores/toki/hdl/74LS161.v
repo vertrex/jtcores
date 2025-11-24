@@ -1,30 +1,32 @@
 module LS161 (
-    input             clk,
-    input             rst,
-    input             CEN,      // Clock input
-    input             CLR_n,    // Asynchronous clear (active low)
-    input             LOAD_n,   // Synchronous load (active low)
-    input             ENP,      // Count enable P
-    input             ENT,      // Count enable T
-    input         [3:0] D,        // Parallel data input
-    output  reg   [3:0] Q,        // Counter output
-    output            RCO       // Ripple Carry Output
+    input               clk,
+    input               rst,
+    input               CEN,
+    input               CLR_n,
+    input               LOAD_n,
+    input               ENP,
+    input               ENT,
+    input         [3:0] D,
+    output  reg   [3:0] Q,
+    output              RCO
 );
 
-    always @(posedge clk or negedge LOAD_n or posedge rst or negedge CLR_n) begin
-        if (rst)
-            Q <= 4'b0000;
-        else if (!CLR_n)
-            Q <= 4'b0;
-        else if (!LOAD_n)
-           Q <= D;
-        else if (CEN && ENP && ENT) begin
-           Q <= Q + 4'b1;
-        end
+always @(posedge clk or posedge rst or negedge CLR_n) begin
+    if (rst)
+        Q <= 4'b0000;
+    else if (!CLR_n)
+        Q <= 4'b0000;
+    else if (CEN) begin
+        if (!LOAD_n) begin
+            Q <= D;
+            end
+        else if (ENP && ENT) begin
+            Q <= Q + 4'b1;
+            end
     end
+end
 
-    // Ripple Carry Output: high when Q == 4'b1111 and ENT == 1 and ENP == 1
-    //assign RCO = (Q == 4'b1111); // && ENT && ENP;
-    assign RCO = (Q == 4'b1111) && ENT; // RCO is high when Q is 15 and counting is enabled
+assign RCO = (Q == 4'b1111) && ENT;
+
 endmodule
 
