@@ -324,43 +324,10 @@ scrn_bk bk2_u(
 wire  [7:0] obj;
 reg   [8:0] obj_line_buffer_addr;
 
-/*
-//wire swap = hpos[8:0] == 9'd383 ? 1'b0 : 1'b1; //+1 ? //swap a 10
-wire swap = hpos[8:0] == 9'd7 ? 1'b0 : 1'b1; //+1 ? //swap a 10
-
-// PUT BACK OR REWRITE PROPERLY
-scan_obj_ram scan_obj_ram_u(
-  .clk(clk),
-  .rst(rst),
-  .pxl_cen(P6M), // P6M on board
-  
-  .LHBL(swap), //XXX
-
-  .vpos(vpos[7:0] + 1), //we calculate 1 line head because of buffering , hpos + 2??
-
-  .ram_addr(obj_addr),
-  .ram_out(obj_out),
-
-  .gfx_rom_data(obj_rom_data),
-  .gfx_rom_ok(obj_rom_ok),
-  .gfx_rom_addr(obj_rom_addr),
-  .gfx_rom_cs(obj_rom_cs),
-
-  .line_buffer_addr(hpos[7:0] + 1), //+ 1 to latch the pixel ? 
-  .line_buffer_out(obj)
-);
-
-
-//activcate obj wth mycode  
-wire obj_on = ~(obj[3] & obj[2] & obj[1] & obj[0]); //check if != 'f if we use ny code
-wire prior_c = ~obj_on; //obj linebuf page 18  XXX   active low  ? 
-wire prior_d = ~obj_on; //obj linebuf page 18  XXX   active low  ?
-*/
 wire FIRST_LD, SECND_LD, CTLT1, CTLT2, EVN_LD, ODD_LD, NV256;
 
 //page 5 osc 
-wire V1B;
-assign V1B = vpos[0];
+wire V1B = vpos[0];
 
 PLD22 pld22_u(
     .N6M(N6M),
@@ -369,8 +336,9 @@ PLD22 pld22_u(
     .H4(hpos[3]),
     .H8(hpos[4]),
     .V1B(V1B),
-    .OBJT1(OBJT1), //XXX
-    .V256(vpos[8]),
+    .OBJT1(OBJT1),  
+    .V256(~vpos[8]), // ????? does v256 is inversed in sei50bu ? 
+    //because NV256 signal is not good for what we have
 
     .FIRST_LD(FIRST_LD),
     .SECND_LD(SECND_LD),

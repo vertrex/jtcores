@@ -4,32 +4,32 @@
 module OBJPS(
     input        clk,
     input        rst,
-    input        OBJ_P6M, // clock 
+    input        OBJ_P6M,     // clock 
     input        T3F,     
     input        D1V_7,
-    input [15:0] PD,       // obj Pixel Data from .., 
-    input        OBJ_N6M,  // clock
-    input        FIRST_LD, //first line data ? 
-    input        SECND_LD, //second line data ? 
-    input        OPSREV,  // rev obj ?
-    input  [3:0] OBJCOL,  // OBJ palette color (obj1/2 [7:4])
-    input        OSP1,    // obj sprite prio 1 ? 
-    input        OSP2,    // obj sprite prio 2 ? 
+    input [15:0] PD,          // obj Pixel Data from .., 
+    input        OBJ_N6M,     // clock
+    input        FIRST_LD,    //first line data ? 
+    input        SECND_LD,    //second line data ? 
+    input        OPSREV,      // rev obj ?
+    input  [3:0] OBJCOL,      // OBJ palette color (obj1/2 [7:4])
+    input        OSP1,        // obj sprite prio 1 ? 
+    input        OSP2,        // obj sprite prio 2 ? 
     input        NOOBJ_CT2,   // no obj ? 
-    input        HREV,    // reverse horizontal from dipswitch
-    input        HD,      // clock from sei0050bu XXX
-    input        E1FIND,  //even obj 1 find 
-    input        E2FIND,  //even obj 2 find 
-    input        O1FIND,  //odd  obj 1 find 
-    input        O2FIND,  //odd obj 2 find 
-    input        OBJMASK, //obj mask
+    input        HREV,        // reverse horizontal from dipswitch
+    input        HD,          // clock from sei0050bu XXX
+    input        E1FIND,      //even obj 1 find 
+    input        E2FIND,      //even obj 2 find 
+    input        O1FIND,      //odd  obj 1 find 
+    input        O2FIND,      //odd obj 2 find 
+    input        OBJMASK,     //obj mask
     //output 
     output       D1V_7P,
     output       ND1V_7P,
-    output [9:0] OBJ1,    //obj data : pix data + palette data + prior 1 + prior 2 
-    output       OBJON,  //obj on (depend of find ?)
+    output [9:0] OBJ1,        //obj data : pix data + palette data + prior 1 + prior 2 
+    output       OBJON,       //obj on
     output [9:0] OBJ2,   
-    output       DLHD    // data line hd ?
+    output       DLHD         // Data Line ? Horizontal Drive 
 );
 
 wire LS175_Q1;
@@ -59,7 +59,6 @@ LS273 u163(
     .D({NOOBJ_CT2, OSP2, OSP1, OBJCOL[3:0], OPSREV}),
     .Q(u163_q[7:0])
 );
-
 
 //13C 
 LS174 u165(
@@ -129,16 +128,14 @@ PLD29 u_pld29(
     .NOOBJ_CT2_LATCH1(u163_q[7]),
     .NOOBJ_CT2_LATCH2(pld_i9),
 
-    .HREV_HD(HREV_HD),  //sei0010bu serialized to DLHD ?  
-    .NHREV_HD(NHREV_HD),//sei0010bu serialized to DLHD ? 
-    .OBJON(OBJON),  // XXX right ? or bad dump 
+    .HREV_HD(HREV_HD), 
+    .NHREV_HD(NHREV_HD), 
+    .OBJON(OBJON), 
     .o16_n(NC),     // why it's dumped ?
     .MASK_NOOBJ_2(PLD_O18),
     .MASK_NOOBJ_1(PLD_O19)
 );
 
-
-//assign OBJON = (OBJ1[3:0] == 4'hf) || (OBJ2[3:0] == 4'hf);
 
 wire       NC4;
 wire [3:0] OBJ2_COLOR;
@@ -149,10 +146,9 @@ sei0010bu u168_sei10(
     .cen(OBJ_N6M),
     .load(T3F),
     .rev(sei100_2_38),
-    .rom_data({1'b1, NHREV_HD, HREV_HD, 5'b1, PD[15:0]}),  //HREV_HD, NHREV_HD 
+    .rom_data({1'b1, NHREV_HD, HREV_HD, 1'b1, 4'b1, PD[15:0]}),  //HREV_HD, NHREV_HD 
     .color({DLHD, NC4, OBJ2_COLOR[3:0]}) //DLHD 
 );
-
 
 // 74ls244
 //PLD_O18

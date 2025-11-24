@@ -46,7 +46,7 @@ module PLD24(
     //assign RAM2VLD = ~SDTS | (FDA[1] == FDA[2]);
     assign RAM2VLD = ~SDTS | ~(FDA[1] ^  FDA[2]);
 
-:   // start dma counter ?
+    // start dma counter ?
     assign MSBLD  = ( SDTS & ~OIBDIR) |
                     (~SDTS &  DLHD);
 

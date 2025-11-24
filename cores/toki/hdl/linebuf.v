@@ -46,6 +46,8 @@ wire [5:0] nc1;
 wire [5:0] nc2;
 wire [5:0] nc3;
 
+
+
 // XXX  THIS MODULE USE ONLY 6091B that are different than 6091 !!!
 
 // XXXX MUST ADD D1V_7p directio n?
@@ -119,6 +121,7 @@ sis6091B u_184(
 //.q1({PRIOR_D, PRIOR_C, OOD[7:0]}) //42-56
   .q1({nc3, Q_ODD2}) //42-56
 );
+
 
 //we need to mix the bus ourself here 
 assign {PRIOR_D, PRIOR_C, OOD[7:0]} = E1FIND ? Q_EVN1 : E2FIND ? Q_EVN2 :  O1FIND ? Q_ODD1 : O2FIND ? Q_ODD2 : 10'b0; 

@@ -1,3 +1,8 @@
+//Write sprite info to one line 
+//or the other , 
+//when one is read alternatively via sg0140 / objdma 
+//
+
 module SCNDDMA(
     input          clk,
     input   [10:2] FDA,     //F data addr 

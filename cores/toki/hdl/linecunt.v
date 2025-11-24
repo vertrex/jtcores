@@ -179,9 +179,12 @@ LS273 u1716(
 // deserialized by the other part objps and thten stored  in ram
 //
 
+
+// act as X pos counter for the line buffer 
+// so we have the position to store the pixel deserialized by the SEI0010BU (see objps)  in the line buffer 
+
 //SEI0060BU
 //12CD
-
 SEI0060BU sei60bu_u1711(
    .clk(clk),
    .cen(OBJ_N6M),
@@ -199,7 +202,6 @@ SEI0060BU sei60bu_u1711(
    .ODDCLR(ODDCLR)
 );
 
-
 //74LS04 
 //22F 
 
@@ -208,7 +210,6 @@ assign EVNWREN = ~EVNCLR;
 
 //SEI0060BU
 //16CD 
-
 SEI0060BU sei60bu_u1712(
    .clk(clk),
    .cen(OBJ_N6M),

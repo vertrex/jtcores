@@ -41,12 +41,11 @@ module SEI0060BU(
             else      EA <= EA + 1'b1;
          end
 
-         // --- Gestion du Clear ---
-         // Les signaux CLR sont passés au module Line Buffer (sis6091B)
-         // Ils sont généralement actifs pendant le HBLANK pour effacer la ligne précédente
          if (!HBLB) begin 
-            EVNCLR <= 1'b0; // Active Low (Clear)
-            ODDCLR <= 1'b0;
+            if (V1B == 1'b0) //OBJT2_7 ?  
+               EVNCLR <= 1'b0; // Clear next line ?  
+            else 
+               ODDCLR <= 1'b0;
          end else begin
             EVNCLR <= 1'b1; // Normal operation
             ODDCLR <= 1'b1;
@@ -57,27 +56,4 @@ module SEI0060BU(
          // qui génèrent ODD_LD / EVN_LD.
       end 
    end 
-   /*
-   always @(posedge clk) begin 
-      if (cen) begin 
-         // Chargement des adresses (Latch)
-         if (!ODD_LD) 
-            OA <= ADDR; // Attention: ODD_LD est souvent Active Low (/LD)
-         if (!EVN_LD) 
-            EA <= ADDR; // Vérifier polarité dans PLD22
-
-         // Gestion du Clear
-         // Si HBLB est actif (Low), on active le Clear.
-         // Sinon, on le désactive (High).
-         // (Hypothèse standard : Clear actif pendant HBlank)
-         if (!HBLB) begin 
-            EVNCLR <= 1'b0; // Active Clear
-            ODDCLR <= 1'b0;
-         end else begin
-            EVNCLR <= 1'b1; // Release Clear
-            ODDCLR <= 1'b1;
-         end
-      end 
-   end 
-*/
 endmodule

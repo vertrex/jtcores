@@ -1,37 +1,44 @@
 module PLD25 (
-    input  [2:1] FDA,
-    input        RDCLK,  
-    input        ORIGIN,
-    input        OIBDIR,
-    input        POS_8,
-    input        CARY_M,
-    input        XC4,      // X clock 4, read 4 bytes of sprite ? 
-    input        BUSAK,
-    input        OBUSRQ,
+    input  [2:1] FDA, //i2, i1 
+    input        RDCLK,  //i3 
+    input        ORIGIN, //i4 
+    input        OIBDIR,//i5 
+    input        POS_8, //i6 
+    input        CARY_M, //i7 
+    input        XC4, //i8 
+    input        BUSAK,//i9 
+    input        OBUSRQ, //i11
 
-    output       CTRL_LT,  // Control latch 
-    output       RD_VPOS,  // Read sprite veritcal position 
-    output       RD_HPOS,  // Read sprite horizontal position
-    output       LT_VPOS,  // latch sprite vertical position 
-    output       LT_HPOS,  // latch sprite horizontal position
-    output       ND2_8,    
-    output       OBUSAK,
-    output       RD_CHAR   // Read char tile index
+    output       CTRL_LT,  // i12 Control latch  ACTIVE LOW 
+    output       RD_VPOS,  // i13 Read sprite veritcal position ACTIVE LOW 
+    output       RD_HPOS,  // i14 Read sprite horizontal position ACTIVE LOW 
+    output       LT_VPOS,  // i15 latch sprite vertical position  ACTIVE HIGH  
+    output       LT_HPOS,  // i16 latch sprite horizontal position ACTIVE HIGH 
+    output       ND2_8,    // i17 ACTIVE HIGH  
+    output       OBUSAK,   // i18 ACTIVE LOW 
+    output       RD_CHAR   // i19 Read char tile index ACTIVE LOW 
 );
-    // /CTRL_LT = /FDA[1] & /FDA[2] & /RDCLK & /OIBDIR
-    assign CTRL_LT = ~((~FDA[1]) & (~FDA[2]) & (~RDCLK) & (~OIBDIR));
+        // FDA : ram words [] 
+        // 00 : CTRL LT  
+        // 01 : RD_CHAR  
+        // 10 : RD_HPOS , LT_HPOS + ORIGIN (IF BIT HIGH IN CTR_LT)  
+        // 11 : RD_VPOS , LT_VPOS + ORIGIN (IF BIT HIGH IN CTRL_LT)
 
-    // /RD_VPOS = FDA[1] & FDA[2] & /OIBDIR
-    assign RD_VPOS = ~((FDA[1]) & (FDA[2]) & (~OIBDIR));
+    //  /o12 = /i1 & /i2 & /i3 & /i5
+    assign CTRL_LT = ~(~FDA[2] & ~FDA[1] & ~RDCLK & ~OIBDIR);
+    //  /o13 = i1 & i2 & /i5
+    assign RD_VPOS = ~(FDA[2] & FDA[1] & ~OIBDIR);
+    //  /o14 = /i1 & i2 & /i5
+    assign RD_HPOS = ~(FDA[2] & ~FDA[1] & ~OIBDIR); // XXX add rdclk ? 
+    //  o15 = i1 & i2 & /i4 & /i5
+    assign LT_VPOS = FDA[2] & FDA[1] & ~ORIGIN & ~OIBDIR; //XXX add rd clk ? 
+    //  o16 = /i1 & i2 & /i4 & /i5
+    assign LT_HPOS = FDA[2] & ~FDA[1] & ~ORIGIN & ~OIBDIR; //xxx add rd clk ? 
 
-    // /RD_HPOS = /FDA[1] & FDA[2] & /OIBDIR
-    assign RD_HPOS = ~((~FDA[1]) & (FDA[2]) & (~OIBDIR));
-
-    // LT_VPOS = FDA[1] & FDA[2] & /ORIGIN & /OIBDIR
-    assign LT_VPOS = (FDA[1]) & (FDA[2]) & (~ORIGIN) & (~OIBDIR);
-
-    // LT_HPOS = /FDA[1] & FDA[2] & /ORIGIN & /OIBDIR
-    assign LT_HPOS = (~FDA[1]) & (FDA[2]) & (~ORIGIN) & (~OIBDIR);
+    //  o17 = i6 & /i7 & /i8 +
+      ///i6 & i7 & /i8 +
+      ///i6 & /i7 & i8 +
+      //i6 & i7 & i8
 
     // ND2_8 = POS_8 & /CARY_M & /XC4 +
     //       /POS_8 & CARY_M & /XC4 +
@@ -43,8 +50,9 @@ module PLD25 (
                    ( POS_8 &  CARY_M &  XC4 );
 
     // /OBUSAK = /BUSAK & /OBUSRQ
-    assign OBUSAK = ~((~BUSAK) & (~OBUSRQ));
+    // /o18 = /i9 & /i11
+    assign OBUSAK = ~(~BUSAK & ~OBUSRQ);
+    // /o19 = i1 & /i2 & /i5
+    assign RD_CHAR = ~(~FDA[2] & FDA[1] & ~OIBDIR);
 
-    // /RD_CHAR = FDA[1] & /FDA[2] & /OIBDIR
-    assign RD_CHAR = ~((FDA[1]) & (~FDA[2]) & (~OIBDIR));
 endmodule

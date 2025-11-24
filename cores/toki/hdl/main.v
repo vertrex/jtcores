@@ -176,36 +176,18 @@ fx68k fx68k (
 
 // 74LS244P 17K,17P, 22K
 //assign MAB[17:1] = { cpu_a[17], (BUSOPN == 1'b0) ? cpu_a[16:1] : 16'bz };
-
-assign MAB[17:1] = !BUSOPN  ? cpu_a[17:1] : 
+//// XXX XXX XXX MAKE VMT HAVE SOME DATA ? BETTER FOR OBJ ? 
+//OR JUST MORE GLITCH ? 
+assign MAB[17:1] = !BUSOPN  ? cpu_a[17:1] :  //better like that? busopn should work
                    !MBUSDIR ? {2'b0, 3'b111, KDA[12:1]} :
                    !OIBDIR  ? {1'b0, 6'b011011, FDA[10:1]} : //XXX REPLACE 1'b0 by DMARD !!!!
-                  //OIBDIR ==1'b0  == FDA_OUT ?  we must do the same for OBJ !
-                  //and handle obj DMARD !
-                  //DMARD this is video_DMARD to handle to from dma module
-                  { cpu_a[17], 16'b0 };
-
-//assign {DMARD, MAB_OUT[15:1]} = !OIBDIR ? { 6'b011011 , FDA[10:1]} : {16'b0};
-// XXX DMARD IS USED ON RAM ENABLE WE MUST STOP RAM WHEN DMARD IS USED OR
-// (SELECCT IT TO READ IT? ) ROMRAM PAGE 2 ! 
-//assign {DMARD , MAB[15:1]} = (MBUSDIR == 1'b0) ? { 1'b0 ,3'b111,  KDA[12:1]} : 16'bz;
+                   17'b0;
+                   //cpu_a[17:1];
+//                  { cpu_a[17], 16'b0 };
 
 // 74LS246
 // bidrectional bus
-//
-// XXX cpu_lds_n & memdir is that related to cpu DTACk ?
-//should also get from sei0100bu from music and others ? 
-//as cpu_din ? 
 
-// XXX 
-// ADRS.v SOUND.v read from cpu 
-// video.v scrn4 scrn2 read from memory 
-// make two different bus rather than one shared to avoid problem ? 
-//assign MDB_OUT[7:0] =
-//cpulds & MEMDIR ??? ca veux rie ndire je check lds sur la ram ...
-
-
-                  //(!cpu_lds_n & MEMDIR) ? ram_do[7:0] :
                    //cpu_dout[7:0] ;  //& BUSOPN ??
 //                  8'hZ;  // Z ? don't work well on real or sim 
 //memory -> CPU // B-> A
@@ -488,7 +470,8 @@ MDMA mdma_u(
   .DMARD(DMARD)
 );
 
-assign br_n = ~(MBUSRQ ^ OBUSRQ);  
+//assign br_n = ~(MBUSRQ ^ OBUSRQ);  //??  
+assign br_n = (MBUSRQ & OBUSRQ);  //??  
 //                  '0b101  000'
 //                  scrollram[40]&  0x8000 -> bit 16 up ! 
 //flip_screen_set((m_scrollram[0x28]&0x8000)==0); 
