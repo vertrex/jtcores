@@ -32,28 +32,28 @@ module PLD24(
 
     assign OBJEN_3 = ~INSCRN & ~OBJEN_2;
 
-    //assign LSBLD = (~FDA[1] &  FDA[2] &  SDTS & ~OIBDIR) |
-                   //(~FDA[1] &  FDA[2] & ~SDTS &  DLHD) |
-                   //(~FDA[2] &  SDTS   & ~OIBDIR) |
-                   //(~FDA[2] & ~SDTS   &  DLHD);
+    assign LSBLD = (~FDA[1] &  FDA[2] &  SDTS & ~OIBDIR) |
+                   (~FDA[1] &  FDA[2] & ~SDTS &  DLHD) |
+                   (~FDA[2] &  SDTS   & ~OIBDIR) |
+                   (~FDA[2] & ~SDTS   &  DLHD);
 
-    assign LSBLD = (~FDA[1] | ~FDA[2]) & MSBLD;
+    //assign LSBLD = (~FDA[1] | ~FDA[2]) & MSBLD;
 
     assign XOBDIR = ~OIBDIR;
 
-    //assign RAM2VLD = ~(( FDA[1] & ~FDA[2] &  SDTS) |
-                       //(~FDA[1] &  FDA[2] &  SDTS));
-    //assign RAM2VLD = ~SDTS | (FDA[1] == FDA[2]);
-    assign RAM2VLD = ~SDTS | ~(FDA[1] ^  FDA[2]);
+    assign RAM2VLD = ~(( FDA[1] & ~FDA[2] &  SDTS) |
+                       (~FDA[1] &  FDA[2] &  SDTS));
+    //assign RAM2VLD = ~SDTS | ~(FDA[1] ^  FDA[2]);
 
     // start dma counter ?
     assign MSBLD  = ( SDTS & ~OIBDIR) |
                     (~SDTS &  DLHD);
 
-//    assign MSBET = SDTS &  (~FDA[1] &  FDA[2] & SDTS) |
-  //                         (~FDA[2] &  SDTS);
-    assign MSBET = SDTS & (~FDA[1] | ~FDA[2]); 
+    assign MSBET = SDTS &  (~FDA[1] &  FDA[2] & SDTS) |
+                           (~FDA[2] &  SDTS);
+    //assign MSBET = SDTS & (~FDA[1] | ~FDA[2]); 
 
     assign ILD2 = ~SDTS & DLHD;
 
 endmodule
+

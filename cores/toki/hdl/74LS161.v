@@ -11,9 +11,7 @@ module LS161 (
     output            RCO       // Ripple Carry Output
 );
 
-    // Asynchronous clear
     always @(posedge clk or negedge LOAD_n or posedge rst or negedge CLR_n) begin
-    //always @(posedge clk) begin
         if (rst)
             Q <= 4'b0000;
         else if (!CLR_n)

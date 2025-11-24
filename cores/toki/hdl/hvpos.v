@@ -76,8 +76,8 @@ PLD25 pld25_u(
     .ORIGIN(ORIGIN),
     .OIBDIR(OIBDIR),
     .POS_8(POS[8]),
-    .CARY_M(CARY_M), //XXX loop from other 
-    .XC4(XC4), // XXX 
+    .CARY_M(CARY_M),
+    .XC4(XC4),
     .BUSAK(BUSAK),
     .OBUSRQ(OBUSRQ),
 
@@ -86,13 +86,13 @@ PLD25 pld25_u(
     .RD_HPOS(RD_HPOS),
     .LT_VPOS(LT_VPOS),
     .LT_HPOS(LT_HPOS),
-    .ND2_8(ND2[8]),
+    .ND2_8(ND2[8]), //set if carry_m (>256)
     .OBUSAK(OBUSAK),
     .RD_CHAR(RD_CHAR)
 );
 
 //
-/// DECODE SPRITE WORDS 0 : CTRL data  
+/// DECODE SPRITE WORDS 0 : CTRL data   (flip, prio, ...)
 //
 
 //74LS174 U134  
