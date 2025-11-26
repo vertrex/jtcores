@@ -1,7 +1,6 @@
-// Module de remplacement pour 74F269 compatible FPGA Synchrone
 module ttl_74F269 (
-    input wire clk,      // Main system clock (48MHz)
-    input wire CP,       // Clock Pulse (utilisé comme ENABLE ici)
+    input wire clk,
+    input wire CP,   
     
     input wire PE_n,     // Parallel Enable (Active Low) -> LOAD
     input wire CEP_n,    // Count Enable Parallel (Active Low)

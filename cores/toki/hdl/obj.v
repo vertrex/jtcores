@@ -7,7 +7,6 @@
 module obj(
   input         clk,
   input         rst,
-
   input [15:0]  MDB_RAM_OUT,
   input [15:0]  MDB_CPU_OUT,
   input         BUSAK,
@@ -18,7 +17,7 @@ module obj(
   input         VREV,  //reverse Y axis
   input         HBLB,
   input         T3F,
-  input         T8H, 
+  input         T8H,
   input         RESETA, 
   input         FIRST_LD,
   input         SECND_LD,
@@ -26,15 +25,15 @@ module obj(
   input         CTLT2,
   input         EVN_LD,
   input         ODD_LD,
-  input         NV256, //~V8
+  input         NV256,
   input         VCLK,
   input         OBJ_P6M,
   input         OBJ_N6M,
   input         RDCLK,
-  input         V1B,  //vpos[0] 
+  input         V1B,
   input         D1V_2,  //V1B @hpos[1]
-  input         OBJMASK, 
-  input         HREV, 
+  input         OBJMASK,
+  input         HREV,
   input         HD, 
   input         OBJT2_7,
   input         D1V_7,  //V1B @T8H
@@ -62,13 +61,12 @@ module obj(
 );
 
 //obj_cs     = ~cpu_as_n & (cpu_a[23:1] >= 23'h36c00 && cpu_a[23:1] < 23'h37000); //2048
-wire XOBDIR, OBUSAK;
-wire HREVD_1, VREVD_1, SPR1_1, SPR2_1, OBJEN_1;
+wire        XOBDIR, OBUSAK;
+wire        HREVD_1, VREVD_1, SPR1_1, SPR2_1, OBJEN_1;
 wire [15:0] OBJ_DB;
-wire [3:0]  ND1;
-
-wire [8:0] ND2; // XXX ??????
-wire       RD_VPOS;
+wire  [3:0] ND1;
+wire  [8:0] ND2;
+wire        RD_VPOS;
 
 
 ////// Horizontal & Vertical position ///// 
@@ -126,29 +124,28 @@ OBJDMA objdma_u(
     .RD_VPOS(RD_VPOS),
     .ND1(ND1[3:0]),
     .ND2(ND2[8:4]),
-    .HREVD_1(HREVD_1), //_1 ? 
-    .VREVD_1(VREVD_1), //_1 ? 
-    .SPR1_1(SPR1_1), //_1 
-    .SPR2_1(SPR2_1), //_1 
-    .OBJEN_1(OBJEN_1), //_1 
-    .DLHD(DLHD), 
+    .HREVD_1(HREVD_1),
+    .VREVD_1(VREVD_1),
+    .SPR1_1(SPR1_1), 
+    .SPR2_1(SPR2_1),
+    .OBJEN_1(OBJEN_1),
+    .DLHD(DLHD),
     .ODMARQ(ODMARQ),
     .OBUSAK(OBUSAK),
     .VORIGIN(VORIGIN),
-    .H_POS(H_POS[8:0]), 
+    .H_POS(H_POS[8:0]),
     .VREV(VREV),
-    .NV256(NV256), //V[8] ? or ~V[8] ?
-    .H_128(H_POS[7]), //H[7] ? 
-    .H_256(H_POS[8]),//h[8]?
-    .V1(1), //? //V_POS ?  
+    .NV256(NV256),
+    .H_128(H_POS[7]),
+    .H_256(H_POS[8]),
+    .V1B(V1B),
     //output 
     .MATCHV(MATCHV),
     .XOBDIR(XOBDIR),
     .RAM2VLD(RAM2VLD),
     .FDA(FDA[10:1]),
-    //.DMARD(DMARD),
     .VMT(VMT[3:0]),
-    .EVNWR2(EVNWR2), 
+    .EVNWR2(EVNWR2),
     .ODDWR2(ODDWR2),
     .OIBDIR(OIBDIR),
     .OBUSRQ(OBUSRQ),
@@ -182,7 +179,7 @@ SCNDDMA scnddma_u(
     .ODDWR2(ODDWR2),
     .RAM2VLD(RAM2VLD),
     .RDCLK(RDCLK),
-    .H1(H_POS[0]), //HPOS_ 1 ??
+    .H1(H_POS[0]),
     .OIBDIR(OIBDIR),
     .ND2(ND2[8:0]),
     .OBJ_DB(OBJ_DB[15:9]),
@@ -204,7 +201,8 @@ wire [15:0] PD;
 wire [3:0]  OBJCOL;
 wire [9:0]  OBJ1; 
 wire [9:0]  OBJ2; 
-
+wire        OSP1; 
+wire        OSP2;
 
 ///// Object Pixel Serializer /////
 // Retrieve data from the graphical ROM, deserialize data, 
@@ -222,11 +220,11 @@ OBJPS objps_u(
     .SECND_LD(SECND_LD),
     .OPSREV(OPSREV),
     .OBJCOL(OBJCOL[3:0]), //from linecunt
-    .OSP1(OSP1), 
+    .OSP1(OSP1),
     .OSP2(OSP2),
     .NOOBJ_CT2(NOOBJ),  //no obj XXX ? 
-    .HREV(HREV), // horizontal reverse, reverse screen from dipswitch
-    .HD(HD),  // from sei50bu !
+    .HREV(HREV),    // horizontal reverse, reverse screen from dipswitch
+    .HD(HD),        // from sei50bu !
     .E1FIND(E1FIND),
     .E2FIND(E2FIND),
     .O1FIND(O1FIND),
@@ -241,9 +239,6 @@ OBJPS objps_u(
     .DLHD(DLHD)
 );
 
-
-
-wire OSP1, OSP2;
 wire EVNCLR, ODDCLR, ODDWREN, EVNREN;
 wire [8:0] O1A;
 wire [8:0] O2A;
@@ -298,7 +293,6 @@ LINECUNT linecunt_u(
    .O2A(O2A),
    .E2A(E2A)
 );
-
 
 /////////// Line Buffering /////////////////
 // Manage two buffer Even and Odd that are swapped at end of each scanline

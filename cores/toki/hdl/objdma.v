@@ -39,7 +39,7 @@ module OBJDMA(
     input             NV256,
     input             H_128,
     input             H_256,
-    input             V1,
+    input             V1B,
     //output 
     output            MATCHV,
     output            XOBDIR,
@@ -123,14 +123,14 @@ wire [1:0] NC;
 
 sis6091 u_141(
   .clk0(clk),
-  .cen0(RDCLK),
-  .data0({2'b0, OBJEN_1,SPR2_1, SPR1_1,VREVD_1, HREVD_1, ND2[8:4], ND1[3:0]}),
+  .cen0(~RDCLK), //clk 31
+  .data0({2'b0, OBJEN_1, SPR2_1, SPR1_1, VREVD_1, HREVD_1, ND2[8:4], ND1[3:0]}),
   .addr0({2'b0, FDA[10:3]}),
-  .we0({RD_VPOS, RD_VPOS}),
+  .we0({~RD_VPOS, ~RD_VPOS}), //30 .w enable 
   .q0(),
 
   .clk1(clk),
-  .cen1(RDCLK),
+  .cen1(~RDCLK),
   .data1(),
   .addr1({2'b0, FDA[10:3]}), 
   .we1({1'b0, 1'b0}),
@@ -338,7 +338,7 @@ sg0140_sort48 u1412(
   .XSDTS(XSDTS),
   .ILD2(ILD2),
   .NH2(~H_POS[1]),
-  .V1B(V1),
+  .V1B(V1B),
   .H2(H_POS[1]),
   .H2_2(H_POS[1]),
   .H16(H_POS[4]),

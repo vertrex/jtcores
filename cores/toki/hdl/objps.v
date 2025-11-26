@@ -32,11 +32,11 @@ module OBJPS(
     output       DLHD         // Data Line ? Horizontal Drive 
 );
 
-wire LS175_Q1;
-wire NC0; 
+wire        LS175_Q1;
+wire        NC0; 
 wire [1:0]  NC1;
-wire NC2;
-wire T3F_2;
+wire        NC2;
+wire        T3F_2;
 
 // 74LS175
 LS175 u161(
@@ -48,8 +48,8 @@ LS175 u161(
     .Qn({NC2, ND1V_7P, NC1[1:0]})
 );
 
+// 14C
 // 74LS273
-//14C
 wire [7:0] u163_q;
 
 LS273 u163(
@@ -60,7 +60,8 @@ LS273 u163(
     .Q(u163_q[7:0])
 );
 
-//13C 
+//13C
+// 74LS74
 LS174 u165(
     .CLK(clk),
     .CLRn(1'b1),
@@ -69,7 +70,8 @@ LS174 u165(
     .Q(OBJ1[9:4])
 );
 
-//14A 
+// 14A
+// 74LS74 
 wire pld_i9;
 wire sei100_2_38;
 

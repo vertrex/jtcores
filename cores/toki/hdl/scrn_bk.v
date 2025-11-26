@@ -81,7 +81,7 @@ wire [15:0] ram_out;
 
 sis6091 u_bk1_ram(
   .clk0(clk),
-  .cen0(WRN6M),
+  .cen0(~WRN6M),
   .data0(MDB_RAM_OUT[15:0]),
   .addr0(KDA[10:1]),
   .we0({~DMSL, ~DMSL}),//DMSL S1

@@ -53,14 +53,14 @@ wire [5:0] nc3;
 // XXXX MUST ADD D1V_7p directio n?
 sis6091B u_181(
   .clk0(clk),
-  .cen0(OBJ_N6M), //31
+  .cen0(~OBJ_N6M), //31
   .data0({6'b0, OBJ1[9:0]}), //6,7,8,10,12-19,22-25
   .addr0({1'b0, E1A[8:0]}),//62-71
-  .we0({EVNWREN, EVNWREN}), //30
+  .we0({~EVNWREN, ~EVNWREN}), //30
   .q0(),
 
   .clk1(clk),
-  .cen1(OBJ_P6M), //73
+  .cen1(~OBJ_P6M), //73
   .data1(), //data 1 or addr1 ?
   .addr1(), //75-80,1,3,4,5  //XXX USXE addr0 ????? if not addr1 depending of direction? ???
   .we1({1'b0, 1'b0}),
@@ -71,14 +71,14 @@ sis6091B u_181(
 //6091 B 
 sis6091B u_182(
   .clk0(clk),
-  .cen0(OBJ_N6M), //31
+  .cen0(~OBJ_N6M), //31
   .data0({6'b0, OBJ2[9:0]}), //6,7,8,10,12-19,22-25
   .addr0({1'b0, E2A[8:0]}),//62-71
-  .we0({EVNWREN, EVNWREN}), //30
+  .we0({~EVNWREN, ~EVNWREN}), //30
   .q0(),
 
   .clk1(clk),
-  .cen1(OBJ_P6M), //73
+  .cen1(~OBJ_P6M), //73
   .data1(), //data 1 or addr1 ?
   .addr1(), //75-80,1,3,4,5
   .we1({1'b0, 1'b0}),
@@ -89,14 +89,14 @@ sis6091B u_182(
 //
 sis6091B u_183(
   .clk0(clk),
-  .cen0(OBJ_N6M), //31
+  .cen0(~OBJ_N6M), //31
   .data0({6'b0, OBJ1[9:0]}), //6,7,8,10,12-19,22-25
   .addr0({1'b0, O1A[8:0]}),//62-71
-  .we0({1'b0, 1'b0}), //30
+  .we0({1'b1, 1'b1}), //30
   .q0(),
 
   .clk1(clk),
-  .cen1(OBJ_P6M), //73
+  .cen1(~OBJ_P6M), //73
   .data1(), //data 1 or addr1 ?
   .addr1(), //75-80,1,3,4,5
   .we1({1'b0, 1'b0}),
@@ -107,14 +107,14 @@ sis6091B u_183(
 //
 sis6091B u_184(
   .clk0(clk),
-  .cen0(OBJ_N6M), //31
+  .cen0(~OBJ_N6M), //31
   .data0({6'b0, OBJ2[9:0]}), //6,7,8,10,12-19,22-25
   .addr0({1'b0, O2A[8:0]}),//62-71
-  .we0({1'b0, 1'b0}), //30
+  .we0({1'b1, 1'b1}), //30
   .q0(),
 
   .clk1(clk),
-  .cen1(OBJ_P6M), //73
+  .cen1(~OBJ_P6M), //73
   .data1(), //data 1 or addr1 ?
   .addr1(), //75-80,1,3,4,5
   .we1({1'b0, 1'b0}),

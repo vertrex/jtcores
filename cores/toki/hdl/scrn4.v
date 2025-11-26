@@ -54,7 +54,7 @@ wire [15:0] ram_out;
 
 sis6091 u_vram_ram(
   .clk0(clk),
-  .cen0(WRN6M),
+  .cen0(~WRN6M), //clock is active low on schematics
   //.data0(ram_do[15:0]), 
   .data0(MDB[15:0]), 
   .addr0(KDA[10:1]),    // KDA [1,10]

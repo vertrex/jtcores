@@ -129,7 +129,7 @@ wire [15:0] palette_out;
 sis6091 u_palette_ram(
   .clk0(clk),
   //.cen0(WRN6M),
-  .cen0(WRN6M),
+  .cen0(~WRN6M),
   .data0(MDB[15:0]),
   .addr0(KDA[10:1]),
   .we0({~DMSL_GL, ~DMSL_GL}), //DSML GL
