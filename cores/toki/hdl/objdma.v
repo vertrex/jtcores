@@ -127,14 +127,14 @@ sis6091 u_141(
   .data0({2'b0, OBJEN_1, SPR2_1, SPR1_1, VREVD_1, HREVD_1, ND2[8:4], ND1[3:0]}),
   .addr0({2'b0, FDA[10:3]}),
   .we0({~RD_VPOS, ~RD_VPOS}), //30 .w enable 
-  .q0(),
+  .q0({NC[1:0], OBJEN_2, SPR2_2, SPR1_2, VREVD_2, ODH, INSCRN ,VPD[7:0]}),
 
-  .clk1(clk),
-  .cen1(~RDCLK),
+  .clk1(1'b0),
+  .cen1(1'b0),
   .data1(),
-  .addr1({2'b0, FDA[10:3]}), 
-  .we1({1'b0, 1'b0}),
-  .q1({NC[1:0], OBJEN_2, SPR2_2, SPR1_2, VREVD_2, ODH, INSCRN ,VPD[7:0]}) //xxx check that
+  .addr1(), 
+  .we1(),
+  .q1() //xxx check that
 );
 
 /** 

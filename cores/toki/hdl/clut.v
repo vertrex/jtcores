@@ -136,7 +136,7 @@ sis6091 u_palette_ram(
   .q0(),
 
   .clk1(clk),
-  .cen1(P6M), //use N6M sa we inverse clock ? 
+  .cen1(~P6M), //use N6M sa we inverse clock ? 
   .data1(),
   .addr1(palette_addr[10:1]),
   .we1({1'b0, 1'b0}),

@@ -223,8 +223,8 @@ SEI0060BU sei60bu_u1712(
    .HREV(HREV),
    .OA(O2A[8:0]),
    .EA(E2A[8:0]),
-   .EVNCLR(EVNCLR),
-   .ODDCLR(ODDCLR)
+   .EVNCLR(),
+   .ODDCLR()
 );
 
 

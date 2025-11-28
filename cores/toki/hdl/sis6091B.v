@@ -47,62 +47,55 @@ we must add a clear to set full ram to zero !
 
 module sis6091B
 (
-    // Port 0
-    input          clk0,
-    input          cen0,
-    input   [15:0] data0,
-    input   [10:1] addr0,
-    input   [ 1:0] we0,
-    output  [15:0] q0,  //sis 6091 have only one output 
-    // Port 1
-    input          clk1,
-    input          cen1,
-    input   [15:0] data1, //sis 6091 have not data 1 it either use first add or scnd ?
-    input   [10:1] addr1,
-    input   [ 1:0] we1,
-    output  [15:0] q1
+    input          clk,
+    input          wr_cen,
+    input          we,
+    input   [15:0] data,
+    input   [10:1] addr,
+    input          rd_cen,
+    //input          clr, 
+    //output         find, 
+    output  [15:0] q
 );
 
-jtframe_dual_ram_cen #(
-    .DW        ( 8             ),
-    .AW        ( 10 )
-)
+// XXX clr 
+// use single port ?
+// output find ? 
+
+jtframe_dual_ram_cen #(.DW(8), .AW(10))
 u_lo(
-    .clk0       ( clk0              ),
-    .cen0(cen0),
-    .clk1       ( clk1              ),
-    .cen1(cen1),
+    .clk0(clk),
+    .cen0(wr_cen),
+    .clk1(clk),
+    .cen1(rd_cen),
     // Port 0
-    .data0      ( data0[7:0]        ),
-    .addr0      ( addr0             ),
-    .we0        ( we0[0]            ),
-    .q0         ( q0[7:0]           ),
+    .data0(data[7:0]),
+    .addr0(addr),
+    .we0(we),
+    .q0(),
     // Port 1
-    .data1      ( data1[7:0]        ),
-    .addr1      ( addr1             ),
-    .we1        ( we1[0]            ),
-    .q1         ( q1[7:0]           )
+    .data1(8'b0),
+    .addr1(addr),
+    .we1(1'b0),
+    .q1(q[7:0])
 );
 
-jtframe_dual_ram_cen #(
-    .DW        ( 8             ),
-    .AW        ( 10            )
-)
+jtframe_dual_ram_cen #(.DW(8), .AW(10))
 u_hi(
-    .clk0       ( clk0              ),
-    .cen0(cen0),
-    .clk1       ( clk1              ),
-    .cen1(cen1),
+    .clk0(clk),
+    .cen0(wr_cen),
+    .clk1(clk),
+    .cen1(rd_cen),
     // Port 0
-    .data0      ( data0[15:8]       ),
-    .addr0      ( addr0             ),
-    .we0        ( we0[1]            ),
-    .q0         ( q0[15:8]          ),
+    .data0(data[15:8]),
+    .addr0(addr),
+    .we0(we),
+    .q0(),
     // Port 1
-    .data1      ( data1[15:8]       ),
-    .addr1      ( addr1             ),
-    .we1        ( we1[1]            ),
-    .q1         ( q1[15:8]          )
+    .data1(8'b0),
+    .addr1(addr),
+    .we1(1'b0),
+    .q1(q[15:8])
 );
 
 endmodule
