@@ -41,12 +41,12 @@ wire [15:0] q_odd;
 // 64 obj EVEN 
 sis6091B u_151(
   .clk(clk),
-  .wr_cen(~XOBDIR), //DIV_2 /1 //EVNWR@ active write  to check
+  .wr_cen(~EVNWR2), //DIV_2 /1 //EVNWR@ active write  to check
   .we(~EVNWR2), //30 // &RDCLK
   .clr_n(1'b1),
   .data({SPR2_2, SPR1_2, ODH, MATCHV , VMT[3:0], FDA[10:3]}), //6,7,8,10,12-19,22-25
   .addr({4'b0, DMA2_EA[5:0]}),                                // 62-71
-  .rd_cen(XOBDIR), //73
+  .rd_cen(~XOBDIR), //73
   //.q({SPR2_3,SPR1_3, ODHREV, NOOBJ,VA[3:0], CTA[8:1]}) //42-56
   .q(q_even)//42-56
 );
@@ -63,12 +63,12 @@ sis6091B u_151(
  
 sis6091B u152(
   .clk(clk),
-  .wr_cen(~XOBDIR), //~XOBDIR ?
+  .wr_cen(~ODDWR2), //~XOBDIR ?
   .we(~ODDWR2),
   .clr_n(1'b1),
   .data({SPR2_2, SPR1_2, ODH, MATCHV , VMT[3:0] ,FDA[10:3]}), 
   .addr({4'b0, DMA2_OA[5:0]}),
-  .rd_cen(XOBDIR),
+  .rd_cen(~XOBDIR),
 //  .q1({SPR2_3,SPR1_3, ODHREV, NOOBJ,VA[3:0], CTA[8:1]}) //42-56
   .q(q_odd)
 );

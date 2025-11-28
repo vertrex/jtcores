@@ -63,7 +63,7 @@ sis6091B u_182(
   .clr_n(EVNCLR),
   .data({6'b0, OBJ2[9:0]}), //6,7,8,10,12-19,22-25
   .addr({1'b0, E2A[8:0]}),//62-71
-  .rd_cen(OBJ_P6M), //73
+  .rd_cen(~OBJ_P6M), //73
   .q({nc1, Q_EVN2}) //42-56
 );
 
@@ -75,7 +75,7 @@ sis6091B u_183(
   .clr_n(ODDCLR),
   .data({6'b0, OBJ1[9:0]}), //6,7,8,10,12-19,22-25
   .addr({1'b0, O1A[8:0]}),//62-71
-  .rd_cen(OBJ_P6M), //73
+  .rd_cen(~OBJ_P6M), //73
   .q({nc2, Q_ODD1}) //42-56
 );
 
@@ -87,7 +87,7 @@ sis6091B u_184(
   .clr_n(ODDCLR),
   .data({6'b0, OBJ2[9:0]}), //6,7,8,10,12-19,22-25
   .addr({1'b0, O2A[8:0]}),//62-71
-  .rd_cen(OBJ_P6M), //73
+  .rd_cen(~OBJ_P6M), //73
   .q({nc3, Q_ODD2}) //42-56
 );
 

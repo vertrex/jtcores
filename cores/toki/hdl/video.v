@@ -430,18 +430,8 @@ obj obj_u(
   .OBJ_HREV(OBJ_HREV)
 );
 
-//assign OBUSRQ = 1'b1;
-//assign OBUSDIR = 1'b1;
-//assign OIBDIR = 1'b1;
-
-//assign OBJON = 1'b0;
-//assign PRIOR_C = 1'b0;
-//assign PRIOR_D = 1'b0;
-//assign OOD= 8'hff;
-
 // XXX @ ... ?
 wire MASK =  HBLB & L3;//XXX; L3 IS NOT GOOD in sei50bu.v !
-
 
 //74LS174 8H page 8
 //74LS374 7FH page 8
