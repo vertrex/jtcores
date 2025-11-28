@@ -31,8 +31,8 @@ always @(posedge clk, negedge rst_n) begin
          scroll <= { data[4],  scroll_low[7:0] };
     
       // update in sel_n && high ?  
-      //scrolled[8:0] <= {pos[8:0]} + scroll[8:0];
-      scrolled[8:0] <= {1'b0, pos[7:0]} + scroll[8:0]; //fix ? 
+      scrolled[8:0] <= {pos[8:0]} + scroll[8:0];
+      //scrolled[8:0] <= {1'b0, pos[7:0]} + scroll[8:0]; //fix ? 
 
       //sync 
       if (pos[1:0] + scroll[1:0] == 2'b11) //11

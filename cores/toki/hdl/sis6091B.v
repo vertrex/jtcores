@@ -45,22 +45,60 @@ Data = D0 only remove D1
 we must add a clear to set full ram to zero ! 
 */
 
+/* 
+jtframe_obj_buffer #(.DW(8),.AW(9), .ALPHAW(4), .BLANK_DLY(1), .KEEP_OLD(1), .FLIP_OFFSET(4)) obj_buffer(
+  .clk(clk),
+  .LHBL(LHBL), //swap buffer at each line (horizontal blank)
+  .flip(1'b0), //flip whole screen ?
+  
+  .wr_data({color[3:0], plane_color[3:0]}), //in new data writes 
+  .wr_addr(line_buffer_index), //in new data addr
+  .we(write_pixel), //write_pixel),      //in new data enable
+
+  .rd_addr(line_buffer_addr),  //in read addr
+  .rd(pxl_cen),  //pxl cen  //~hblank ?or for each rd ?   //data will be erased after the rd event ! ??
+  .rd_data(line_buffer_out)  //output read data
+);
+*/
+
 module sis6091B
 (
     input          clk,
     input          wr_cen,
     input          we,
-    input   [15:0] data,
+    input   [15:0] data, //wr_data 
     input   [10:1] addr,
     input          rd_cen,
-    //input          clr, 
+    //input        swap / LHBL 
+    //input        flip ??? 
+
+    //default value -> 15'hf ?  for clear ?  
+    input          clr_n, //pin34  
     //output         find, 
-    output  [15:0] q
+    output  [15:0] q //rd_data 
 );
 
 // XXX clr 
 // use single port ?
 // output find ? 
+
+integer i ;
+reg [15:0] data_clr; 
+reg [10:1] addr_clr;
+
+always @(posedge clk)  begin 
+    if (~clr_n) begin  
+       for (i=0; i < 1024; i = i+1) begin  
+         data_clr[15:0] <= {6'b0, 1'b0, 1'b0, 8'hff};
+         addr_clr <= i;
+         end
+    end 
+    else begin  
+       addr_clr <= addr; 
+       data_clr <= data;
+   end     
+end
+ 
 
 jtframe_dual_ram_cen #(.DW(8), .AW(10))
 u_lo(
@@ -69,8 +107,8 @@ u_lo(
     .clk1(clk),
     .cen1(rd_cen),
     // Port 0
-    .data0(data[7:0]),
-    .addr0(addr),
+    .data0(data_clr[7:0]),
+    .addr0(addr_clr),
     .we0(we),
     .q0(),
     // Port 1
@@ -87,8 +125,8 @@ u_hi(
     .clk1(clk),
     .cen1(rd_cen),
     // Port 0
-    .data0(data[15:8]),
-    .addr0(addr),
+    .data0(data_clr[15:8]),
+    .addr0(addr_clr),
     .we0(we),
     .q0(),
     // Port 1

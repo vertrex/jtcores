@@ -80,19 +80,16 @@ assign sg_sync = scrolled_hpos[1];
 wire [15:0] ram_out;
 
 sis6091 u_bk1_ram(
-  .clk0(clk),
-  .cen0(~WRN6M),
-  .data0(MDB_RAM_OUT[15:0]),
-  .addr0(KDA[10:1]),
-  .we0({~DMSL, ~DMSL}),//DMSL S1
-  .q0(),
+  .clk(clk),
 
-  .clk1(clk),
-  .cen1(scrolled_hpos[1:0] == 2'b00), //X?? 
-  .data1(),
-  .addr1({scrolled_vpos[8:4], scrolled_hpos[8:4]}),  
-  .we1({1'b0, 1'b0}),
-  .q1(ram_out)
+  .wr_cen(~WRN6M),
+  .wr_en(~DMSL),//DMSL S1
+  .wr_data(MDB_RAM_OUT[15:0]),
+  .wr_addr(KDA[10:1]),
+
+  .rd_cen(scrolled_hpos[1:0] == 2'b00), //X?? 
+  .rd_addr({scrolled_vpos[8:4], scrolled_hpos[8:4]}),  
+  .rd_data(ram_out[15:0])
 );
 
 assign rom_cs = 1'b1;

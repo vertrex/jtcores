@@ -53,20 +53,17 @@ module scrn4(
 wire [15:0] ram_out;
 
 sis6091 u_vram_ram(
-  .clk0(clk),
-  .cen0(~WRN6M), //clock is active low on schematics
-  //.data0(ram_do[15:0]), 
-  .data0(MDB[15:0]), 
-  .addr0(KDA[10:1]),    // KDA [1,10]
-  .we0({~DMSL_S4 , ~DMSL_S4}), //DSML S4  DMA Select ?
-  .q0(),
+  .clk(clk),
 
-  .clk1(clk),
-  .cen1(T4H),
-  .data1(),
-  .addr1({vpos[7:3], hpos[7:3]}),
-  .we1({1'b0, 1'b0}),
-  .q1(ram_out[15:0])
+  .wr_cen(~WRN6M), //clock is active low on schematics
+  .wr_en(~DMSL_S4), //DSML S4  DMA Select ?
+  //.data0(ram_do[15:0]), 
+  .wr_data(MDB[15:0]), 
+  .wr_addr(KDA[10:1]),    // KDA [1,10]
+
+  .rd_cen(T4H),
+  .rd_addr({vpos[7:3], hpos[7:3]}),
+  .rd_data(ram_out[15:0])
 );
 
 // SEI50BU -> RAM (sis6091) -> ROM -> SEI10BU -> SG0140 -> PALETTE RAM -> UEC51 

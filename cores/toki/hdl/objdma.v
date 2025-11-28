@@ -122,19 +122,15 @@ PLD24 u_pld24(
 wire [1:0] NC;
 
 sis6091 u_141(
-  .clk0(clk),
-  .cen0(~RDCLK), //clk 31
-  .data0({2'b0, OBJEN_1, SPR2_1, SPR1_1, VREVD_1, HREVD_1, ND2[8:4], ND1[3:0]}),
-  .addr0({2'b0, FDA[10:3]}),
-  .we0({~RD_VPOS, ~RD_VPOS}), //30 .w enable 
-  .q0({NC[1:0], OBJEN_2, SPR2_2, SPR1_2, VREVD_2, ODH, INSCRN ,VPD[7:0]}),
+  .clk(clk),
+  .wr_cen(~RDCLK), //clk 31
+  .wr_en(~RD_VPOS), //30 .w enable 
+  .wr_data({2'b0, OBJEN_1, SPR2_1, SPR1_1, VREVD_1, HREVD_1, ND2[8:4], ND1[3:0]}),
+  .wr_addr({2'b0, FDA[10:3]}),
 
-  .clk1(1'b0),
-  .cen1(1'b0),
-  .data1(),
-  .addr1(), 
-  .we1(),
-  .q1() //xxx check that
+  .rd_cen(~RDCLK),
+  .rd_addr({2'b0, FDA[10:3]}), 
+  .rd_data({NC[1:0], OBJEN_2, SPR2_2, SPR1_2, VREVD_2, ODH, INSCRN ,VPD[7:0]})
 );
 
 /** 

@@ -81,7 +81,7 @@ assign prom_27_cs = 1'b1;
 // tryied to switch to cpu by default may be better
 
 assign  prom_27_addr[7:0] = { PRIOR_D, PRIOR_C, PRIOR_B, PRIOR_A, S2ON, OBJON, S4ON, S1ON };
-//assign  prom_27_addr[7:0] = { PRIOR_D, PRIOR_C, PRIOR_B, PRIOR_A, 1'b0, 1'b0, S4ON, S1ON };
+//assign  prom_27_addr[7:0] = { 1'b0, 1'b0, PRIOR_B, PRIOR_A, S2ON, 1'b0, S4ON, S1ON };
 // 74LS257 2H, 3H 
 // 74LS258 
 // 74LS246 1C 
@@ -127,20 +127,15 @@ wire [15:0] palette_out;
 // palette ram (2048)
 // populated by DMA 
 sis6091 u_palette_ram(
-  .clk0(clk),
-  //.cen0(WRN6M),
-  .cen0(~WRN6M),
-  .data0(MDB[15:0]),
-  .addr0(KDA[10:1]),
-  .we0({~DMSL_GL, ~DMSL_GL}), //DSML GL
-  .q0(),
+  .clk(clk),
+  .wr_cen(~WRN6M),
+  .wr_en(~DMSL_GL), //DSML GL
+  .wr_data(MDB[15:0]),
+  .wr_addr(KDA[10:1]),
 
-  .clk1(clk),
-  .cen1(~P6M), //use N6M sa we inverse clock ? 
-  .data1(),
-  .addr1(palette_addr[10:1]),
-  .we1({1'b0, 1'b0}),
-  .q1(palette_out[15:0])
+  .rd_cen(~P6M), //use N6M sa we inverse clock ? 
+  .rd_addr(palette_addr[10:1]),
+  .rd_data(palette_out[15:0])
 );
 
 // UEC-51  6H

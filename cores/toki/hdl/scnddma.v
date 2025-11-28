@@ -43,6 +43,7 @@ sis6091B u_151(
   .clk(clk),
   .wr_cen(~XOBDIR), //DIV_2 /1 //EVNWR@ active write  to check
   .we(~EVNWR2), //30 // &RDCLK
+  .clr_n(1'b1),
   .data({SPR2_2, SPR1_2, ODH, MATCHV , VMT[3:0], FDA[10:3]}), //6,7,8,10,12-19,22-25
   .addr({4'b0, DMA2_EA[5:0]}),                                // 62-71
   .rd_cen(XOBDIR), //73
@@ -64,6 +65,7 @@ sis6091B u152(
   .clk(clk),
   .wr_cen(~XOBDIR), //~XOBDIR ?
   .we(~ODDWR2),
+  .clr_n(1'b1),
   .data({SPR2_2, SPR1_2, ODH, MATCHV , VMT[3:0] ,FDA[10:3]}), 
   .addr({4'b0, DMA2_OA[5:0]}),
   .rd_cen(XOBDIR),
@@ -77,19 +79,16 @@ assign {SPR2_3,SPR1_3, ODHREV, NOOBJ,VA[3:0], CTA[8:1]} =  D1V_2 ? q_even : q_od
 // store at FDA => nd2, obj (graphical data?)
 // retrieve at CTA, H[1]
 sis6091 u153(
-  .clk0(clk),
-  .cen0(~RDCLK), //RAM2VLD ???? 
-  .data0({OBJ_DB[15:9] , ND2[8:0]}), 
-  .addr0({1'b0, FDA[10:2]}),
-  .we0({~RAM2VLD, ~RAM2VLD}), //RDCLK ????   //~OIBIDR ? write tor ram ?
-  .q0(),
+  .clk(clk),
 
-  .clk1(clk),
-  .cen1(~OIBDIR), //~OIBDIR 
-  .data1(),
-  .addr1({1'b0, CTA[8:1], H1}), //8:0 or 9:1 ????? XXX
-  .we1({1'b0, 1'b0}),
-  .q1({OVD[15:0]})
+  .wr_cen(~RDCLK), //RAM2VLD ???? 
+  .wr_en(~RAM2VLD), //RDCLK ????   //~OIBIDR ? write tor ram ?
+  .wr_data({OBJ_DB[15:9] , ND2[8:0]}), 
+  .wr_addr({1'b0, FDA[10:2]}),
+
+  .rd_cen(~OIBDIR), //~OIBDIR 
+  .rd_addr({1'b0, CTA[8:1], H1}), //8:0 or 9:1 ????? XXX
+  .rd_data({OVD[15:0]})
 );
 //OIBIDR ?
 

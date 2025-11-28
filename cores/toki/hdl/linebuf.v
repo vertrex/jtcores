@@ -48,6 +48,7 @@ sis6091B u_181(
   .clk(clk),
   .wr_cen(~OBJ_N6M), //31
   .we(~EVNWREN), //30
+  .clr_n(EVNCLR),
   .data({6'b0, OBJ1[9:0]}), //6,7,8,10,12-19,22-25
   .addr({1'b0, E1A[8:0]}),//62-71
   .rd_cen(~OBJ_P6M), //73
@@ -59,6 +60,7 @@ sis6091B u_182(
   .clk(clk),
   .wr_cen(~OBJ_N6M), //31
   .we(~EVNWREN), //30
+  .clr_n(EVNCLR),
   .data({6'b0, OBJ2[9:0]}), //6,7,8,10,12-19,22-25
   .addr({1'b0, E2A[8:0]}),//62-71
   .rd_cen(OBJ_P6M), //73
@@ -70,6 +72,7 @@ sis6091B u_183(
   .clk(clk),
   .wr_cen(~OBJ_N6M), //31
   .we(1'b1), //30
+  .clr_n(ODDCLR),
   .data({6'b0, OBJ1[9:0]}), //6,7,8,10,12-19,22-25
   .addr({1'b0, O1A[8:0]}),//62-71
   .rd_cen(OBJ_P6M), //73
@@ -81,6 +84,7 @@ sis6091B u_184(
   .clk(clk),
   .wr_cen(~OBJ_N6M), //31
   .we(1'b1), //30
+  .clr_n(ODDCLR),
   .data({6'b0, OBJ2[9:0]}), //6,7,8,10,12-19,22-25
   .addr({1'b0, O2A[8:0]}),//62-71
   .rd_cen(OBJ_P6M), //73
