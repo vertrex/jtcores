@@ -180,7 +180,7 @@ fx68k fx68k (
 //OR JUST MORE GLITCH ? 
 assign MAB[17:1] = !BUSOPN  ? cpu_a[17:1] :  //better like that? busopn should work
                    !MBUSDIR ? {2'b0, 3'b111, KDA[12:1]} :
-                   !OIBDIR  ? {1'b0, 6'b011011, FDA[10:1]} : //XXX REPLACE 1'b0 by DMARD !!!!
+                   !OIBDIR  ? {1'b0, 6'b011011, FDA[10:1]} : //DMARD =0 p14
                    17'b0;
                    //cpu_a[17:1];
 //                  { cpu_a[17], 16'b0 };

@@ -8,7 +8,6 @@ module obj(
   input         clk,
   input         rst,
   input [15:0]  MDB_RAM_OUT,
-  input [15:0]  MDB_CPU_OUT,
   input         BUSAK,
   input         STARTV,
   input         ODMARQ,
@@ -76,7 +75,7 @@ wire        RD_VPOS;
 // and send that data to the objdma module  
 HVPOS hvpos_u(
     .clk(clk),
-    .MDB(MDB_CPU_OUT[15:0]), // XXX RAM OR CPU READ ?
+    .MDB(MDB_RAM_OUT[15:0]), // we got output of RAM during DMA ! not cpu 
     .FDA(FDA[2:1]),
     .RDCLK(RDCLK),
     .OIBDIR(OIBDIR),
@@ -189,7 +188,7 @@ SCNDDMA scnddma_u(
     //output 
     .OVD(OVD[15:0]),
     .VA(VA[3:0]),
-    .NOOBJ(NOOBJ),
+    .NOOBJ(NOOBJ), //MATCHV
     .ODHREV(ODHREV), 
     .SPR1_3(SPR1_3),
     .SPR2_3(SPR2_3)
@@ -208,6 +207,10 @@ wire        OSP2;
 // Retrieve data from the graphical ROM, deserialize data, 
 // applies horizontal/vertical flipping (HREV/VREV) and applies color palette
 // index
+wire NOOBJ_CT2;
+
+wire OBJ1_Z, OBJ2_Z;
+
 OBJPS objps_u(
     .clk(clk),
     .rst(rst),
@@ -222,7 +225,7 @@ OBJPS objps_u(
     .OBJCOL(OBJCOL[3:0]), //from linecunt
     .OSP1(OSP1),
     .OSP2(OSP2),
-    .NOOBJ_CT2(NOOBJ),  //no obj XXX ? 
+    .NOOBJ_CT2(NOOBJ_CT2), 
     .HREV(HREV),    // horizontal reverse, reverse screen from dipswitch
     .HD(HD),        // from sei50bu !
     .E1FIND(E1FIND),
@@ -236,15 +239,17 @@ OBJPS objps_u(
     .OBJ1(OBJ1[9:0]),
     .OBJON(OBJON),
     .OBJ2(OBJ2[9:0]),
-    .DLHD(DLHD)
+    .DLHD(DLHD),
+    .OBJ1_Z(OBJ1_Z),
+    .OBJ2_Z(OBJ2_Z)
 );
 
-wire EVNCLR, ODDCLR, ODDWREN, EVNREN;
+wire EVNCLR, ODDCLR;
+wire EVNWREN, ODDWREN;
 wire [8:0] O1A;
 wire [8:0] O2A;
 wire [8:0] E1A;
 wire [8:0] E2A;
-wire EVNWREN;
 
 /////////// Line counter ///////// 
 // Iterates through the sprites store in the secondary buffer 
@@ -291,7 +296,8 @@ LINECUNT linecunt_u(
    .ODDWREN(ODDWREN),
    .EVNWREN(EVNWREN),
    .O2A(O2A),
-   .E2A(E2A)
+   .E2A(E2A),
+   .NOOBJ_CT2(NOOBJ_CT2)
 );
 
 /////////// Line Buffering /////////////////
@@ -306,6 +312,7 @@ LINECUNT linecunt_u(
 LINEBUF linebuf_u(
     .clk(clk),
     .EVNWREN(EVNWREN),//Even write en 
+    .ODDWREN(ODDWREN),
     .OBJ_N6M(OBJ_N6M),
     .OBJ1(OBJ1[9:0]),//Obj 1 
     .OBJ2(OBJ2[9:0]),//Obj 2 
@@ -325,7 +332,9 @@ LINEBUF linebuf_u(
     .O2FIND(O2FIND),  //Odd 2 find 
     .OOD(OOD[7:0]),   //object out data
     .PRIOR_C(PRIOR_C),//prior c 
-    .PRIOR_D(PRIOR_D) //prior d 
+    .PRIOR_D(PRIOR_D), //prior d
+    .OBJ1_Z(OBJ1_Z),
+    .OBJ2_Z(OBJ2_Z)
 );
 
 endmodule 

@@ -1,8 +1,8 @@
 ////////// VIDEO ////////////////////////////////////////////
 //
 // - video synchronization (hsync, vsync, vblank, hblank)
-// - char, bk1, bk2, obj drawing  
-// - char, bk1, bk2, obj mixing & output 
+// - char, bk1, bk2, obj drawing
+// - char, bk1, bk2, obj mixing & output
 //
 module toki_video(
   input             rst,
@@ -16,11 +16,11 @@ module toki_video(
   input       [3:0] gfx_en, // debug : graphical layer enable
 
   output            HS,
-  output            VS, 
-  output            LHBL, 
+  output            VS,
+  output            LHBL,
   output            LVBL,
   output      [8:0] hpos,
-  output      [8:0] vpos, 
+  output      [8:0] vpos,
   output            N1H,
 
   // RGB out
@@ -38,7 +38,7 @@ module toki_video(
   //input             char_rom_ok,
   //output     [16:1] char_rom_addr,
   //output            char_rom_cs,
-  
+
   input       [7:0] char_rom_1_data,
   input             char_rom_1_ok,
   output     [15:0] char_rom_1_addr,
@@ -74,7 +74,7 @@ module toki_video(
   output reg [7:0]  prom_26_addr,
   output            prom_26_cs,
 
-  input      [7:0]  prom_27_data, // XXX 4 bit wide ! 
+  input      [7:0]  prom_27_data, // XXX 4 bit wide !
   input             prom_27_ok,
   output     [7:0]  prom_27_addr,
   output            prom_27_cs,
@@ -99,17 +99,17 @@ module toki_video(
   input              DMSL_S2,
   input              DMSL_S4,
   input              DMSL_GL,
-  input              RST_S1H, 
-  input              SEL_S1H, 
-  input              RST_S1Y, 
+  input              RST_S1H,
+  input              SEL_S1H,
+  input              RST_S1Y,
   input              SEL_S1Y,
-  input              RST_S2H, 
-  input              SEL_S2H, 
-  input              RST_S2Y, 
+  input              RST_S2H,
+  input              SEL_S2H,
+  input              RST_S2Y,
   input              SEL_S2Y,
   input              WRN6M,
   input              BUSAK,
-  
+
   output             OBUSDIR,
   output             OBUSRQ,
   input              ODMARQ,
@@ -119,39 +119,39 @@ module toki_video(
 
 ////////// VIDEO SYNC /////////////
 //
-wire HBL; 
+wire HBL;
 wire L3;
 wire HD;
 wire VSYNC; //seems to be ~ sei0050bu XXX (page 5)
 
-//XXX use them 
+//XXX use them
 //REVERSE SCREEN X/Y HD74LS86P A1/2
 wire [7:0] EXH = {hpos[7] ^ HREV, hpos[6] ^ HREV, hpos[5] ^ HREV, hpos[4] ^ HREV, hpos[3] ^ HREV, hpos[2] ^ HREV, hpos[1] ^ HREV, hpos[0] ^ HREV};
 wire [7:0] EXV = {vpos[7] ^ VREV, vpos[6] ^ VREV, vpos[5] ^ VREV, vpos[4] ^ VREV, vpos[3] ^ VREV, vpos[2] ^ VREV, vpos[1] ^ VREV, vpos[0] ^ VREV};
 
-// 
-//PROM26 
+//
+//PROM26
 //
 
 //reg HBL;
 wire OBJT1, OBJT2, STARTV, VORIGIN, VBL_ROM;
 
 assign prom_26_cs = 1'b1;
-//assign prom_26_addr[7:0] = vpos[7:0]; // generate CPU VBLANK on O5 (pin 6)  
+//assign prom_26_addr[7:0] = vpos[7:0]; // generate CPU VBLANK on O5 (pin 6)
 
 always @(posedge clk)
-  if (~N6M) begin 
-    prom_26_addr[7:0] <= vpos[7:0]; // generate CPU VBLANK on O5 (pin 6)  
-  end 
+  if (~N6M) begin
+    prom_26_addr[7:0] <= vpos[7:0]; // generate CPU VBLANK on O5 (pin 6)
+  end
 
 
 assign OBJT1 =   prom_26_data[0];
-//assign OBJT2 =   prom_27_data[1]; //need to be latched 
+//assign OBJT2 =   prom_27_data[1]; //need to be latched
 assign STARTV =  prom_26_data[2];
 assign VORIGIN = prom_26_data[3];
 assign INT_T =   prom_26_data[4];
 //nc
-//nc 
+//nc
 assign VBL_ROM = prom_26_data[7];
 // HV SYNC
 wire T8H, T3F, T4H, VCLK;
@@ -174,7 +174,7 @@ SEI0050BU sei0050bu_u(
   .T4H(T4H),
   .HD(HD),
   .VSYNC(VSYNC),
-  .VCLK(VCLK), 
+  .VCLK(VCLK),
   .HS(HS),
   .VS(VS)
 );
@@ -182,20 +182,20 @@ SEI0050BU sei0050bu_u(
 reg [9:0] frame_counter = 0;
 
 //if @always LVBL it glitch ? how that can work on miste ror pocket ?
-always @(posedge clk) begin 
-  if (LVBL)
+always @(posedge VS) begin
+  //if (LVBL)
     frame_counter = frame_counter + 10'b1;
-end 
+end
 
 assign LVBL = VBL_ROM;
 assign LHBL = HBL; // ?
 
 reg OBJT2_7;
-reg D1V_7; 
+reg D1V_7;
 reg [2:0] EXV_7;
 
 //CHAR_CEN IS T3F
-always @(posedge clk) begin 
+always @(posedge clk) begin
   if (T8H)
     OBJT2_7 <= prom_26_data[1];
     D1V_7 <= V1B;
@@ -204,11 +204,11 @@ always @(posedge clk) begin
     EXV_7[0] <= EXV[0];
     EXV_7[1] <= EXV[1];
     EXV_7[2] <= EXV[2];
-end 
+end
 
 ///////// SCREEN 4 : char tile //////////
 //
-// char : 8x8 tile 
+// char : 8x8 tile
 //
 wire [3:0] char_color;
 wire [3:0] char_code;
@@ -220,12 +220,12 @@ scrn4 scrn4_u(
   .WRN6M(WRN6M),
   .T4H(T4H),
   .T8H(T8H), //char_cen T8H
-  .T3F(T3F), //char rom cen T3F 
+  .T3F(T3F), //char rom cen T3F
 
   .KDA(KDA[10:1]),
   .DMSL_S4(DMSL_S4),
   .MDB(MDB_RAM_OUT),
-  
+
   .hpos(hpos[7:0]),
   .vpos(vpos[7:0]),
   .hrev(HREV),
@@ -246,11 +246,11 @@ scrn4 scrn4_u(
 
 ///////// BG1 DRAWING /////////////////
 //
-// background 1 : 16x16 tile 
+// background 1 : 16x16 tile
 //
 wire [3:0] bk1_color;
 wire [3:0] bk1_code;
-wire S1CLLT; //S1 col latch 
+wire S1CLLT; //S1 col latch
 
 scrn_bk bk1_u(
   .clk(clk),
@@ -282,7 +282,7 @@ scrn_bk bk1_u(
 
 ///////// BG2 DRAWING /////////////////
 //
-// background 2 : 16x16 tile 
+// background 2 : 16x16 tile
 //
 wire [3:0] bk2_color;
 wire [3:0] bk2_code;
@@ -319,25 +319,25 @@ scrn_bk bk2_u(
 
 ///////// SPRITE DRAWING /////////////////
 //
-// obj : 16x16 tile 
+// obj : 16x16 tile
 //
 wire  [7:0] obj;
 reg   [8:0] obj_line_buffer_addr;
 
 wire FIRST_LD, SECND_LD, CTLT1, CTLT2, EVN_LD, ODD_LD, NV256;
 
-//page 5 osc 
+//page 5 osc
 wire V1B = vpos[0];
 
 PLD22 pld22_u(
     .N6M(N6M),
     .H1(hpos[0]),
     .H2(hpos[1]),
-    .H4(hpos[3]),
-    .H8(hpos[4]),
+    .H4(hpos[2]),
+    .H8(hpos[3]),
     .V1B(V1B),
-    .OBJT1(OBJT1),  
-    .V256(~vpos[8]), // ????? does v256 is inversed in sei50bu ? 
+    .OBJT1(OBJT1),
+    .V256(~vpos[8]), // ????? does v256 is inversed in sei50bu ?
     //because NV256 signal is not good for what we have
 
     .FIRST_LD(FIRST_LD),
@@ -368,7 +368,7 @@ LS74 u_5a(
 
 wire OBJ_HREV;
 wire OPSREV = HREV ^ OBJ_HREV;
-wire VH4 = ~hpos[2] ^ OPSREV; 
+wire VH4 = ~hpos[2] ^ OPSREV;
 wire VH8 = hpos[3] ^ ~hpos[2] ^ OPSREV;
 //wire NH2 = ~hpos[1];
 
@@ -377,11 +377,10 @@ obj obj_u(
   .rst(rst),
 
   .MDB_RAM_OUT(MDB_RAM_OUT[15:0]),
-  .MDB_CPU_OUT(MDB_RAM_OUT[15:0]),
   .BUSAK(BUSAK),
   .STARTV(STARTV),
   .ODMARQ(ODMARQ),
-  .VORIGIN(VORIGIN), 
+  .VORIGIN(VORIGIN),
   .H_POS(hpos[8:0]),
   .VREV(VREV),
   .HBLB(HBLB),
@@ -401,7 +400,7 @@ obj obj_u(
   .RDCLK(N6M),
   .V1B(V1B),
   .D1V_2(D1V_2),
-  .OBJMASK(OBJMASK), 
+  .OBJMASK(OBJMASK),
   .HREV(HREV),
   .HD(HD),
   .OBJT2_7(OBJT2_7),
@@ -440,16 +439,16 @@ reg  [7:0] bk2;
 reg  [3:0] bk2_code_latch;
 reg        s2on;
 
-always @(posedge clk) begin 
-  if (~N6M) begin 
+always @(posedge clk) begin
+  if (~N6M) begin
     if (S2CLLT) begin // COL_B_EN ?
-      bk2_code_latch <= bk2_code[3:0]; 
-    end 
+      bk2_code_latch <= bk2_code[3:0];
+    end
 //if    (~S2MASK )
     s2on <= (bk2_color[3:0] == 4'hf) ? 1'b0: 1'b1; //sch page 8 XXX
     bk2[7:0] <= { bk2_code_latch[3:0], bk2_color[3:0]};
-  end 
-end 
+  end
+end
 
 // COLOR OUTPUT
 CLUT CLUT_u(
@@ -458,7 +457,7 @@ CLUT CLUT_u(
   .P6M(P6M),
   .WRN6M(WRN6M),
   .S1PIC(bk1_color), //inversed ?
-  .S1COL(bk1_code), 
+  .S1COL(bk1_code),
   .S4PIC(char_color),
   .S4COL(char_code),
   .S1CLLT(S1CLLT), // ?

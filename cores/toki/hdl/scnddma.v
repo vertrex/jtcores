@@ -1,3 +1,5 @@
+// Secondary DMA triggered by objdma when sprite match  
+
 //Write sprite info to one line 
 //or the other , 
 //when one is read alternatively via sg0140 / objdma 
@@ -41,13 +43,14 @@ wire [15:0] q_odd;
 // 64 obj EVEN 
 sis6091B u_151(
   .clk(clk),
-  .wr_cen(~EVNWR2), //DIV_2 /1 //EVNWR@ active write  to check
-  .we(~EVNWR2), //30 // &RDCLK
+  .wr_cen(EVNWR2), //DIV_2 /1 //EVNWR@ active write  to check
+  .we(1'b1), //30 // &RDCLK
   .clr_n(1'b1),
   .data({SPR2_2, SPR1_2, ODH, MATCHV , VMT[3:0], FDA[10:3]}), //6,7,8,10,12-19,22-25
   .addr({4'b0, DMA2_EA[5:0]}),                                // 62-71
   .rd_cen(~XOBDIR), //73
   //.q({SPR2_3,SPR1_3, ODHREV, NOOBJ,VA[3:0], CTA[8:1]}) //42-56
+  .find(),
   .q(q_even)//42-56
 );
 //XXX where goes XOBDIR ? DIY_2 ? check on other sis6901 if it's sometime used
@@ -63,13 +66,14 @@ sis6091B u_151(
  
 sis6091B u152(
   .clk(clk),
-  .wr_cen(~ODDWR2), //~XOBDIR ?
-  .we(~ODDWR2),
+  .wr_cen(ODDWR2), //~XOBDIR ?
+  .we(1'b1),
   .clr_n(1'b1),
   .data({SPR2_2, SPR1_2, ODH, MATCHV , VMT[3:0] ,FDA[10:3]}), 
   .addr({4'b0, DMA2_OA[5:0]}),
   .rd_cen(~XOBDIR),
 //  .q1({SPR2_3,SPR1_3, ODHREV, NOOBJ,VA[3:0], CTA[8:1]}) //42-56
+  .find(),
   .q(q_odd)
 );
 
@@ -86,9 +90,9 @@ sis6091 u153(
   .wr_data({OBJ_DB[15:9] , ND2[8:0]}), 
   .wr_addr({1'b0, FDA[10:2]}),
 
-  .rd_cen(~OIBDIR), //~OIBDIR 
+  .rd_cen(OIBDIR), //OIBDIR always up except 1 time per frame during dma  
   .rd_addr({1'b0, CTA[8:1], H1}), //8:0 or 9:1 ????? XXX
-  .rd_data({OVD[15:0]})
+  .rd_data({OVD[15:0]}) //XXX THIS WHERE DATA to create address is send is it blocked or have wrong data ?
 );
 //OIBIDR ?
 

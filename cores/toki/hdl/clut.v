@@ -80,6 +80,7 @@ assign prom_27_cs = 1'b1;
 // may be make two different bus  rather than one shared ? 
 // tryied to switch to cpu by default may be better
 
+//ON is actiive high ?
 assign  prom_27_addr[7:0] = { PRIOR_D, PRIOR_C, PRIOR_B, PRIOR_A, S2ON, OBJON, S4ON, S1ON };
 //assign  prom_27_addr[7:0] = { 1'b0, 1'b0, PRIOR_B, PRIOR_A, S2ON, 1'b0, S4ON, S1ON };
 // 74LS257 2H, 3H 

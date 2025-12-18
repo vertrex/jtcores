@@ -16,16 +16,16 @@ module SEI0050BU(
   output reg [8:0] hpos, //128 to 511 (511-128 == 383) [0, 383] == 384  
   output reg [8:0] vpos, //250 to 511 (511-250 == 261) [0, 261] == 262 ? 
 
-  output N1H, 
+  output     N1H, 
   //output reg [8:0] hcnt,
-  output T8H, //p22 CHAR_CEN
+  output     T8H, //p22 CHAR_CEN
   output reg HBL, //p23 HSYNC 
-  output L3, //p24  ~cblank
+  output     L3, //p24  ~cblank
   output reg T3F, //p25 CHAR_ROM_CEN
-  output T4H, //p26  hpos2 ?  char SIS 6091 ! 
-  output HD, //p27   hsync 
-  output VSYNC, //p28 csync
-  output VCLK,  //p29,30 15.56khz
+  output     T4H, //p26  hpos2 ?  char SIS 6091 ! 
+  output     HD, //p27   hsync 
+  output     VSYNC, //p28 csync
+  output     VCLK,  //p29,30 15.56khz
 
   //NOT IN ORIGINAL BUT NEED BY JTCORE 
   output reg HS,  //HS 

@@ -29,7 +29,10 @@ module OBJPS(
     output [9:0] OBJ1,        //obj data : pix data + palette data + prior 1 + prior 2 
     output       OBJON,       //obj on
     output [9:0] OBJ2,   
-    output       DLHD         // Data Line ? Horizontal Drive 
+    output       DLHD,         // Data Line ? Horizontal Drive 
+
+    output OBJ1_Z,
+    output OBJ2_Z
 );
 
 wire        LS175_Q1;
@@ -100,7 +103,25 @@ sei0010bu u162_sei10(
 //74LS244 
 wire PLD_O19;
 wire [3:0] OBJ1_COLOR_EN;
-assign OBJ1_COLOR_EN[3:0] = ~PLD_O19 ? OBJ1_COLOR[3:0] : 4'b0;
+// XXX OBJ_COLOR EN !!!! NE MARHCERA PAS probleme de clocking ~ / ? 
+// better sans mais il faudrait le probleme c'est qu il est low 1 fois sur
+// 2w... peut etre le probleme du PLD et rdv
+assign OBJ1_COLOR_EN[3:0] = ~PLD_O19 ? OBJ1_COLOR[3:0] : 4'b0;// 
+//ERREUR DANS OBJMASK ou NOOBJCT_2 ? !! NOOBJ_CT2 c'est sg0140 ... 
+    //donc forcement si sg0140 est pas bon on est pas mon est on masque 1 pixel sur 2 
+    //ca permettre d'avoir un affichage clean si NOOBJ_CT2 est stable pour 1 object 
+    //et a 0 pour clean le rest de l objet mais ca vire par le probleme d'avoir qu 'un objet 
+    //par image au lieu de plusieurs et qu il soit pas au bon endroit ...
+
+    //NOOBJ_CT2
+//pld_i9 => PLD_O19 => NOOBJ_CT_2_LATCH1 => NOOBJCT_2 _LATCH 1
+//u163_q[7] => NOOBJ_CT2_LATCH1 => ~OBJMASK & NOOB_CT2_LATCH1 
+
+// NOOBJ_CT2 <= sg0140 ohmax <= NOOB_J <= scnddma <= MATCHV <= PLD24
+// MATCHV(MATCHV) ~(OVER256 & ~VFIND)  VFIND viends de sg0140  sort48 et
+// genere par vcheck 
+
+assign OBJ1_Z = ~PLD_O19 ? 1'b0 : 1'b1;
 
 wire [3:0] OBJ1_COLOR_SHIFT;
 //74LS273 
@@ -134,8 +155,10 @@ PLD29 u_pld29(
     .NHREV_HD(NHREV_HD), 
     .OBJON(OBJON), 
     .o16_n(NC),     // why it's dumped ?
-    .MASK_NOOBJ_2(PLD_O18),
-    .MASK_NOOBJ_1(PLD_O19)
+    // OBJMASK => cpu/addrs.v  if (MASKS~ ) OBJMASK <=MDB[2] 
+    // NOOBJCT_2 => sg0140_ohmax
+    .MASK_NOOBJ_2(PLD_O18),  //~( ~OBJMASK & NOOBJ_CT2_LATCH1 );
+    .MASK_NOOBJ_1(PLD_O19)   //~( ~OBJMASK & NOOBJ_CT2_LATCH2 );
 );
 
 
@@ -154,6 +177,14 @@ sei0010bu u168_sei10(
 
 // 74ls244
 //PLD_O18
-assign OBJ2[3:0] = ~PLD_O18 ? OBJ2_COLOR[3:0] : 4'b0;
+assign OBJ2[3:0] = ~PLD_O18 ? OBJ2_COLOR[3:0] : 4'h0; //XXX this is originaly a tristate bus 
+//we need to find a way i nverilog to inform that this is not used ... we
+//choose 4'hf as it's the mask for other pixel and we chek for that value in
+//the linebuf model but sometime object color are h'f in inverse of other
+//? before we use a used bit we must find a way to not write ram in line buf
+//so we must change EVNWREN ! ODDWREN ! by adding a second check in we 
+// OR PUT OBJON HIGH ! this is certianly a better solutions ... 
+
+assign OBJ2_Z = ~PLD_O18 ? 1'b0 : 1'b1;
 
 endmodule 

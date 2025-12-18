@@ -6,6 +6,7 @@
 
 module LINEBUF(
     input             clk,
+    input             ODDWREN,
     input             EVNWREN,  // Even write en 
     input             OBJ_N6M,  // ~Clk 6mhz  
     input       [9:0] OBJ1,     // Obj 1 data 
@@ -19,11 +20,13 @@ module LINEBUF(
     input             ODDCLR,   // Odd line clear 
     input             ND1V_7P,  //~div 7p 
     input       [8:0] O2A,      // Odd 2 addr 
+    input             OBJ1_Z,
+    input             OBJ2_Z,
     //output 
-    output reg        E1FIND,  // Even 1 find (en?) 
-    output reg        E2FIND,  // Even 2 find (en?)
-    output reg        O1FIND,  // Odd 1 find  (en?)
-    output reg        O2FIND,  // Odd 2 find  (en?)
+    output            E1FIND,  // Even 1 find (en?) 
+    output            E2FIND,  // Even 2 find (en?)
+    output            O1FIND,  // Odd 1 find  (en?)
+    output            O2FIND,  // Odd 2 find  (en?)
     output reg  [7:0] OOD,     // object out data 
     output reg        PRIOR_C, // object priority C
     output reg        PRIOR_D  // object priority D
@@ -46,121 +49,81 @@ wire [5:0] nc3;
 // XXXX MUST ADD D1V_7p directio n?
 sis6091B u_181(
   .clk(clk),
-  .wr_cen(~OBJ_N6M), //31
-  .we(~EVNWREN), //30
+  .wr_cen(OBJ_N6M), //31 //XXX ~OBJ_N6M or change in sis6091B ? 
+  //.we(~EVNWREN & ~OBJ1_Z), //30
+  .we(~EVNWREN & ~OBJ1_Z), //30
   .clr_n(EVNCLR),
   .data({6'b0, OBJ1[9:0]}), //6,7,8,10,12-19,22-25
   .addr({1'b0, E1A[8:0]}),//62-71
-  .rd_cen(~OBJ_P6M), //73
+  .rd_cen(OBJ_P6M), //73
+  .find(E1FIND),
   .q({nc0, Q_EVN1}) //42-56
+
 );
 
 //6091 B 
 sis6091B u_182(
   .clk(clk),
-  .wr_cen(~OBJ_N6M), //31
-  .we(~EVNWREN), //30
+  .wr_cen(OBJ_N6M), //31
+  .we(~EVNWREN & ~OBJ2_Z), //30
   .clr_n(EVNCLR),
   .data({6'b0, OBJ2[9:0]}), //6,7,8,10,12-19,22-25
   .addr({1'b0, E2A[8:0]}),//62-71
-  .rd_cen(~OBJ_P6M), //73
+  .rd_cen(OBJ_P6M), //73
+  .find(E2FIND),
   .q({nc1, Q_EVN2}) //42-56
 );
 
 //
 sis6091B u_183(
   .clk(clk),
-  .wr_cen(~OBJ_N6M), //31
-  .we(1'b1), //30
+  .wr_cen(OBJ_N6M), //31
+  .we(~ODDWREN & ~OBJ1_Z), //30
   .clr_n(ODDCLR),
   .data({6'b0, OBJ1[9:0]}), //6,7,8,10,12-19,22-25
   .addr({1'b0, O1A[8:0]}),//62-71
-  .rd_cen(~OBJ_P6M), //73
+  .rd_cen(OBJ_P6M), //73
+  .find(O1FIND),
   .q({nc2, Q_ODD1}) //42-56
 );
 
 //
 sis6091B u_184(
   .clk(clk),
-  .wr_cen(~OBJ_N6M), //31
-  .we(1'b1), //30
+  .wr_cen(OBJ_N6M), //31
+  .we(~ODDWREN & ~OBJ2_Z), //30
   .clr_n(ODDCLR),
   .data({6'b0, OBJ2[9:0]}), //6,7,8,10,12-19,22-25
   .addr({1'b0, O2A[8:0]}),//62-71
-  .rd_cen(~OBJ_P6M), //73
+  .rd_cen(OBJ_P6M), //73
+  .find(O2FIND),
   .q({nc3, Q_ODD2}) //42-56
 );
 
+//objon is active high 
+//PRIOR_C & D are active high 
+//FIND is active high 
 
 always @(posedge clk) begin 
-  if (D1V_7P) begin  
-    if (Q_EVN1[7:0] != 'hff) begin 
-         E1FIND <= 1'b0;
-         E2FIND <= 1'b1;
-         O1FIND <= 1'b1;
-         O2FIND <= 1'b1;
-         {PRIOR_D, PRIOR_C, OOD[7:0]} <= Q_EVN1;
-         end 
-    else if (Q_EVN2[7:0] != 'hff) begin 
-        E1FIND <= 1'b1;
-        E2FIND <= 1'b0;
-        O1FIND <= 1'b1;
-        O2FIND <= 1'b1;
-        {PRIOR_D, PRIOR_C, OOD[7:0]} <= Q_EVN2;
-        end 
-    else begin  
-        E1FIND <= 1'b1;
-        E2FIND <= 1'b1;
-        O1FIND <= 1'b1;
-        O2FIND <= 1'b1;
-        {PRIOR_D, PRIOR_C, OOD[7:0]} <= 10'b0;
-        end
-    end 
+  if (D1V_7P) begin 
+    if (E1FIND) 
+      { PRIOR_D, PRIOR_C, OOD[7:0] } <= Q_EVN1;
+    else if (E2FIND) 
+      { PRIOR_D, PRIOR_C, OOD[7:0] } <= Q_EVN2;
+    else
+      { PRIOR_D, PRIOR_C, OOD[7:0] } <= 10'b0;
+      end 
+  else begin //if (ND1V_7P) begin  ND1V_7P = ~D1V_7P
+    if (O1FIND)
+      { PRIOR_D, PRIOR_C, OOD[7:0] } <= Q_ODD1;
+    else if (O2FIND)
+      { PRIOR_D, PRIOR_C, OOD[7:0] } <= Q_ODD2;
+    else 
+      { PRIOR_D, PRIOR_C, OOD[7:0] } <= 10'b0;
+     end 
+end
 
-  else if (ND1V_7P) begin  
-    if (Q_ODD1[7:0] != 'hff) begin 
-         E1FIND <= 1'b1;
-         E2FIND <= 1'b1;
-         O1FIND <= 1'b0;
-         O2FIND <= 1'b1;
-         {PRIOR_D, PRIOR_C, OOD[7:0]} <= Q_ODD1;
-         end 
-    else if (Q_ODD2[7:0] != 'hff) begin 
-        E1FIND <= 1'b1;
-        E2FIND <= 1'b1;
-        O1FIND <= 1'b1;
-        O2FIND <= 1'b0;
-        {PRIOR_D, PRIOR_C, OOD[7:0]} <= Q_ODD2;
-        end
-    else  begin 
-        E1FIND <= 1'b1;
-        E2FIND <= 1'b1;
-        O1FIND <= 1'b1;
-        O2FIND <= 1'b1;
-        {PRIOR_D, PRIOR_C, OOD[7:0]} <= 10'b0;
-        end
-    end
-
-  else begin 
-        E1FIND <= 1'b1;
-        E2FIND <= 1'b1;
-        O1FIND <= 1'b1;
-        O2FIND <= 1'b1;
-        {PRIOR_D, PRIOR_C, OOD[7:0]} <= 10'b0;
-
-  end 
-end 
-
-//assign  {PRIOR_D, PRIOR_C, OOD[7:0]}  = DIV_7P ?  
-                                        
-
-//we need to mix the bus ourself here 
 //assign {PRIOR_D, PRIOR_C, OOD[7:0]} = E1FIND ? Q_EVN1 : E2FIND ? Q_EVN2 :  O1FIND ? Q_ODD1 : O2FIND ? Q_ODD2 : 10'b0; 
-//O*FIND IS OUT !
 
-//E1FIND / E2FIND / O1FIND / O2FIND ACTIVATE OBJON on objps 
-//and clock obj out -> so taht means something that it's activated 
-//if address / entry exist ??? or output is not full of 0 ?
-//look at jotego linebufer impl that have clr and maybe also that 
 
 endmodule 

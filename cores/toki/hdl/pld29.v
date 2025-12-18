@@ -12,6 +12,7 @@ module PLD29 (
     //output 
     output HREV_HD,
     output NHREV_HD,
+    //active high 
     output OBJON,
     output o16_n,
     output MASK_NOOBJ_2,
@@ -20,8 +21,10 @@ module PLD29 (
 
     assign HREV_HD = ~(~HREV & ~HD);
     assign NHREV_HD = ~( HREV & ~HD );
-    
+   
+                    //~D1V_7P   0          1         0          0              
     wire term15_1 = (~D1V_7P & ~E1FIND &  E2FIND & ~O1FIND & ~O2FIND);
+                  // ~           1          0          0
     wire term15_2 = (~D1V_7P &  E1FIND & ~O1FIND & ~O2FIND);
     wire term15_3 = ( D1V_7P & ~E1FIND & ~E2FIND &  O1FIND);
     wire term15_4 = ( D1V_7P & ~E1FIND & ~E2FIND & ~O1FIND);
