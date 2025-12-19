@@ -237,8 +237,8 @@ module sg0140_vcheck(
             // Incrément à chaque ligne (VCLK Rising Edge)
             else if (VCLK && !old_vclk)
                 current_y <= current_y + 8'b1;
+            end
         end
-    end
 
     // DMA bus request handling
     always @(posedge clk) begin
@@ -259,9 +259,9 @@ module sg0140_vcheck(
 
             if (OVER256 == 1'b0) begin
                 OIBDIR <= 1'b1;
+                end
             end
-        end
-    end
+       end
 
     // --- 3. VCHECK Logic (Comparaison Y) ---
     // Calcul de la ligne du sprite.
@@ -285,6 +285,17 @@ module sg0140_vcheck(
    //if (visible && !OVER48) begin
     // Note: Si VREV (Flip Screen) est actif, la logique s'inverse (15 - diff)
     wire is_visible = (diff_y < 16);
+
+    //XXX -> if during OIBIDIR it mean it's not during DMA 
+    //so the inverse of what we did until now ! 
+  //it can be durting DMA because dma is occuring during frame 260-262 so that no meaning 
+  //if it's to detect collision ... 
+    //VFIND must be active low because it determine screen cleaning so if it's not low 
+    //we will overwrite the screen that's why before we always add bug  and overwriting whole screen ... 
+  //now how can we have objen 3 enable ???? as it's onluy enable during OIBIDR 
+  //maybe there is two funcitonement un pendant OIBIDIR pour ecrire et checker vfind et un autre 
+  //pendant l'affichahge ?? 
+  //reverifier la trace
 
     always @(posedge clk) begin
         if (rst) begin
@@ -311,11 +322,12 @@ module sg0140_vcheck(
                   if (current_y[0]) begin
                       ODDWR2 <= 1'b1;
                       EVNWR2 <= 1'b0; // Active Low
-                  end else begin
+                      end 
+                  else begin
                       ODDWR2 <= 1'b0; // Active Low
                       EVNWR2 <= 1'b1; // Active Low
+                      end
                   end
-                end
               else begin
                 EVNWR2 <= 1'b1;
                 ODDWR2 <= 1'b1;
@@ -323,11 +335,15 @@ module sg0140_vcheck(
                 end
             end 
         else begin 
+            VMT    <= 4'b0;
+            //VFIND     <= OBJEN_3; //forward objen 3 for later when OIBIDIR ?
             VFIND     <= 1'b1;
             EVNWR2    <= 1'b1; // Inactif (High)
             ODDWR2    <= 1'b1; // Inactif (High)
             end 
         end
+
+
     end
 endmodule
 
@@ -378,7 +394,7 @@ module sg0140_sort48(
           DMA2_OA <= 6'b0;
           OVER48  <= 1'b1; // Active High ? (A vérifier si VCHECK attend 0 ou 1)
           vfind_edge <= 1'b0;
-      end else if (RDCLK) begin
+      end else if (~RDCLK) begin
           // Mise à jour du flag OVER48
           // Si VFIND est inactif (pas de DMA), on reset peut-être ?
           // Gardons la logique simple : monitoring constant de l'adresse.
@@ -397,14 +413,22 @@ module sg0140_sort48(
           if (V1B == 1) begin //== 1 => ea
               if (VFIND == 1'b0 & vfind_edge == 0) begin  //@posedge VFIND ? si non change tout les h[0]
                 DMA2_EA <= raw_addr; //write addr ?
+                DMA2_OA <= DMA2_OA + 1;        // read addr ?
+                end 
+              else begin  
+                //DMA2_EA <= DMA2_EA + 1;  //read addr ?
+                DMA2_OA <= DMA2_OA + 1;        // read addr ?
               end 
-              DMA2_OA <= DMA2_OA + 1;        // read addr ?
               //reset and do +1 to read data ?
           end else begin
               if (VFIND == 1'b0 & vfind_edge == 0) begin 
                 DMA2_OA <= raw_addr;//write addr ?
-              end
-              DMA2_EA <= DMA2_EA + 1;  //read addr ?
+                DMA2_EA <= DMA2_EA + 1;  //read addr ?
+                end
+              else begin 
+                DMA2_EA <= DMA2_EA + 1;  //read addr ?
+                //DMA2_OA <= DMA2_OA + 1;        // read addr ?
+              end 
               //at some point from last value to 64 then 0
           end
       end

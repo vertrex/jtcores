@@ -77,9 +77,11 @@ always @(posedge clk) begin
          else begin 
             if (!ODD_LD) begin
                OA <= ADDR;
+               //EA <= EA + 1'b1;
                end
             else if (!EVN_LD) begin 
                EA <= ADDR;
+               //OA <= OA + 1'b1;
                end
                //if T8H reset ? or continue if  OBJT2_7 ? 
             //else if (T8H) begin //?  
