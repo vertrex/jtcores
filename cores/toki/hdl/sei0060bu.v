@@ -45,8 +45,10 @@ module SEI0060BU(
 //the next line because hblb will be down when V1B change value 
 reg hblb_start;
 
-always @(posedge clk) begin 
-   if (cen) begin 
+reg [3:0] loaded;
+
+always @(negedge clk) begin 
+   if (~cen) begin 
 
       //else begin
          //clear one line on the other in RAM 
@@ -61,40 +63,41 @@ always @(posedge clk) begin
                hblb_start <= 1'b1; 
                EVNCLR <= 1'b0;
                EA <= 9'b0;
-               end 
-            end
-         else begin  
+               end
+            end 
+         else begin
             hblb_start <= 1'b0;
             EVNCLR <= 1'b1; 
-            ODDCLR <= 1'b1; 
-            end
+            ODDCLR <= 1'b1;
+            end 
 
-         if (OBJT2_7) begin 
-               //start a 0 to clr ? 
-               OA <= OA + 1'b1;  // ? 
-               EA <= EA + 1'b1;  // ? 
-               end 
-         else begin 
-            if (!ODD_LD) begin
-               OA <= ADDR;
-               //EA <= EA + 1'b1;
-               end
-            else if (!EVN_LD) begin 
+         if (V1B) begin 
+           if (~ODD_LD) begin 
+              OA <= ADDR; 
+              loaded <= 1;
+              end 
+           else  begin
+              if (loaded < 15) begin 
+                 OA <= OA + 1'b1;  
+                 loaded <= loaded + 1'b1;
+                 end 
+              EA <= EA + 1'b1;
+              end
+            end 
+         else  begin 
+           if (~EVN_LD) begin 
                EA <= ADDR;
-               //OA <= OA + 1'b1;
+               loaded <= 1;
                end
-               //if T8H reset ? or continue if  OBJT2_7 ? 
-            //else if (T8H) begin //?  
-               //OA <= ADDR; 
-               //EA <= ADDR;
-               //end 
-            else begin
+           else begin 
+              if (loaded < 15)  begin 
+                  EA <= EA + 1'b1;
+                  loaded <= loaded + 1'b1;
+                  end 
                OA <= OA + 1'b1;
-               EA <= EA + 1'b1;
                end 
          end
-      end 
-   //end 
+   end 
 end 
 
 endmodule

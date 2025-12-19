@@ -1,5 +1,6 @@
 params:
   - { name: CHAR_2_OFFSET,    value: "22'h8000"}
+  - { name: OBJ_2_OFFSET,     value: "22'h40000"}
   - { name: GFX_3_OFFSET,     value:  "22'h80000" }
   - { name: GFX_4_OFFSET,     value:  "22'hc0000" }
   #audio bank 1
@@ -78,6 +79,7 @@ sdram:
         - name: obj_rom_2
           addr_width: 19
           data_width: 16
+          offset : OBJ_2_OFFSET
         - name: bk1_rom
           addr_width: 19
           data_width: 16

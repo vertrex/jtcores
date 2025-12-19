@@ -44,9 +44,9 @@ module obj(
   input  [15:0] obj_rom_2_data,
   input         obj_rom_2_ok,
 //output 
-  output [18:1] obj_rom_1_addr,
+  output [17:0] obj_rom_1_addr,
   output        obj_rom_1_cs,
-  output [18:1] obj_rom_2_addr,
+  output [17:0] obj_rom_2_addr,
   output        obj_rom_2_cs,
   output        OBUSDIR,
   output        OBUSRQ,

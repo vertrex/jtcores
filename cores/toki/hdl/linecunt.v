@@ -24,9 +24,9 @@ module LINECUNT(
    input  [15:0] obj_rom_2_data,
    input         obj_rom_2_ok,
 //output
-   output [18:1] obj_rom_1_addr,
+   output [17:0] obj_rom_1_addr,
    output        obj_rom_1_cs,
-   output [18:1] obj_rom_2_addr,
+   output [17:0] obj_rom_2_addr,
    output        obj_rom_2_cs,
    output  [3:0] OBJCOL,
    output        OBJ_HREV,
@@ -119,8 +119,8 @@ assign obj_rom_2_cs = 1'b1; //OE => 74LS273 22E Q7 XXX
 //                                                    ADDR ???
 //
 //       ron_index              OVD[?:?]   ADDR[4:0]      OVD[?:?] | line       VH8   VA[3:0]     VH4 ?
-assign obj_rom_1_addr[18:1] = {u174_Q[6:4], ADDR[4:0], u174_Q[3:0], VH8, u175_Q[3:0], VH4};
-assign obj_rom_2_addr[18:1] = {u174_Q[6:4], ADDR[4:0], u174_Q[3:0], VH8, u175_Q[3:0], VH4};
+assign obj_rom_1_addr[17:0] = {u174_Q[6:4], ADDR[4:0], u174_Q[3:0], VH8, u175_Q[3:0], VH4};
+assign obj_rom_2_addr[17:0] = {u174_Q[6:4], ADDR[4:0], u174_Q[3:0], VH8, u175_Q[3:0], VH4};
 //wait for obj_rom_ok ? XXX
 
 assign PD[15:0] = ~ROM_CE ? obj_rom_1_data[15:0] : obj_rom_2_data[15:0];

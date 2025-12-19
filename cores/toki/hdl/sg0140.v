@@ -100,7 +100,7 @@ module sg0140_ohmax(
 
 reg [3:0] ADDR_LATCH;
 
-always @(posedge clk) begin
+always @(negedge clk) begin
       if (rst) begin
           OH        <= 5'b0;
           ADDR      <= 5'b0;
@@ -109,7 +109,7 @@ always @(posedge clk) begin
       else begin
           //???? TEST NOOBJ_CT2 tout le temps a 1 ou a 0 pour voir si ca fait
           //quuqchose
-          NOOBJ_CT2 <= NOOBJ; //?  //NOOBJ CT2 must be low if obj is not on the line or we don't want to make it aappear glitch may apear here we must check on the originla if this come only as a copy of NOOBJ each CT2 or if there is something else XXX
+          //NOOBJ_CT2 <= NOOBJ; //?  //NOOBJ CT2 must be low if obj is not on the line or we don't want to make it aappear glitch may apear here we must check on the originla if this come only as a copy of NOOBJ each CT2 or if there is something else XXX
 
           // Phase 1 : Capture de la position H (ou High Address)
           if (~CTLT1) begin
@@ -129,7 +129,7 @@ always @(posedge clk) begin
                 ADDR[4:0] <= ~OH[8:4]; //some shift or fix calculation for rom ?
               //NOOBJ_CT2 <= 1'b0;
               // strange make other measure,ents ?
-              //NOOBJ_CT2 <= NOOBJ; //?  //NOOBJ CT2 must be low if obj is not on the line or we don't want to make it aappear glitch may apear here we must check on the originla if this come only as a copy of NOOBJ each CT2 or if there is something else XXX
+              NOOBJ_CT2 <= NOOBJ; //?  //NOOBJ CT2 must be low if obj is not on the line or we don't want to make it aappear glitch may apear here we must check on the originla if this come only as a copy of NOOBJ each CT2 or if there is something else XXX
             //NOOBJ IS CONTROLLED BY SCNDMA PLD24 MATCHV assign MATCHV =  ~(OVER256 & ~VFIND);
             // VFIND
               end
@@ -297,7 +297,7 @@ module sg0140_vcheck(
   //pendant l'affichahge ?? 
   //reverifier la trace
 
-    always @(posedge clk) begin
+    always @(negedge clk) begin
         if (rst) begin
             EVNWR2 <= 1'b1;
             ODDWR2 <= 1'b1;
@@ -309,6 +309,8 @@ module sg0140_vcheck(
               //$display("OBJ ENABLE");
 
               //if (check_en && is_visible) begin //XXX & !OVER48
+              //KEEP VIND HIGH FOR 16 PIXEL EACH TIME IT'S FOUND ?
+
               if (is_visible) begin //XXX ??? why objen is never there ?// & ~OBJEN_3) begin //&OVER@56 //XXX & !OVER48
                   //$display("OBJ IS VISLBE");
                   VFIND <= 1'b0; // XXX HIGH OR LOW ?
@@ -388,7 +390,7 @@ module sg0140_sort48(
   wire limit_reached = (raw_addr >= 6'd48);
   reg  vfind_edge;
 
-  always @(posedge clk) begin
+  always @(negedge clk) begin
       if (rst) begin
           DMA2_EA <= 6'b0;
           DMA2_OA <= 6'b0;

@@ -51,10 +51,18 @@ sis6091B u_181(
   .clk(clk),
   .wr_cen(OBJ_N6M), //31 //XXX ~OBJ_N6M or change in sis6091B ? 
   //.we(~EVNWREN & ~OBJ1_Z), //30
+  //OBJ1_Z must be up only for 16 ticks 
+  //since start of object otherwise it will loop and write same object on
+  //whole line  determine by pld29 noobj & noobj_ct2 so by sg0140 (VFIND =>
+  //MATCHV => NOOBJ => NOOB_CT2)
   .we(~EVNWREN & ~OBJ1_Z), //30
+  // clr at each line by sei60bu (or each frame ?)  
   .clr_n(EVNCLR),
+  //data is deserialized by sei0010bu 
   .data({6'b0, OBJ1[9:0]}), //6,7,8,10,12-19,22-25
-  .addr({1'b0, E1A[8:0]}),//62-71
+  // E1A come from sei60bu it extract write addr of each pixel 
+  // or provide read addr depending if it's even or odd line turn 
+  .addr({1'b0, E1A[8:0]}),//62-71    
   .rd_cen(OBJ_P6M), //73
   .find(E1FIND),
   .q({nc0, Q_EVN1}) //42-56

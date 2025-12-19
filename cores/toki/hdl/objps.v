@@ -185,6 +185,8 @@ assign OBJ2[3:0] = ~PLD_O18 ? OBJ2_COLOR[3:0] : 4'h0; //XXX this is originaly a 
 //so we must change EVNWREN ! ODDWREN ! by adding a second check in we 
 // OR PUT OBJON HIGH ! this is certianly a better solutions ... 
 
+//pld controle l'affichage par ligne mais pas en horizontal donc le sprite se
+//repete ? il faudrait bloquer aussi apres 16 pixel ?
 assign OBJ2_Z = ~PLD_O18 ? 1'b0 : 1'b1;
 
 endmodule 
