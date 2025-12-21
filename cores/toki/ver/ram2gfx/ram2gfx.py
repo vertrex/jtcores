@@ -240,16 +240,20 @@ def scan_sprite(img, ram, gfx_rom, palette, palette_offset, tile_size=16):
         if sprite_word[2] == 0xF000 or sprite_word[0] == 0xFFFF:
             continue
 
-        xoffs = sprite_word[0] & 0xF0
-        x = (sprite_word[2] + xoffs) & 0x1F
-        if x > 256:
-            x -= 512
+        # masked so no need to << 4 as it's stay at some pos
+        xoffs = (sprite_word[0] & 0xF0)
+        x_coord = (sprite_word[2] & 0x1FF)
+        x = x_coord + xoffs
+        # if x > 256:
+            # x -= 256
 
         yoffs = (sprite_word[0] & 0xF) << 4
-        y = (sprite_word[3] + yoffs) & 0x1FF
-        if y > 256:
-            y -= 512
+        y_coord = (sprite_word[3] & 0x1FF)
+        y = y_coord + yoffs
+        # if y > 256:
+            # y -= 256
 
+        print(f"sprite x : {x} ({x_coord}+{xoffs})  y : {y} ({y_coord}+{yoffs})")
         color = sprite_word[1] >> 12
         flip_x = sprite_word[0] & 0x100
         rom_index = (sprite_word[1] & 0xFFF) + ((sprite_word[2] & 0x8000) >> 3)
