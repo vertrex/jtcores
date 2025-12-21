@@ -179,13 +179,7 @@ SEI0050BU sei0050bu_u(
   .VS(VS)
 );
 
-reg [9:0] frame_counter = 0;
 
-//if @always LVBL it glitch ? how that can work on miste ror pocket ?
-always @(posedge VS) begin
-  //if (LVBL)
-    frame_counter = frame_counter + 10'b1;
-end
 
 assign LVBL = VBL_ROM;
 assign LHBL = HBL; // ?
@@ -487,4 +481,80 @@ CLUT CLUT_u(
   .B(b)
 );
 
+
+
+/////////// SIMULATION CODE HELPER //////////////////////////////
+/////// RAM DUMP ////////
+//
+//
+//
+
+`ifdef SIMULATION
+
+`define dump_ram16_split(FILE_NAME, SIZE, MEM_PATH) \
+begin \
+    integer fd; \
+    integer i; \
+    $display("Snapshot: Dumping %s (Size: %0d)", FILE_NAME, SIZE); \
+    fd = $fopen(FILE_NAME, "wb"); \
+    for (i = 0; i < SIZE; i = i + 1) begin \
+       $fwrite(fd, "%c%c", MEM_PATH.u_hi.mem[i], MEM_PATH.u_lo.mem[i]); \
+    end \
+    $fclose(fd); \
+end
+  
+`define dump_ram16(FILE_NAME, SIZE, MEM_PATH) \
+begin \
+    integer fd; \
+    integer i; \
+    $display("Snapshot: Dumping %s (Size: %0d)", FILE_NAME, SIZE); \
+    fd = $fopen(FILE_NAME, "wb"); \
+    for (i = 0; i < SIZE; i = i + 1) begin \
+       $fwrite(fd, "%c%c", MEM_PATH[i][15:8], MEM_PATH[i][7:0]); \
+    end \
+    $fclose(fd); \
+end
+
+// Macro pour dumper une RAM 8 bits (si jamais tu en as besoin pour le SIS6091 standard)
+`define dump_ram8(FILE_NAME, SIZE, MEM_PATH) \
+begin \
+    integer fd; \
+    integer i; \
+    $display("Snapshot: Dumping %s (Size: %0d)", FILE_NAME, SIZE); \
+    fd = $fopen(FILE_NAME, "wb"); \
+    for (i = 0; i < SIZE; i = i + 1) begin \
+      $fwrite(fd, "%c", MEM_PATH[i]); \
+    end \
+    $fclose(fd); \
+end
+
+parameter DUMP_START_FRAME = 81;
+
+integer  frame_counter = 0;
+always @(posedge VS) begin
+   frame_counter = frame_counter + 1;
+end
+
+reg dump_done = 0;
+
+always @(posedge clk) begin 
+  if (frame_counter == DUMP_START_FRAME && !dump_done) begin
+     $display("DUMPING");
+
+     `dump_ram16("scnddma_u151.bin", 1024, obj_u.scnddma_u.u_151.mem)
+     `dump_ram16("scnddma_u152.bin", 1024, obj_u.scnddma_u.u_152.mem)
+     `dump_ram16_split("scnddam_u151.bin", 1024, obj_u.scnddma_u.u_153)
+     `dump_ram16_split("objdma_u141.bin", 1024, obj_u.objdma_u.u_141);
+     `dump_ram16("linebuf_u181.bin", 1024, obj_u.linebuf_u.u_181.mem)
+     `dump_ram16("linebuf_u182.bin", 1024, obj_u.linebuf_u.u_182.mem)
+     `dump_ram16("linebuf_u183.bin", 1024, obj_u.linebuf_u.u_183.mem)
+     `dump_ram16("linebuf_u184.bin", 1024, obj_u.linebuf_u.u_184.mem)
+
+     `dump_ram16_split("cpu_ram.bin", 32768, $root.game_test.u_game.u_game.u_main.u_cpu_ram)
+
+     dump_done <= 1;
+     end 
+end
+
+`endif
 endmodule
