@@ -353,6 +353,12 @@ endmodule
 ///////////// SG0140 SORT 40///////////////////////
 ///////////////////////////////////////////////////
 
+// ECRIT ET LIT 
+// VA ECRIRE LES INFOSO DANS LES 2er SIS6091B de scndma 
+// mais en read va sortir les infos de ses 2 sis6091B 
+// qui vont donner CTA pour lire le 6091 u183 
+// si ca ne bouge pas on aura tjrs le meme sprite afficher 
+/*
 module sg0140_sort48(
   input       clk,
   input       rst, //pin 40
@@ -412,26 +418,143 @@ module sg0140_sort48(
             vfind_edge <= 1'b0;
 
 
-          if (V1B == 1) begin //== 1 => ea
-              if (VFIND == 1'b0 & vfind_edge == 0) begin  //@posedge VFIND ? si non change tout les h[0]
-                DMA2_EA <= raw_addr; //write addr ?
-                DMA2_OA <= DMA2_OA + 1;        // read addr ?
-                end 
-              else begin  
-                //DMA2_EA <= DMA2_EA + 1;  //read addr ?
-                DMA2_OA <= DMA2_OA + 1;        // read addr ?
+//XSDTS  -> deux coimportemenr differents 
+//XSTS low dma ? va ecrire dans les chips de scnddma 
+          if (~XSDTS) begin // DMA active 
+
+            if (V1B == 1) begin //== 1 => ea
+                if (VFIND == 1'b0 & vfind_edge == 0) begin  //@posedge VFIND ? si non change tout les h[0]
+                  DMA2_EA <= raw_addr; //write addr ?
+                  DMA2_OA <= DMA2_OA + 1;        // read addr ?
+                  end 
+                else begin  
+                  //DMA2_EA <= DMA2_EA + 1;  //read addr ?
+                  DMA2_OA <= DMA2_OA + 1;        // read addr ?
+                  end 
+                //reset and do +1 to read data ?
               end 
-              //reset and do +1 to read data ?
-          end else begin
-              if (VFIND == 1'b0 & vfind_edge == 0) begin 
-                DMA2_OA <= raw_addr;//write addr ?
-                DMA2_EA <= DMA2_EA + 1;  //read addr ?
+            else begin
+                if (VFIND == 1'b0 & vfind_edge == 0) begin 
+                  DMA2_OA <= raw_addr;//write addr ?
+                  DMA2_EA <= DMA2_EA + 1;  //read addr ?
+                  end
+                else begin 
+                  DMA2_EA <= DMA2_EA + 1;  //read addr ?
+                  //DMA2_OA <= DMA2_OA + 1;        // read addr ?
+                  end 
+                //at some point from last value to 64 then 0
                 end
-              else begin 
-                DMA2_EA <= DMA2_EA + 1;  //read addr ?
-                //DMA2_OA <= DMA2_OA + 1;        // read addr ?
               end 
-              //at some point from last value to 64 then 0
+            end 
+         else  begin//XSDTS  begin 
+            DMA2_EA <= DMA2_EA + 1; 
+            DMA2_OA <= DMA2_OA + 1;
+            end 
+  end
+
+endmodule
+*/
+
+module sg0140_sort48(
+  input       clk,
+  input       rst,      // pin 40
+
+  input       RDCLK,    // main clk ?
+
+  input       VFIND,    // Active LOW (from VCheck), indicates a valid sprite found
+  input       XSDTS,    // Active LOW = DMA Mode (Writing), HIGH = Display Mode (Reading)
+  input       ILD2,     // Unused in logic but kept for pinout
+
+  input       V1B,      // Ligne LSB (0=Even Line, 1=Odd Line)
+  input       NH2,      // Unused
+  input       H2,       // Part of raw address
+  input       H2_2,     // Unused
+  input       [8:4] H,  // Horizontal Position (Part of raw address)
+
+  output reg  OVER48,   // Active High (Flag > 48 sprites)
+  output reg  [5:0] DMA2_EA, // Even Address
+  output reg  [5:0] DMA2_OA  // Odd Address
+);
+
+  // 1. Adresse de Lecture (Display)
+  // Basée sur le balayage horizontal (H). C'est l'adresse utilisée pour LIRE les sprites à afficher.
+  // On garde ta logique d'origine pour le mapping.
+  wire [5:0] raw_addr = {H[8:7], H2, H[6:4]};
+
+  // 2. Compteur d'Ecriture (Stack Pointer)
+  // C'est lui qui empile les sprites trouvés (0, 1, 2...) sans trous.
+  reg [5:0] stack_ptr;
+  
+  // Detection de front pour VFIND (car VFIND peut rester bas plusieurs cycles)
+  reg vfind_prev;
+  wire vfind_falling_edge = (vfind_prev == 1'b1 && VFIND == 1'b0);
+
+  // Logique du Compteur et OVER48
+  always @(negedge clk) begin
+      if (rst) begin
+          stack_ptr <= 6'b0;
+          OVER48 <= 1'b0; // Active High reset
+          vfind_prev <= 1'b1;
+      end
+      else begin
+          // Gestion du front VFIND
+          vfind_prev <= VFIND;
+
+          // Si on n'est PAS en DMA (XSDTS = 1), on reset le compteur pour la prochaine fois
+          if (XSDTS) begin
+              stack_ptr <= 6'b0;
+              OVER48 <= 1'b0;
+          end
+          // Si on est en DMA (XSDTS = 0)
+          else begin
+              // Si un sprite est trouvé (Front descendant de VFIND)
+              if (vfind_falling_edge) begin
+                  if (stack_ptr >= 6'd48) begin
+                      OVER48 <= 1'b1; // Flag overflow
+                      // On bloque le compteur ou on le laisse tourner (selon hardware original)
+                      // Ici on bloque pour ne pas écraser le début
+                  end
+                  else begin
+                      stack_ptr <= stack_ptr + 1'b1;
+                  end
+              end
+          end
+      end
+  end
+
+  // Logique de Sortie des Adresses (Multiplexage)
+  always @(negedge clk) begin
+      if (rst) begin
+          DMA2_EA <= 6'b0;
+          DMA2_OA <= 6'b0;
+      end
+      else begin
+          // ---------------------------------------------------------
+          // MODE DMA (H-BLANK) : ECRITURE DU BUFFER
+          // ---------------------------------------------------------
+          if (!XSDTS) begin 
+             // Logique Ping-Pong basée sur V1B
+             // Si V1B=1 (Ligne Impaire), on prépare la Ligne Paire (Next Line Even)
+             // Donc on ECRIT dans EVEN (avec stack_ptr) et on peut LIRE ODD (avec raw_addr)
+             if (V1B) begin
+                 DMA2_EA <= stack_ptr; // Ecriture (Stack)
+                 DMA2_OA <= raw_addr;  // Lecture (Scan/Debug)
+             end
+             // Si V1B=0 (Ligne Paire), on prépare la Ligne Impaire (Next Line Odd)
+             else begin
+                 DMA2_OA <= stack_ptr; // Ecriture (Stack)
+                 DMA2_EA <= raw_addr;  // Lecture (Scan/Debug)
+             end
+          end
+          
+          // ---------------------------------------------------------
+          // MODE DISPLAY (ACTIVE VIDEO) : LECTURE DU BUFFER
+          // ---------------------------------------------------------
+          else begin
+             // Pendant l'affichage, les deux RAMs sont adressées par le scan vidéo
+             // pour récupérer les sprites à afficher.
+             DMA2_EA <= raw_addr;
+             DMA2_OA <= raw_addr;
           end
       end
   end

@@ -56,6 +56,8 @@ wire XC4;     // X clock, 4 bit counter
 // word 3 : RD_VPOS :  Y coordinate (LT_VPOS if ORIGIN low in CTRL LT) 
 //
 
+// MAME : 
+
 //+0   x....... ........  sprite disable ??
 //+0   .xx..... ........  tile is part of big sprite (4=first, 6=middle, 2=last)
 //+0   .....x.. ........  ??? always set? (could be priority - see Bloodbro)
@@ -69,6 +71,19 @@ wire XC4;     // X clock, 4 bit counter
 //+2   .???.... ........  (set in not yet used entries)
 //+2   .......x xxxxxxxx  X coordinate
 //+3   .......x xxxxxxxx  Y coordinate
+
+// PCB : 
+
+//+0   x....... ........  OBJ ENABLE (sprite disable ?)
+//+0   .x...... ........  ? 
+//+0   ..x..... ........  origin need more latch ?  
+//+0   ...x.... ........  ? 
+//+0   ....x... ........  sprite 2 
+//+0   .....x.. ........  sprite 1  (??? always set? (could be priority - see Bloodbro)) 
+//+0   ......x. ........  Flip y  vrev 
+//+0   .......x ........  Flip x hrev 
+//+0   ........ xxxx....  X offset: add (this * 16) to X coord
+//+0   ........ ....xxxx  Y offset: add (this * 16) to Y coord
 
 PLD25 pld25_u(
     .FDA(FDA[2:1]), //0 or 1 ???
@@ -98,11 +113,11 @@ PLD25 pld25_u(
 //74LS174 U134  
 LS174 u134(
   .CLK(clk),
-  .CLRn(XOBDIR),
-  .CEN(CTRL_LT),
+  .CLRn(XOBDIR),  
+  .CEN(~CTRL_LT), // XXX XXX CHECK IT's better like that ~ we need to get same data than in next always @ anyway 
   .D({OBJ_DB[15], OBJ_DB[13], OBJ_DB[11:8]}),
    // MAME IS A BIT WRONG FOR THAT WE MAY WANT TO EXPLAIN AND CORRECT IT ?
-   //15        /13    /11      /10    /9       /8 (flipx)
+   //15        /13    /11      /10    /9 (flipy?) /8 (flipx)
   .Q({OBJEN_1, ORIGIN, SPR2_1, SPR1_1, VREVD_1, HREVD_1})
 );
 

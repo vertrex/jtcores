@@ -74,7 +74,8 @@ def put_pixel(
                 ):  # don't write full black pixel
                     img.putpixel((x_pos + x, y_pos + y), converted_color)
             except Exception as e:
-                print(f"{e} put pixel at {x_pos + x} {y_pos+y}")
+                pass
+                #print(f"{e} put pixel at {x_pos + x} {y_pos+y}")
 
 
 def scan_ram(img, ram, gfx_rom, palette, palette_offset, tile_size):
@@ -229,6 +230,7 @@ def tile_bitplanes(gfx_rom, rom_index):
 ##
 def scan_sprite(img, ram, gfx_rom, palette, palette_offset, tile_size=16):
     # sprite must be drawn in reverse order ?
+    current_sprite = 0
     for sprite_index in range(int(len(ram) / 8) - 1, -1, -1):
         sp_bytes = ram[sprite_index * 8: (sprite_index * 8) + 8]
         sprite_word = struct.unpack(">HHHH", sp_bytes)
@@ -240,6 +242,7 @@ def scan_sprite(img, ram, gfx_rom, palette, palette_offset, tile_size=16):
         if sprite_word[2] == 0xF000 or sprite_word[0] == 0xFFFF:
             continue
 
+        current_sprite += 1
         # masked so no need to << 4 as it's stay at some pos
         xoffs = (sprite_word[0] & 0xF0)
         x_coord = (sprite_word[2] & 0x1FF)
@@ -253,7 +256,26 @@ def scan_sprite(img, ram, gfx_rom, palette, palette_offset, tile_size=16):
         # if y > 256:
             # y -= 256
 
+        print(f"sprite {current_sprite} data : {sp_bytes.hex()}")
         print(f"sprite x : {x} ({x_coord}+{xoffs})  y : {y} ({y_coord}+{yoffs})")
+
+        word_0 = format(sprite_word[0], '016b')
+        #word_1 = format(sprite_word[1], '016b')
+        #word_2 = format(sprite_word[2], '016b')
+        #word_3 = format(sprite_word[3], '016b')
+
+        #nd = word_0[8:15]  # y to bin  ? 
+        hrev = word_0[7]
+        vrev = word_0[6]
+        spr1 = word_0[5]
+        spr2 = word_0[4]
+        objen = word_0[0]
+        nd = format(y, '08b')
+      
+        mdma_binary = f"0b00{objen}{spr2}{spr1}{vrev}{hrev}{nd}"
+        mdma = int(mdma_binary, 2)
+        print(f"sprite {current_sprite} : mdma {hex(mdma)}")
+        
         color = sprite_word[1] >> 12
         flip_x = sprite_word[0] & 0x100
         rom_index = (sprite_word[1] & 0xFFF) + ((sprite_word[2] & 0x8000) >> 3)

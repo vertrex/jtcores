@@ -64,7 +64,7 @@ sis6091B u_151(
 // XXX IT'S A SIS6091B !!! pin are different than SIS6091 ! 
 //XXX create a bus arbitrer for output ! 
  
-sis6091B u152(
+sis6091B u_152(
   .clk(clk),
   .wr_cen(ODDWR2), //~XOBDIR ?
   .we(1'b1),
@@ -77,12 +77,13 @@ sis6091B u152(
   .q(q_odd)
 );
 
+                                                        //D1V oR XOBDIR ?
 assign {SPR2_3,SPR1_3, ODHREV, NOOBJ,VA[3:0], CTA[8:1]} =  D1V_2 ? q_even : q_odd; //D1V_2 == V1B == VPOS[0]!
 
 // 256addr for obj ? 
 // store at FDA => nd2, obj (graphical data?)
 // retrieve at CTA, H[1]
-sis6091 u153(
+sis6091 u_153(
   .clk(clk),
 
   .wr_cen(~RDCLK), //RAM2VLD ???? 

@@ -543,7 +543,7 @@ always @(posedge clk) begin
 
      `dump_ram16("scnddma_u151.bin", 1024, obj_u.scnddma_u.u_151.mem)
      `dump_ram16("scnddma_u152.bin", 1024, obj_u.scnddma_u.u_152.mem)
-     `dump_ram16_split("scnddam_u151.bin", 1024, obj_u.scnddma_u.u_153)
+     `dump_ram16_split("scnddma_u153.bin", 1024, obj_u.scnddma_u.u_153)
      `dump_ram16_split("objdma_u141.bin", 1024, obj_u.objdma_u.u_141);
      `dump_ram16("linebuf_u181.bin", 1024, obj_u.linebuf_u.u_181.mem)
      `dump_ram16("linebuf_u182.bin", 1024, obj_u.linebuf_u.u_182.mem)

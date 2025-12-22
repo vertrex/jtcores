@@ -148,6 +148,9 @@ wire [1:0] NC;
     //but the address are not the same there is a shift of 1 ?? 
 
 
+
+// STORE VPOS and other INFO 
+// WHILE HPOS AND OTHER INFOS AS STORED IN 6091 SCNDMA 
 sis6091 u_141(
   .clk(clk),
   .wr_cen(~RDCLK), //clk 31
