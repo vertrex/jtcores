@@ -94,12 +94,12 @@ LS273 u175_21E(
 //ROM 20C
 //HN62404
 //4M-bit
-assign obj_rom_1_cs = 1'b1; //OE => 74LS273 22E Q7 XXX
+assign obj_rom_1_cs = ~ROM_CE; //OE => 74LS273 22E Q7 XXX
 
 //ROM 22C
 //HN62404
 //4M-bit
-assign obj_rom_2_cs = 1'b1; //OE => 74LS273 22E Q7 XXX
+assign obj_rom_2_cs = ROM_CE; //OE => 74LS273 22E Q7 XXX
 //split in two ? on original use two separated rom of 16bits
 //read same address on the two but enable one or the other with an inverter
 //U177 22F
@@ -107,8 +107,8 @@ assign obj_rom_2_cs = 1'b1; //OE => 74LS273 22E Q7 XXX
 //assign obj_rom_addr[19:1] = {u174_Q[6:4], SG0140_Q[4:0], u174_Q[3:0], VH8, u175_Q[3:0], VH4};
 //          rom_index[12:0] << 6
 //                           12 bits       6 bits
-//                       u174,   addr, u174  |    (vh8, u175_q, vh4)
-                            //3 , 5, 4,      |  1,  4, 1
+//                       u174,   addr, u174  |vh8  u175_q, vh4)
+                            //3 , 5, 4,     | 1,    4, 1
                             // rom index | line number + rom words index 4bits1
                             // 4 bits => line number * 2 < + rom_words+index
 
@@ -121,9 +121,30 @@ assign obj_rom_2_cs = 1'b1; //OE => 74LS273 22E Q7 XXX
 //       ron_index              OVD[?:?]   ADDR[4:0]      OVD[?:?] | line       VH8   VA[3:0]     VH4 ?
 assign obj_rom_1_addr[17:0] = {u174_Q[6:4], ADDR[4:0], u174_Q[3:0], VH8, u175_Q[3:0], VH4};
 assign obj_rom_2_addr[17:0] = {u174_Q[6:4], ADDR[4:0], u174_Q[3:0], VH8, u175_Q[3:0], VH4};
+
+//XXX just here to check our indexs value is ok 
+wire [11:0] rom_index = {u174_Q[6:4], ADDR[4:0], u174_Q[3:0]}; 
+
+//rom_index << 7 == obj_rom_addr 
+// one tile is 128 byte 
+
+//rom bus  16 bits  (pas 8 bits )
+//donc on lit par groupe de 64 bytes pour un tile complet 
+//  6 bits pour le current pixel qui doivent etre incrementer 1 par 1 pour
+//  lire le sprite ( 16 par ligne pui switch )
+//  VH8, u175_Q[3:0], VH4 -> sprite pos 64 
+//  le reste c'est l 'index ? (every 64 bits ? )
+//
+//
+
+//addr IS OK (avec la rom d'origine ca affiche toki pendant un moment)
+//
+wire [17:0] obj_rom_1_addr_toki = {12'h40, VH8, u175_Q[3:0], VH4};
+wire [17:0] obj_rom_2_addr_toki = {12'h40, VH8, u175_Q[3:0], VH4};
+
 //wait for obj_rom_ok ? XXX
 
-assign PD[15:0] = ~ROM_CE ? obj_rom_1_data[15:0] : obj_rom_2_data[15:0];
+assign PD[15:0] = ROM_CE ? obj_rom_2_data[15:0] : obj_rom_1_data[15:0];
 
 //SEI0140 16D
 //MODE=OHMAX

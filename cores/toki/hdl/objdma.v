@@ -363,7 +363,7 @@ sg0140_vcheck u1411_sg0140_vcheck(
 
 assign OBUSDIR = OIBDIR; // XXX check that on board ?
 
-sg0140_sort48 u1412(
+sg0140_sort48 u1412_sg0140_sort48(
   .clk(clk),
   .rst(rst),
   //.cen(),

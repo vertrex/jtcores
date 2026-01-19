@@ -528,7 +528,7 @@ begin \
     $fclose(fd); \
 end
 
-parameter DUMP_START_FRAME = 81;
+parameter DUMP_START_FRAME = 38;
 
 integer  frame_counter = 0;
 always @(posedge VS) begin

@@ -297,6 +297,14 @@ module sg0140_vcheck(
   //pendant l'affichahge ?? 
   //reverifier la trace
 
+//******* TEST SUR MAD ** //
+//seulement pos y et y offset influe 
+//vpd c'est bien pos + offset 
+//flip y change (ca fait plein de vfind si non nan ???) 
+//mais flip x ne change pas 
+//sprite num de change rien non plus 
+//
+
     always @(negedge clk) begin
         if (rst) begin
             EVNWR2 <= 1'b1;
@@ -358,10 +366,24 @@ endmodule
 // mais en read va sortir les infos de ses 2 sis6091B 
 // qui vont donner CTA pour lire le 6091 u183 
 // si ca ne bouge pas on aura tjrs le meme sprite afficher 
-/*
+
+// MAD 
+// si on change sprite num oa3/oa4/vfind goes down temporariement 
+// pareil pour pos x mais temporrairement 
+// pos y -> h128 chantemporariemtn o3/o4/vfind aussi puis h256 reste up (pos
+// y ++ 0xaa
+// offset x -> oa3/o4/vfind change temporairement 
+// offset y -> oa3/o4/vfind change temporairement offset y influcen H64
+// flip x -> o3/o4/vfind change temporairement 
+// flip y -> o3/o4/vfind change temporairement si up -> (flpped) h32 is high
+//
+// si vfind influcen la sorite ? et change la valewur si non valeur par
+// default ? une fois store on touche plus au pixel 
+// on store juste quand il y a un change ? 
+
 module sg0140_sort48(
-  input       clk,
-  input       rst, //pin 40
+  input   clk,
+  input   rst, //pin 40
 
   input   RDCLK, //main clk ?
 
@@ -453,7 +475,7 @@ module sg0140_sort48(
   end
 
 endmodule
-*/
+/*
 
 module sg0140_sort48(
   input       clk,
@@ -559,4 +581,5 @@ module sg0140_sort48(
       end
   end
 
-endmodule
+  endmodule
+*/

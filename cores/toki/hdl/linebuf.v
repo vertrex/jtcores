@@ -115,19 +115,19 @@ sis6091B u_184(
 always @(posedge clk) begin 
   if (D1V_7P) begin 
     if (E1FIND) 
-      { PRIOR_D, PRIOR_C, OOD[7:0] } <= Q_EVN1;
+      { PRIOR_D, PRIOR_C, OOD[7:0] } <= Q_EVN1; //depend of OBJON too 
     else if (E2FIND) 
-      { PRIOR_D, PRIOR_C, OOD[7:0] } <= Q_EVN2;
+      { PRIOR_D, PRIOR_C, OOD[7:0] } <= Q_EVN2; //depend of OBJON too 
     else
-      { PRIOR_D, PRIOR_C, OOD[7:0] } <= 10'b0;
+      { PRIOR_D, PRIOR_C, OOD[7:0] } <= 10'b11_1111_1111; //depend of OBJON too 
       end 
   else begin //if (ND1V_7P) begin  ND1V_7P = ~D1V_7P
     if (O1FIND)
-      { PRIOR_D, PRIOR_C, OOD[7:0] } <= Q_ODD1;
+      { PRIOR_D, PRIOR_C, OOD[7:0] } <= Q_ODD1; //depend of OBJON TOO 
     else if (O2FIND)
-      { PRIOR_D, PRIOR_C, OOD[7:0] } <= Q_ODD2;
+      { PRIOR_D, PRIOR_C, OOD[7:0] } <= Q_ODD2; //depend of OBJON TOO
     else 
-      { PRIOR_D, PRIOR_C, OOD[7:0] } <= 10'b0;
+      { PRIOR_D, PRIOR_C, OOD[7:0] } <= 10'b11_1111_1111;
      end 
 end
 

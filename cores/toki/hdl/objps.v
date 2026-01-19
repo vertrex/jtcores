@@ -139,6 +139,9 @@ wire PLD_O18;
 wire HREV_HD; 
 wire NHREV_HD; 
 
+//set to 0 and set to 11111 in linebuf to disable obj
+//assign OBJON = 1'b0;
+
 PLD29 u_pld29(
     .HREV(HREV),
     .HD(HD),
@@ -153,7 +156,7 @@ PLD29 u_pld29(
 
     .HREV_HD(HREV_HD), 
     .NHREV_HD(NHREV_HD), 
-    .OBJON(OBJON), 
+    .OBJON(OBJON), //removoe here and set to 0 and in linebuf to remove obj 
     .o16_n(NC),     // why it's dumped ?
     // OBJMASK => cpu/addrs.v  if (MASKS~ ) OBJMASK <=MDB[2] 
     // NOOBJCT_2 => sg0140_ohmax
