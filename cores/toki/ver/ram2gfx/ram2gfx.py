@@ -175,7 +175,7 @@ def char_bitplanes(gfx_rom, rom_index):
 ###
 ###  Tile Bitplanes
 ###
-def tile_bitplanes(gfx_rom, rom_index):
+def tile_bitplanes(sprite_rom1, sprite_rom2, rom_index):
     # each plan is composed of :
     # plan1 : odd bytes high nibbles
     # plan2 : odd bytes low nibbles
@@ -185,15 +185,25 @@ def tile_bitplanes(gfx_rom, rom_index):
     odd_l_nibbles = []  # plan 2
     even_h_nibbles = []  # plan 3
     even_l_nibbles = []  # plan 4
+
+    if rom_index < 0x2000:
+        rom = sprite_rom1
+    else:
+        rom = sprite_rom2
+
     for x in range(0, 128, 2):
+        print(f"rom addr {hex((rom_index * 128) + x)}")
         # odd bytes
-        odd = gfx_rom[(rom_index * 128) + x]
+        # odd = gfx_rom[(rom_index * 128) + x]
+        odd = rom[(rom_index * 128) + x]
         # divide bytes in high and low nibbles
         odd_h_nibbles.append(odd >> 4)
         odd_l_nibbles.append(odd & 0x0F)
 
         # even bytes
-        even = gfx_rom[(rom_index * 128) + x + 1]
+        # even = gfx_rom[(rom_index * 128) + x + 1]
+        print(f"rom addr {hex((rom_index * 128) + x + 1)}")
+        even = rom[(rom_index * 128) + x + 1]
         even_h_nibbles.append(even >> 4)
         even_l_nibbles.append(even & 0x0F)
 
@@ -228,7 +238,7 @@ def tile_bitplanes(gfx_rom, rom_index):
 ##
 ## DECODE SPRITE
 ##
-def scan_sprite(img, ram, gfx_rom, palette, palette_offset, tile_size=16):
+def scan_sprite(img, ram, sprite_rom1, sprite_rom2, palette, palette_offset, tile_size=16):
     # sprite must be drawn in reverse order ?
     current_sprite = 0
     for sprite_index in range(int(len(ram) / 8) - 1, -1, -1):
@@ -274,13 +284,13 @@ def scan_sprite(img, ram, gfx_rom, palette, palette_offset, tile_size=16):
       
         mdma_binary = f"0b00{objen}{spr2}{spr1}{vrev}{hrev}{nd}"
         mdma = int(mdma_binary, 2)
-        print(f"sprite {current_sprite} : mdma {hex(mdma)}")
         
         color = sprite_word[1] >> 12
         flip_x = sprite_word[0] & 0x100
         rom_index = (sprite_word[1] & 0xFFF) + ((sprite_word[2] & 0x8000) >> 3)
+        print(f"sprite {current_sprite} : mdma {hex(mdma)} rom index {hex(rom_index)} rom addr base : {hex(rom_index*128)}")
 
-        bitplanes = tile_bitplanes(gfx_rom, rom_index)
+        bitplanes = tile_bitplanes(sprite_rom1, sprite_rom2, rom_index)
 
         packed = pack_plan(bitplanes, size=tile_size, flip_x=flip_x)  # flip_x ?
 
@@ -327,6 +337,9 @@ def ram2gfx(path, show=False):
     gfx3_rom = rom[GFX_3_START:GFX_4_START]
     gfx4_rom = rom[GFX_4_START: GFX_4_START + 0x80000]
 
+    sprite_rom1 = read_file("toki_obj1.c20")
+    sprite_rom2 = read_file("toki_obj2.c22")
+
     (bg1_ram, bg2_ram, palette_ram, sprite_ram, vram_ram) = split_cpu_ram("cpu_ram.bin", path)
 
     # bg1_ram = read_file("bg1_ram.bin", path)
@@ -340,7 +353,8 @@ def ram2gfx(path, show=False):
     img = Image.new("RGB", (512, 512))
     scan_ram(img, bg1_ram, gfx3_rom, palette_ram, 0x400, tile_size=16)
     scan_ram(img, bg2_ram, gfx4_rom, palette_ram, 0x600, tile_size=16)
-    scan_sprite(img, sprite_ram, gfx2_rom, palette_ram, 0x0)
+    # scan_sprite(img, sprite_ram, gfx2_rom, palette_ram, 0x0)
+    scan_sprite(img, sprite_ram, sprite_rom1, sprite_rom2, palette_ram, 0x0)
     scan_ram(img, vram_ram, gfx1_rom, palette_ram, 0x200, tile_size=8)
 
     img.save(f"{path}/screen.png")
