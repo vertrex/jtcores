@@ -79,38 +79,32 @@ module sis6091B #(parameter CLEAR_VALUE = 4'h0)
 );
 
 (* ramstyle = "no_rw_check" *) reg [15:0] mem[0:(2**10)-1];
-(* ramstyle = "no_rw_check" *) reg used[0:1023];
+(* ramstyle = "no_rw_check" *) reg        used[0:1023];
+reg clr_hold;
+initial clr_hold = 1'b0;
 
-//assign find = used[addr];
+integer i;
 
-reg [10:1] clear_idx;
-reg        is_clearing;
-
-always @(negedge clk) begin
-    if (~clr_n & ~is_clearing) begin
-        is_clearing <= 1'b1;
-        clear_idx   <= 10'd0;
-        end
-    else if (is_clearing) begin
-        used[clear_idx] <= 1'b0;
-        clear_idx <= clear_idx + 1'b1;
-        if (clear_idx == 10'd512) begin //1023 ?
-          is_clearing <= 1'b0;
-          end
-        end
-     else if (wr_cen == 1'b0) begin
+always @(posedge clk) begin
+    if (!clr_n && !clr_hold) begin
+        // Clear once per low assertion of clr_n.
+        for (i = 0; i < 1024; i = i + 1)
+            used[i] <= 1'b0;
+        clr_hold <= 1'b1;
+    end else if (clr_n) begin
+        clr_hold <= 1'b0;
+        if (wr_cen == 1'b0) begin
         if (we) begin
-            mem[addr] <= data;
+            mem[addr]  <= data;
             used[addr] <= 1'b1;
-            end
         end
+        end
+    end
 
-    if(rd_cen) begin
+    if (rd_cen) begin
         find <= used[addr];
-        q <= mem[addr];
-        end
-    //else
-        //find <= 1'b0;//?
+        q    <= mem[addr];
+    end
 end
 
 

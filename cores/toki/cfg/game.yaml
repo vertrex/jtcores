@@ -12,10 +12,13 @@ game:
       - sei0050bu.v
       - sei0010bu.v
       - sei0021bu.v
-      - sg0140.v
+      #- sg0140.v
       #- sg0140_ohmax.v
+      - sg0140_absel.v
+      - sg0140_ohmax.v
+      - sg0140_vcheck.v
+      - sg0140_sort48.v
       - sei80bu.v
-      - dual_ram_buffer.v
       - sis6091.v
       - sis6091B.v
       - 74LS74.v
@@ -39,9 +42,6 @@ game:
       - scrn4.v
       - scrn_bk.v
       - clut.v
-      - ram_dma.v
-      #- sound.v
-      - z80_cs.v
       - hvpos.v
       - objdma.v
       - scnddma.v

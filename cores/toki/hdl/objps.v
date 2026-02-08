@@ -58,7 +58,7 @@ wire [7:0] u163_q;
 LS273 u163(
     .CLK(clk),
     .CLRn(1'b1),
-    .CEN(FIRST_LD),
+    .CEN(~FIRST_LD),
     .D({NOOBJ_CT2, OSP2, OSP1, OBJCOL[3:0], OPSREV}),
     .Q(u163_q[7:0])
 );
@@ -68,7 +68,7 @@ LS273 u163(
 LS174 u165(
     .CLK(clk),
     .CLRn(1'b1),
-    .CEN(SECND_LD),
+    .CEN(~SECND_LD),
     .D(u163_q[6:1]),
     .Q(OBJ1[9:4])
 );
@@ -81,7 +81,7 @@ wire sei100_2_38;
 LS273 u169(
     .CLK(clk),
     .CLRn(1'b1),
-    .CEN(SECND_LD),
+    .CEN(~SECND_LD),
     .D({NOOBJ_CT2, OSP2, OSP1, OBJCOL[3:0], OPSREV}),
     .Q({pld_i9, OBJ2[9:4], sei100_2_38 })
 );

@@ -50,7 +50,7 @@ module CLUT(
 wire [7:0] s1_s4_out;
 wire S4ON, S1ON;
 
-sg0140    sg0140_u(
+sg0140_absel    sg0140_absel_u(
   .clk(clk),
   //.rst(1'b0),
   .cen(N6M), 

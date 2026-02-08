@@ -42,6 +42,11 @@ wire [5:0] nc1;
 wire [5:0] nc2;
 wire [5:0] nc3;
 
+// Avoid writing transparent pixels (color = 0xF) and ignore hi-Z (masked) bus.
+// OBJ*_Z emulates the tri-state output on the original PCB.
+wire obj1_pix_valid = (~OBJ1_Z) & (OBJ1[3:0] != 4'hF);
+wire obj2_pix_valid = (~OBJ2_Z) & (OBJ2[3:0] != 4'hF);
+
 /// XXX ADD CLEAR SUPPORT !!! 
 
 // XXX  THIS MODULE USE ONLY 6091B that are different than 6091 !!!
@@ -55,7 +60,8 @@ sis6091B u_181(
   //since start of object otherwise it will loop and write same object on
   //whole line  determine by pld29 noobj & noobj_ct2 so by sg0140 (VFIND =>
   //MATCHV => NOOBJ => NOOB_CT2)
-  .we(~EVNWREN & ~OBJ1_Z), //30
+  // Gate writes by line write enable and non-transparent pixel
+  .we(~EVNWREN & obj1_pix_valid), //30
   // clr at each line by sei60bu (or each frame ?)  
   .clr_n(EVNCLR),
   //data is deserialized by sei0010bu 
@@ -73,7 +79,7 @@ sis6091B u_181(
 sis6091B u_182(
   .clk(clk),
   .wr_cen(OBJ_N6M), //31
-  .we(~EVNWREN & ~OBJ2_Z), //30
+  .we(~EVNWREN & obj2_pix_valid), //30
   .clr_n(EVNCLR),
   .data({6'b0, OBJ2[9:0]}), //6,7,8,10,12-19,22-25
   .addr({1'b0, E2A[8:0]}),//62-71
@@ -86,7 +92,7 @@ sis6091B u_182(
 sis6091B u_183(
   .clk(clk),
   .wr_cen(OBJ_N6M), //31
-  .we(~ODDWREN & ~OBJ1_Z), //30
+  .we(~ODDWREN & obj1_pix_valid), //30
   .clr_n(ODDCLR),
   .data({6'b0, OBJ1[9:0]}), //6,7,8,10,12-19,22-25
   .addr({1'b0, O1A[8:0]}),//62-71
@@ -99,7 +105,7 @@ sis6091B u_183(
 sis6091B u_184(
   .clk(clk),
   .wr_cen(OBJ_N6M), //31
-  .we(~ODDWREN & ~OBJ2_Z), //30
+  .we(~ODDWREN & obj2_pix_valid), //30
   .clr_n(ODDCLR),
   .data({6'b0, OBJ2[9:0]}), //6,7,8,10,12-19,22-25
   .addr({1'b0, O2A[8:0]}),//62-71

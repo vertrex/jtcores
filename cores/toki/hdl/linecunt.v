@@ -50,7 +50,7 @@ wire [5:0] u171_Q;
 LS174 u171_20F(
    .CLK(clk),
    .CLRn(1'b1),
-   .CEN(CTLT1),
+   .CEN(~CTLT1),
    .D({OVD[10:9], OVD[3:0]}),
    .Q(u171_Q[5:0])
 );
@@ -62,7 +62,7 @@ wire NC;
 LS174 u172_21F(
    .CLK(clk),
    .CLRn(1'b1),
-   .CEN(CTLT1),
+   .CEN(~CTLT1),
    .D({1'b0, OVD[15:11]}),
    .Q({NC, u172_Q[4:0]})
 );
@@ -73,7 +73,7 @@ wire [6:0] u174_Q;
 LS273 u174_20E(
    .CLK(clk),
    .CLRn(1'b1),
-   .CEN(CTLT2),
+   .CEN(~CTLT2),
    .D({u172_Q[1:0], u171_Q[5:0]}),
    .Q({OBJCOL[0], u174_Q[6:0]})
 );
@@ -84,7 +84,7 @@ wire [3:0] u175_Q;
 LS273 u175_21E(
    .CLK(clk),
    .CLRn(1'b1),
-   .CEN(CTLT2),
+   .CEN(~CTLT2),
    //.D({ODHREV, VA8, VA4, VA2, VA1, u172_Q[4:2]}),
    .D({ODHREV, VA[3:0], u172_Q[4:2]}),
    .Q({OBJ_HREV, u175_Q[3:0], OBJCOL[3:1]})
@@ -168,7 +168,7 @@ sg0140_ohmax sg0140_u174_16D(
    //.MODE(2'b11), //OHMAX mode
    .NOOBJ(NOOBJ),
    .OVD(OVD[8:4]),
-   .HREV(1'b1), ////3 HREV //HREY ?
+   .HREV(HREV),
    //output
    //high address were pixel will be written [8:4] (position on screen)
    //the other part 3:0 => 16pixel  is generated  by the sei60bu to draw each
@@ -188,7 +188,7 @@ wire ROM_CE;
 LS273 u176(
    .CLK(clk),
    .CLRn(1'b1),
-   .CEN(CTLT2),
+   .CEN(~CTLT2),
    .D({OH[8], OVD[15],  SPR2_3, SPR1_3 ,OVD[3:0]}),
    .Q({FH[8], ROM_CE, OSP2 ,OSP1 ,OH[3:0]})
 );
@@ -201,7 +201,7 @@ LS273 u176(
 LS273 u1716(
    .CLK(clk),
    .CLRn(1'b1),
-   .CEN(CTLT2),
+   .CEN(~CTLT2),
    .D(OH[7:0]),
    .Q(FH[7:0])
 );
