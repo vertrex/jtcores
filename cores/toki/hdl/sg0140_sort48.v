@@ -58,7 +58,7 @@ module sg0140_sort48(
     reg [5:0] stack_ptr;      // Internal counter, representing the next available slot in the display list.
     reg vfind_prev;           // Previous state of VFIND, used for edge detection.
     
-    always @(negedge clk) begin
+    always @(posedge clk) begin // XXX negedge ??
         if (rst) begin
             stack_ptr <= 6'b0;      // Reset stack pointer to the beginning of the list.
             OVER48 <= 1'b0;         // Clear the overflow flag.
@@ -75,6 +75,9 @@ module sg0140_sort48(
             end
         else begin // XSDTS is Low (Active DMA/Sorting Phase)
                    // Detect a falling edge of VFIND, indicating a new visible sprite.
+            if (ILD2) //XXX ? Only process VFIND strobe if ILD2 is High
+            //ensures to only increment the stack when data pipeline (DHLD) is 
+            //active and ready to transfer valid attributes
             if (vfind_prev && !VFIND) begin // (vfind_prev == 1 && VFIND == 0)
                                             // Increment the stack pointer for the new sprite.
                 if (stack_ptr < 6'd48) begin // Check against the 48-sprite limit.
@@ -105,20 +108,20 @@ module sg0140_sort48(
             DMA2_EA <= 6'b0;
             DMA2_OA <= 6'b0;
             end
-        else begin
+        else if (!RDCLK) begin
             // Logic based on V1B (current line parity):
             if (V1B) begin // Current Scanline is Odd (V1B=1)
-            // On Odd line, display reads from Even Buffer (DMA2_EA gets read_addr).
-            // So, we must write to the Odd Buffer (DMA2_OA gets stack_ptr).
-            DMA2_OA <= stack_ptr;   // Output to Odd Buffer address is Stack Pointer (for Writing)
-            DMA2_EA <= read_addr;   // Output to Even Buffer address is Read Address (for Reading)
-            end
+                // On Odd line, display reads from Even Buffer (DMA2_EA gets read_addr).
+                // So, we must write to the Odd Buffer (DMA2_OA gets stack_ptr).
+                DMA2_OA <= stack_ptr;   // Output to Odd Buffer address is Stack Pointer (for Writing)
+                DMA2_EA <= read_addr;   // Output to Even Buffer address is Read Address (for Reading)
+                end
         else begin // Current Scanline is Even (V1B=0)
-            // On Even line, display reads from Odd Buffer (DMA2_OA gets read_addr).
-            // So, we must write to the Even Buffer (DMA2_EA gets stack_ptr).
-            DMA2_EA <= stack_ptr;   // Output to Even Buffer address is Stack Pointer (for Writing)
-            DMA2_OA <= read_addr;   // Output to Odd Buffer address is Read Address (for Reading)
-            end
+                // On Even line, display reads from Odd Buffer (DMA2_OA gets read_addr).
+                // So, we must write to the Even Buffer (DMA2_EA gets stack_ptr).
+                DMA2_EA <= stack_ptr;   // Output to Even Buffer address is Stack Pointer (for Writing)
+                DMA2_OA <= read_addr;   // Output to Odd Buffer address is Read Address (for Reading)
+                end
         end
     end
 endmodule
