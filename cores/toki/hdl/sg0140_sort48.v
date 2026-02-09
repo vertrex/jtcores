@@ -99,7 +99,8 @@ module sg0140_sort48(
     //      - On an Even Line (V1B=0), display reads from Odd Buffer, so write to Even Buffer.
     //      - On an Odd Line (V1B=1), display reads from Even Buffer, so write to Odd Buffer.
     // -------------------------------------------------------------------------
-    always @(negedge clk) begin // Synchronized address updates with RDCLK for stability.
+    always @(posedge clk) begin // XXX negedge ?
+        //Synchronized address updates with RDCLK for stability.
         if (rst) begin
             DMA2_EA <= 6'b0;
             DMA2_OA <= 6'b0;

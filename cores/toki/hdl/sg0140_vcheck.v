@@ -117,7 +117,7 @@ module sg0140_vcheck(
     // Line N Odd  (LSB=1) -> Next is Even. Write to Even.
     //wire target_is_even = current_y[0]; // If 1 (Odd), next is Even.
     
-    always @(negedge clk) begin //negedge or posedge ? XXX 
+    always @(posedge clk) begin //XXX negedge ?
         if (rst) begin
             VFIND <= 1'b1;
             EVNWR2 <= 1'b1;

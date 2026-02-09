@@ -32,7 +32,8 @@ module sg0140_ohmax(
 //    | CTLT1 (H1=0) | ROM index bits for the sprite (tile address) |
 //    | CTLT2 (H1=1) | X position high bits (OH[8:4]) |
 
-always @(negedge clk) begin // All operations are synchronized to the falling edge of the clock.
+// XXX negedge ?
+always @(posedge clk) begin // All operations are synchronized to the falling edge of the clock.
     if (rst) begin // Asynchronous or synchronous reset.
         OH        <= 5'b0;      // Initialize Object Horizontal Position to 0.
         ADDR      <= 5'b0;      // Initialize ROM Address Offset to 0.
