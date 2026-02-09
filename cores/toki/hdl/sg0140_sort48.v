@@ -2,295 +2,122 @@
 ///////////// SG0140 SORT 48///////////////////////
 ///////////////////////////////////////////////////
 
-// ECRIT ET LIT 
-// VA ECRIRE LES INFOSO DANS LES 2er SIS6091B de scndma 
-// mais en read va sortir les infos de ses 2 sis6091B 
-// qui vont donner CTA pour lire le 6091 u183 
-// si ca ne bouge pas on aura tjrs le meme sprite afficher 
+// Sprite Display List Management
+// acting as the display list  manager for sprites visible on the current scanline
+// “horizontal list scheduler / slot mapper” for the per‑line object list.
 
-// MAD 
-// si on change sprite num oa3/oa4/vfind goes down temporariement 
-// pareil pour pos x mais temporrairement 
-// pos y -> h128 chantemporariemtn o3/o4/vfind aussi puis h256 reste up (pos
-// y ++ 0xaa
-// offset x -> oa3/o4/vfind change temporairement 
-// offset y -> oa3/o4/vfind change temporairement offset y influcen H64
-// flip x -> o3/o4/vfind change temporairement 
-// flip y -> o3/o4/vfind change temporairement si up -> (flpped) h32 is high
-//
-// si vfind influcen la sorite ? et change la valewur si non valeur par
-// default ? une fois store on touche plus au pixel 
-// on store juste quand il y a un change ? 
+/* 
+    1. Sorting/Stacking: During a dedicated "sorting" or DMA phase (typically during horizontal blanking or a sprite DMA      window), it receives "sprite found" signals (VFIND) from sg0140_vcheck. For each found sprite, it generates a sequential address (like a stack pointer) where the sprite's attributes can be stored in a temporary "display list" RAM. This ensures that sprites are stored in the order they are found (or potentially sorted by priority, though this module just stacks).
+    2. Limiting: It enforces a hardware limit of 48 sprites per scanline. If more than 48 sprites are detected as visible, it  signals an overflow (OVER48) so VCHECK stops writing when the list is full
+    3. Scanning/Reading: During the active video display phase, it acts as a "scanner," generating addresses based on the horizontal position (H) of the CRT beam. These addresses are used to read the pre-sorted sprite attributes from the display list RAM, feeding them to the pixel generation logic.
+    4. Ping-Pong Buffering: It implements a double-buffering (ping-pong) mechanism, typically using two separate RAM banks (Even and Odd). While one buffer is being written to (stacked) for the next scanline, the other is simultaneously being read from (scanned) for the current scanline. This ensures smooth, glitch-free sprite display.
+*/
 
 module sg0140_sort48(
-  input   clk,
-  input   rst, //pin 40
-
-  input   RDCLK, //main clk ?
-
-  // condition ?
-  //input   OVER48, //active high
-  input   VFIND, //OVER256 active high when dma is counting
-
-  input   XSDTS, //~STARTV prom_26_data[2]
-  input   ILD2, // ~SDTS & DLHD (data line horizontal drive, output NHREV by sei10 serializer)
-
-  //clk & enable ?
-  input   V1B,  //vpos[0]
-  input   NH2,  //~h_pos[1]
-  input   H2,   // 38 A_EN ?  //h_pos[1]
-  input   H2_2, //h_pos[1] EN ?
-
-  // 5 output signal do DMA2 ????
-  input   [8:4] H,  //h_pos[4]
-
-  output reg  OVER48, // Marked as active high on schematics (TRUE=H)
-  output reg  [5:0] DMA2_EA, // address 
-  output reg  [5:0] DMA2_OA // 
+    input       clk,      // Clock:  (48MHz)
+    input       rst,      // 
+    input       RDCLK,    // Read Clock: Used as the timing reference for address outputs.
+ 
+    input       VFIND,    // Input: "Sprite Found" strobe (Active Low) from sg0140_vcheck.
+                          //        Indicates a visible and valid sprite attribute is available.
+    input       XSDTS,    // Input: Phase Control. (Active Low = DMA/Sorting Phase, Active High = Display/Scan Phase).
+                          //        Determines if the module is building the display list or reading it.
+    input       ILD2,     // Input: ???
+                          // XXX Some per‑slot strobe tied to DMA phase or serializer timing.
+                          //    Might be the real “advance slot” pulse.
+                          //        Likely a timing or control signal related to DMA, possibly for interlacing.
+    input       V1B,      // Input: Vertical Position Bit 0 (LSB of current scanline).
+                          //        Used for ping-pong buffering (0=Even Line, 1=Odd Line).
+    input       NH2,      // Input: Inverted H_POS[1]. (Used in read_addr generation).
+    input       H2,       // Input: H_POS[1]. (Used in read_addr generation).
+    input       H2_2,     // Input: H_POS[1] again. (Redundant or for internal fanout/timing on PCB).
+    input [8:4] H,        // Input: Higher bits of Horizontal Position (H_POS[8:4]).
+                          //        Used for generating the display scan address.
+    
+    output reg  OVER48,   // Output: "Overflow" flag (Active High). Set if more than 48 sprites are found.
+    output reg  [5:0] DMA2_EA, // Output: Address for the Even Secondary DMA buffer.
+    output reg  [5:0] DMA2_OA  // Output: Address for the Odd Secondary DMA buffer. 
 );
-
-// 1. Construction de l'adresse brute (Raw Address)
-  // On concatène les bits H pour former l'index du slot (0 à 63)
-  // L'ordre est MSB -> LSB
-  wire [5:0] raw_addr = {H[8:7] , H2, H[6:4]};
-
-  // 2. Détection de la limite de sprites (Limit 48)
-  // 48 en binaire = 110000
-  wire limit_reached = (raw_addr >= 6'd48);
-  reg  vfind_edge;
-
-  always @(negedge clk) begin
-      if (rst) begin
-          DMA2_EA <= 6'b0;
-          DMA2_OA <= 6'b0;
-          OVER48  <= 1'b1; // Active High ? (A vérifier si VCHECK attend 0 ou 1)
-          vfind_edge <= 1'b0;
-      end else if (~RDCLK) begin
-          // Mise à jour du flag OVER48
-          // Si VFIND est inactif (pas de DMA), on reset peut-être ?
-          // Gardons la logique simple : monitoring constant de l'adresse.
-          OVER48 <= limit_reached;
-
-          // Dispatch de l'adresse vers Even ou Odd RAM
-          // V1B (Ligne 0, 1, 2...) détermine quelle RAM est en écriture pour la PROCHAINE ligne.
-          // Si V1B=1 (Ligne impaire), on prépare le buffer pour la ligne paire suivante (Even) ?
-          // Ou l'inverse. Suivons la logique du code précédent pour l'instant.
-          if (VFIND == 1'b0)
-            vfind_edge <= 1'b1; 
-          else 
-            vfind_edge <= 1'b0;
-
-
-//XSDTS  -> deux coimportemenr differents 
-//XSTS low dma ? va ecrire dans les chips de scnddma 
-          if (~XSDTS) begin // DMA active 
-
-            if (V1B == 1) begin //== 1 => ea
-                if (VFIND == 1'b0 & vfind_edge == 0) begin  //@posedge VFIND ? si non change tout les h[0]
-                  DMA2_EA <= raw_addr; //write addr ?
-                  DMA2_OA <= DMA2_OA + 1;        // read addr ?
-                  end 
-                else begin  
-                  //DMA2_EA <= DMA2_EA + 1;  //read addr ?
-                  DMA2_OA <= DMA2_OA + 1;        // read addr ?
-                  end 
-                //reset and do +1 to read data ?
-              end 
-            else begin
-                if (VFIND == 1'b0 & vfind_edge == 0) begin 
-                  DMA2_OA <= raw_addr;//write addr ?
-                  DMA2_EA <= DMA2_EA + 1;  //read addr ?
-                  end
-                else begin 
-                  DMA2_EA <= DMA2_EA + 1;  //read addr ?
-                  //DMA2_OA <= DMA2_OA + 1;        // read addr ?
-                  end 
-                //at some point from last value to 64 then 0
+    
+    // -------------------------------------------------------------------------
+    // 1. Read Address Generation (Scan Mode)
+    //    This address is used to read sprite attributes from the secondary DMA
+    //    buffer during the active display phase. It is driven by the horizontal
+    //    scan position.
+    // -------------------------------------------------------------------------
+    // The 'read_addr' combines bits of the current horizontal position (H_POS).
+    // This forms a sequential scan that reads sprite data as the beam moves across the screen.
+    wire [5:0] read_addr = {H[8:7], H2, H[6:4]};
+    
+    // -------------------------------------------------------------------------
+    // 2. Write Address Generation (Stack Mode)
+    //    This address acts as a stack pointer, incrementing for each new sprite
+    //    found by sg0140_vcheck. It generates sequential addresses to store
+    //    sprite attributes in the secondary DMA buffer during the sorting phase.
+    // -------------------------------------------------------------------------
+    reg [5:0] stack_ptr;      // Internal counter, representing the next available slot in the display list.
+    reg vfind_prev;           // Previous state of VFIND, used for edge detection.
+    
+    always @(negedge clk) begin
+        if (rst) begin
+            stack_ptr <= 6'b0;      // Reset stack pointer to the beginning of the list.
+            OVER48 <= 1'b0;         // Clear the overflow flag.
+            vfind_prev <= 1'b1;     // Initialize for VFIND falling edge detection.
+            end
+        else begin
+            vfind_prev <= VFIND; // Capture previous VFIND state.
+    
+        // Reset the stack pointer when NOT in the DMA/Sorting Phase (XSDTS High).
+        // This prepares the stack for building a new list for the next line.
+        if (XSDTS) begin
+            stack_ptr <= 6'b0;  // Reset stack pointer.
+            OVER48 <= 1'b0;     // Clear overflow flag.
+            end
+        else begin // XSDTS is Low (Active DMA/Sorting Phase)
+                   // Detect a falling edge of VFIND, indicating a new visible sprite.
+            if (vfind_prev && !VFIND) begin // (vfind_prev == 1 && VFIND == 0)
+                                            // Increment the stack pointer for the new sprite.
+                if (stack_ptr < 6'd48) begin // Check against the 48-sprite limit.
+                    stack_ptr <= stack_ptr + 1'b1;
                 end
-              end 
-            end 
-         else  begin//XSDTS  begin 
-            DMA2_EA <= DMA2_EA + 1; 
-            DMA2_OA <= DMA2_OA + 1;
-            end 
-  end
+                else begin
+                    //   wire limit = (hslot >= 6'd48);
+                    OVER48 <= 1'b1; // Assert overflow flag if limit is reached.
+                    end
+                end
+            end
+        end
+    end
 
+    // -------------------------------------------------------------------------
+    // 3. Ping-Pong Address Multiplexing
+    //    This logic selects which address (stack_ptr or read_addr) goes to
+    //    which buffer (Even or Odd) based on the current line's parity (V1B).
+    //    It implements the double-buffering scheme:
+    //    - While one buffer is being read for display, the other is being written for the next line.
+    //    - Based on LINEBUF/SCNDDMA analysis:
+    //      - On an Even Line (V1B=0), display reads from Odd Buffer, so write to Even Buffer.
+    //      - On an Odd Line (V1B=1), display reads from Even Buffer, so write to Odd Buffer.
+    // -------------------------------------------------------------------------
+    always @(negedge clk) begin // Synchronized address updates with RDCLK for stability.
+        if (rst) begin
+            DMA2_EA <= 6'b0;
+            DMA2_OA <= 6'b0;
+            end
+        else begin
+            // Logic based on V1B (current line parity):
+            if (V1B) begin // Current Scanline is Odd (V1B=1)
+            // On Odd line, display reads from Even Buffer (DMA2_EA gets read_addr).
+            // So, we must write to the Odd Buffer (DMA2_OA gets stack_ptr).
+            DMA2_OA <= stack_ptr;   // Output to Odd Buffer address is Stack Pointer (for Writing)
+            DMA2_EA <= read_addr;   // Output to Even Buffer address is Read Address (for Reading)
+            end
+        else begin // Current Scanline is Even (V1B=0)
+            // On Even line, display reads from Odd Buffer (DMA2_OA gets read_addr).
+            // So, we must write to the Even Buffer (DMA2_EA gets stack_ptr).
+            DMA2_EA <= stack_ptr;   // Output to Even Buffer address is Stack Pointer (for Writing)
+            DMA2_OA <= read_addr;   // Output to Odd Buffer address is Read Address (for Reading)
+            end
+        end
+    end
 endmodule
-
-
-
-/**
-*
-// sg0140_sort48 codex 
-
-module sg0140_sort48(
-  input   clk,
-  input   rst, //pin 40
-
-  input   RDCLK, //main clk ?
-
-  // condition ?
-  //input   OVER48, //active high
-  input   VFIND, //OVER256 active high when dma is counting
-
-  input   XSDTS, //~STARTV prom_26_data[2]
-  input   ILD2, // ~SDTS & DLHD (data line horizontal drive, output NHREV by sei10 serializer)
-
-  //clk & enable ?
-  input   V1B,  //vpos[0]
-  input   NH2,  //~h_pos[1]
-  input   H2,   // 38 A_EN ?  //h_pos[1]
-  input   H2_2, //h_pos[1] EN ?
-
-  // 5 output signal do DMA2 ????
-  input   [8:4] H,  //h_pos[4]
-
-  output reg  OVER48, // Marked as active high on schematics (TRUE=H)
-  output reg  [5:0] DMA2_EA, // address 
-  output reg  [5:0] DMA2_OA // 
-);
-
-  // H-slot index (0..63) derived from screen H position.
-  // If parity looks inverted on alternating lines, flip INV_V1B below.
-  localparam INV_V1B = 1'b0;
-  wire v1b_sel = INV_V1B ? ~V1B : V1B;
-  wire [5:0] hslot = {H[8:7], H2, H[6:4]};
-
-  // The traces show a fixed phase offset between H-slot and list RAM address.
-  // Using constants is more plausible than a deep delay chain inside the gate-array.
-  localparam [5:0] OFF_A = 6'd33;
-  localparam [5:0] OFF_B = 6'd17;
-
-  // Mapping observed: when V1B=0 -> EA = hslot-33 ; when V1B=1 -> EA = hslot-17
-  wire [5:0] ea_map = hslot - (v1b_sel ? OFF_B : OFF_A);
-  wire [5:0] oa_map = hslot - (v1b_sel ? OFF_A : OFF_B);
-
-  // Over48 is based on the H-slot index (per-line sprite budget).
-  wire limit_reached = (hslot >= 6'd48);
-
-  always @(posedge clk) begin
-      if (rst) begin
-          DMA2_EA <= 6'b0;
-          DMA2_OA <= 6'b0;
-          OVER48  <= 1'b0;
-      end else begin
-          DMA2_EA <= ea_map;
-          DMA2_OA <= oa_map;
-          OVER48  <= limit_reached;
-      end
-  end
-
-endmodule
-*/
-
-
-/*
-
-old gemini 
-
-module sg0140_sort48(
-  input       clk,
-  input       rst,      // pin 40
-
-  input       RDCLK,    // main clk ?
-
-  input       VFIND,    // Active LOW (from VCheck), indicates a valid sprite found
-  input       XSDTS,    // Active LOW = DMA Mode (Writing), HIGH = Display Mode (Reading)
-  input       ILD2,     // Unused in logic but kept for pinout
-
-  input       V1B,      // Ligne LSB (0=Even Line, 1=Odd Line)
-  input       NH2,      // Unused
-  input       H2,       // Part of raw address
-  input       H2_2,     // Unused
-  input       [8:4] H,  // Horizontal Position (Part of raw address)
-
-  output reg  OVER48,   // Active High (Flag > 48 sprites)
-  output reg  [5:0] DMA2_EA, // Even Address
-  output reg  [5:0] DMA2_OA  // Odd Address
-);
-
-  // 1. Adresse de Lecture (Display)
-  // Basée sur le balayage horizontal (H). C'est l'adresse utilisée pour LIRE les sprites à afficher.
-  // On garde ta logique d'origine pour le mapping.
-  wire [5:0] raw_addr = {H[8:7], H2, H[6:4]};
-
-  // 2. Compteur d'Ecriture (Stack Pointer)
-  // C'est lui qui empile les sprites trouvés (0, 1, 2...) sans trous.
-  reg [5:0] stack_ptr;
-  
-  // Detection de front pour VFIND (car VFIND peut rester bas plusieurs cycles)
-  reg vfind_prev;
-  wire vfind_falling_edge = (vfind_prev == 1'b1 && VFIND == 1'b0);
-
-  // Logique du Compteur et OVER48
-  always @(negedge clk) begin
-      if (rst) begin
-          stack_ptr <= 6'b0;
-          OVER48 <= 1'b0; // Active High reset
-          vfind_prev <= 1'b1;
-      end
-      else begin
-          // Gestion du front VFIND
-          vfind_prev <= VFIND;
-
-          // Si on n'est PAS en DMA (XSDTS = 1), on reset le compteur pour la prochaine fois
-          if (XSDTS) begin
-              stack_ptr <= 6'b0;
-              OVER48 <= 1'b0;
-          end
-          // Si on est en DMA (XSDTS = 0)
-          else begin
-              // Si un sprite est trouvé (Front descendant de VFIND)
-              if (vfind_falling_edge) begin
-                  if (stack_ptr >= 6'd48) begin
-                      OVER48 <= 1'b1; // Flag overflow
-                      // On bloque le compteur ou on le laisse tourner (selon hardware original)
-                      // Ici on bloque pour ne pas écraser le début
-                  end
-                  else begin
-                      stack_ptr <= stack_ptr + 1'b1;
-                  end
-              end
-          end
-      end
-  end
-
-  // Logique de Sortie des Adresses (Multiplexage)
-  always @(negedge clk) begin
-      if (rst) begin
-          DMA2_EA <= 6'b0;
-          DMA2_OA <= 6'b0;
-      end
-      else begin
-          // ---------------------------------------------------------
-          // MODE DMA (H-BLANK) : ECRITURE DU BUFFER
-          // ---------------------------------------------------------
-          if (!XSDTS) begin 
-             // Logique Ping-Pong basée sur V1B
-             // Si V1B=1 (Ligne Impaire), on prépare la Ligne Paire (Next Line Even)
-             // Donc on ECRIT dans EVEN (avec stack_ptr) et on peut LIRE ODD (avec raw_addr)
-             if (V1B) begin
-                 DMA2_EA <= stack_ptr; // Ecriture (Stack)
-                 DMA2_OA <= raw_addr;  // Lecture (Scan/Debug)
-             end
-             // Si V1B=0 (Ligne Paire), on prépare la Ligne Impaire (Next Line Odd)
-             else begin
-                 DMA2_OA <= stack_ptr; // Ecriture (Stack)
-                 DMA2_EA <= raw_addr;  // Lecture (Scan/Debug)
-             end
-          end
-          
-          // ---------------------------------------------------------
-          // MODE DISPLAY (ACTIVE VIDEO) : LECTURE DU BUFFER
-          // ---------------------------------------------------------
-          else begin
-             // Pendant l'affichage, les deux RAMs sont adressées par le scan vidéo
-             // pour récupérer les sprites à afficher.
-             DMA2_EA <= raw_addr;
-             DMA2_OA <= raw_addr;
-          end
-      end
-  end
-
-  endmodule
-*/
