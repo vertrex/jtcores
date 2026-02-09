@@ -10,7 +10,7 @@ module SEI0060BU(
    input wire OBJT2_7,    // (Unused)
    input wire V1B,        // Vertical Line LSB (0=Even, 1=Odd)
    input wire T8H,        // (Unused)
-   input wire HREV,       // (Unused)
+   input wire HREV,       // Horizontal Reverse (1=Reverse Scan)
 
    output reg [8:0] OA,   // Odd Address Output
    output reg [8:0] EA,   // Even Address Output
@@ -19,81 +19,96 @@ module SEI0060BU(
    output reg ODDCLR      // Odd Buffer Clear (Active Low)
 );
 
-   // Base address latches and 4-bit pixel counters (limit to 16 pixels).
-   reg [8:0] even_base;
-   reg [8:0] odd_base;
-   reg [3:0] even_pix;
-   reg [3:0] odd_pix;
-   reg       even_active;
-   reg       odd_active;
+   // -----------------------------------------------------------------
+   // 1. Video Scan Counter (Read Address)
+   //    - Generates sequential addresses for reading from the buffer to display.
+   //    - Resets on HBLB rising edge (start of active video).
+   //    - Increments during active video.
+   //    - Implements HREV: If 1, bit-wise inverts the address (Right-to-Left).
+   // -----------------------------------------------------------------
+   reg [8:0] scan_count;
+   reg hblb_prev;
 
-   // Read/beam counter (reset each line).
-   reg [8:0] beam_cnt;
-   reg       hblb_d;
+   // XOR Logic for Horizontal Reverse (matches 74HCT86 usage)
+   wire [8:0] scan_addr_final = HREV ? ~scan_count : scan_count;
 
    always @(posedge clk) begin
        if (cen) begin
-           hblb_d <= HBLB;
-           // Reset at start of active video (HBLB rising edge) to align X origin.
-           if (!hblb_d && HBLB)
-               beam_cnt <= 9'b0;
-           else
-               beam_cnt <= beam_cnt + 1'b1;
-       end
-
-       // Load strobes are active low; capture base and restart pixel counter.
-       if (!EVN_LD) begin
-           even_base   <= ADDR;
-           even_pix    <= 4'b0;
-           even_active <= 1'b1;
-       end else if (cen && !V1B && even_active) begin
-           even_pix <= even_pix + 1'b1;
-           if (even_pix == 4'd15)
-               even_active <= 1'b0;
-       end
-
-       if (!ODD_LD) begin
-           odd_base   <= ADDR;
-           odd_pix    <= 4'b0;
-           odd_active <= 1'b1;
-       end else if (cen && V1B && odd_active) begin
-           odd_pix <= odd_pix + 1'b1;
-           if (odd_pix == 4'd15)
-               odd_active <= 1'b0;
+           hblb_prev <= HBLB;
+           
+           if (!hblb_prev && HBLB) 
+               scan_count <= 9'd0;
+           else if (HBLB)
+               scan_count <= scan_count + 1'b1;
        end
    end
 
-   // 3. Clear Logic (Pulse during H-Blank)
-   // Target the FUTURE buffer (Next Line)
+   // -----------------------------------------------------------------
+   // 2. Sprite Write Counters (Write Address)
+   //    - Mimics 2x 74HC161 4-bit counters.
+   //    - When LD is LOW (Active), Loads ADDR[3:0].
+   //    - When LD is HIGH (Inactive), Increments.
+   //    - Handles the 16-pixel width of sprites.
+   // -----------------------------------------------------------------
+   reg [3:0] cnt_odd;
+   reg [3:0] cnt_evn;
+
+   always @(posedge clk) begin
+       if (cen) begin
+           // Odd Write Counter
+           if (!ODD_LD) 
+               cnt_odd <= ADDR[3:0]; // Load
+           else if (cnt_odd != 4'hf) // Stop at 15 (optional, prevents wrap) or just wrap
+               cnt_odd <= cnt_odd + 1'b1; // Count
+           
+           // Even Write Counter
+           if (!EVN_LD) 
+               cnt_evn <= ADDR[3:0]; // Load
+           else if (cnt_evn != 4'hf) 
+               cnt_evn <= cnt_evn + 1'b1; // Count
+       end
+   end
+
+   // Combine Upper Bits (Static during write) with Counter Bits
+   wire [8:0] sprite_addr_odd = {ADDR[8:4], cnt_odd};
+   wire [8:0] sprite_addr_evn = {ADDR[8:4], cnt_evn};
+
+   // -----------------------------------------------------------------
+   // 3. Clear Logic
+   //    - Pulses Clear during H-Blank for the FUTURE write buffer.
+   //    - Logic matches LINEBUF reading behavior (Read Previous, Write Current).
+   // -----------------------------------------------------------------
    always @(posedge clk) begin
        if (cen) begin
            EVNCLR <= 1'b1;
            ODDCLR <= 1'b1;
 
            if (!HBLB) begin
-               // If V1B=1 (Odd Displaying), Next is Even -> Clear Even
-               if (V1B) EVNCLR <= 1'b0;
-               // If V1B=0 (Even Displaying), Next is Odd -> Clear Odd
-               else     ODDCLR <= 1'b0;
+               // If V1B=1 (Odd Line): Display reads Even. Write to Odd. -> Clear Odd.
+               if (V1B) ODDCLR <= 1'b0; 
+               // If V1B=0 (Even Line): Display reads Odd. Write to Even. -> Clear Even.
+               else     EVNCLR <= 1'b0; 
            end
        end
    end
 
-   // 4. Address Muxing
-   wire [3:0] even_pix_adj = HREV ? ~even_pix : even_pix;
-   wire [3:0] odd_pix_adj  = HREV ? ~odd_pix  : odd_pix;
-   wire [8:0] even_wr_cnt  = even_base + {5'b0, even_pix_adj};
-   wire [8:0] odd_wr_cnt   = odd_base  + {5'b0, odd_pix_adj};
-
+   // -----------------------------------------------------------------
+   // 4. Multiplexing (Ping-Pong)
+   //    - If V1B=1 (Odd Line): Display reads Even.
+   //      -> EA (Even Addr) = Scan Address (Read).
+   //      -> OA (Odd Addr) = Sprite Address (Write Odd).
+   //    - If V1B=0 (Even Line): Display reads Odd.
+   //      -> OA (Odd Addr) = Scan Address (Read).
+   //      -> EA (Even Addr) = Sprite Address (Write Even).
+   // -----------------------------------------------------------------
    always @(*) begin
-       // When V1B=0 (even line): even buffer writes, odd buffer reads.
-       // When V1B=1 (odd line):  odd buffer writes, even buffer reads.
-       if (V1B) begin
-           OA = HREV ? ~beam_cnt   : beam_cnt;
-           EA = odd_wr_cnt;
-       end else begin
-           OA = even_wr_cnt;
-           EA = HREV ? ~beam_cnt   : beam_cnt;
+       if (V1B) begin // Odd Line
+           OA = sprite_addr_odd; 
+           EA = scan_addr_final; 
+       end
+       else begin // Even Line
+           EA = sprite_addr_evn; 
+           OA = scan_addr_final; 
        end
    end
 
