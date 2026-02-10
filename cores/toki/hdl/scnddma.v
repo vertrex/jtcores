@@ -36,7 +36,8 @@ module SCNDDMA(
 
 wire [8:1] CTA;
 
-//wire [11:0] ram_data_in = {MATCHV, SPR2_2, SPR1_2, ND2[8:0]};
+// JED shows MATCHV (/o12) is active-low, so store the inverted flag
+// to keep NOOBJ semantics consistent downstream.
 wire [15:0] q_even;
 wire [15:0] q_odd;
 // XXX IT'S a 6091 B pin are different than 6091 
@@ -46,7 +47,7 @@ sis6091B u_151(
   .wr_cen(EVNWR2), //DIV_2 /1 //EVNWR@ active write  to check
   .we(1'b1), //30 // &RDCLK
   .clr_n(1'b1),
-  .data({SPR2_2, SPR1_2, ODH, MATCHV , VMT[3:0], FDA[10:3]}), //6,7,8,10,12-19,22-25
+  .data({SPR2_2, SPR1_2, ODH, ~MATCHV , VMT[3:0], FDA[10:3]}), //6,7,8,10,12-19,22-25
   .addr({4'b0, DMA2_EA[5:0]}),                                // 62-71
   .rd_cen(~XOBDIR), //73
   //.q({SPR2_3,SPR1_3, ODHREV, NOOBJ,VA[3:0], CTA[8:1]}) //42-56
@@ -69,7 +70,7 @@ sis6091B u_152(
   .wr_cen(ODDWR2), //~XOBDIR ?
   .we(1'b1),
   .clr_n(1'b1),
-  .data({SPR2_2, SPR1_2, ODH, MATCHV , VMT[3:0] ,FDA[10:3]}), 
+  .data({SPR2_2, SPR1_2, ODH, ~MATCHV , VMT[3:0] ,FDA[10:3]}), 
   .addr({4'b0, DMA2_OA[5:0]}),
   .rd_cen(~XOBDIR),
 //  .q1({SPR2_3,SPR1_3, ODHREV, NOOBJ,VA[3:0], CTA[8:1]}) //42-56

@@ -40,24 +40,17 @@ always @(posedge clk) begin // All operations are synchronized to the falling ed
         NOOBJ_CT2 <= 1'b0;      // Initialize synchronized NOOBJ flag to inactive/false.
         end
    else begin
-       // Phase 1 Latching: Triggered by CTLT1 being active (low).
-       // Captures the processed horizontal bits into OH.
-       // CTLT1 low = latch X position and NOOBJ
+       // Phase 1 (CTLT1 low): latch ROM index bits (tile address fragment)
        if (!CTLT1) begin
-            OH[8:4] <= HREV ? ~OVD[8:4] : OVD[8:4];
-            end
+            ADDR[4:0] <= OVD[8:4];
+       end
 
-       // ---- Phase 2 ----
-       // CTLT2 low = latch ROM index bits and NOOBJ
+       // Phase 2 (CTLT2 low): latch X position and NOOBJ
        if (!CTLT2) begin
-            // The original HDL implied ADDR receives the same value as OH (from OVD_processed).
-            // This suggests ADDR might be a re-latch of OH for a pipeline stage or
-            // forms part of the full horizontal address in this phase.
-            // XXX we don't invert the address here we only inverse the X position
-            ADDR[4:0] <= OVD[8:4];  
-            // Synchronizes the sprite validity flag with the CTLT2 phase.
-            NOOBJ_CT2 <= NOOBJ; 
-            end
+            // Invert only X position on HREV, do NOT invert ROM index.
+            OH[8:4] <= HREV ? ~OVD[8:4] : OVD[8:4];
+            NOOBJ_CT2 <= NOOBJ;
+       end
        end
     end
    

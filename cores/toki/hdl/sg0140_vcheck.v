@@ -48,16 +48,19 @@ module sg0140_vcheck(
     // -------------------------------------------------------------------------
     reg [8:0] current_y;
     reg old_vclk;
+    reg old_vorigin;
     
     always @(posedge clk) begin
         if (rst) begin
-            current_y <= 0;
-            old_vclk <= 0;
+            current_y  <= 0;
+            old_vclk   <= 0;
+            old_vorigin<= 0;
         end else begin
-            old_vclk <= VCLK;
-            
-            // Frame Reset 
-            if (VORIGIN) begin
+            old_vclk    <= VCLK;
+            old_vorigin <= VORIGIN;
+
+            // Frame Reset on rising edge of VORIGIN
+            if (!old_vorigin && VORIGIN) begin
                 current_y <= 9'd0;
             end
             // Line Increment
@@ -117,53 +120,45 @@ module sg0140_vcheck(
     // Line N Odd  (LSB=1) -> Next is Even. Write to Even.
     //wire target_is_even = current_y[0]; // If 1 (Odd), next is Even.
     
-    always @(posedge clk) begin //XXX negedge ?
+    // RDCLK edge detector for single-cycle strobes
+    reg rdclk_d;
+    wire rdclk_fall = (rdclk_d == 1'b1) && (RDCLK == 1'b0);
+
+    // List-build phase: during display (SDTS=0). Do not gate by OIBDIR.
+    wire list_phase = ~SDTS;
+
+    always @(posedge clk) begin
+        rdclk_d <= RDCLK;
         if (rst) begin
             VFIND <= 1'b1;
             EVNWR2 <= 1'b1;
             ODDWR2 <= 1'b1;
             VMT <= 4'h0;
-            end
-        else if (!OIBDIR) begin  //OR OVER256 // DMA Active Phase  check OIBIDR ? 
-             // Strobe on Read Clock Low Phase
-             if (!RDCLK) begin // latch clock ?
-                 // Condition: Visible AND Valid Slot AND Buffer Not Full
-                 if (visible && OBJEN_3 && !OVER48) begin
-                     
-                     VFIND <= 1'b0; // Signal Match
-                     
-                     // Calculate Texture Line
-                     VMT <= screen_flip ? ~diff_y[3:0] : diff_y[3:0];
-                     //VMT <= screen_flip ? (diff_y[3:0] ^ 4'hF) : diff_y[3:0]; ?
-
-                     // Choose which list RAM to write
-                     // XXX is that the inverse ? must check on board 
-                     // or make a choice but other IC must follow that choice
-                     if (current_y[0]) begin  //current_y[0], V1B or H2 phase ? 
-                         ODDWR2 <= 1'b0;
-                         EVNWR2 <= 1'b1; // Active Low
-                     end else begin
-                         EVNWR2 <= 1'b0;
-                         ODDWR2 <= 1'b1; // Active Low
-                     end
-                 end
-                 else begin
-                     // No Match / Invalid / Full
-                     VFIND <= 1'b1;
-                     EVNWR2 <= 1'b1;
-                     ODDWR2 <= 1'b1;
-                     VMT <= 4'h0; // set VMT to 0 when nothing is written ??
-                 end
-             end
-        end
-        else begin
-            // Inactive
-            VFIND <= 1'b1;
+        end else begin
+            // Defaults (inactive)
+            VFIND  <= 1'b1;
             EVNWR2 <= 1'b1;
             ODDWR2 <= 1'b1;
+
+            if (list_phase && rdclk_fall) begin
+                if (visible && OBJEN_3 && !OVER48) begin
+                    VFIND <= 1'b0;
+                    VMT   <= screen_flip ? ~diff_y[3:0] : diff_y[3:0];
+
+                    // Choose list RAM by line parity.
+                    // Use current_y[0] which is aligned to VORIGIN/VCLK.
+                    if (current_y[0]) begin
+                        ODDWR2 <= 1'b0;
+                    end else begin
+                        EVNWR2 <= 1'b0;
+                    end
+                end else begin
+                    VFIND <= 1'b1;
+                    VMT   <= 4'h0;
+                end
+            end
         end
     end
 
 endmodule
-
 
