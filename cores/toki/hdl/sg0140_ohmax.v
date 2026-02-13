@@ -29,27 +29,26 @@ module sg0140_ohmax(
 //    XXX is it that or the inverse ? 
 //    | Phase | OVD[8:4] meaning |
 //    |-------|------------------|
-//    | CTLT1 (H1=0) | ROM index bits for the sprite (tile address) |
-//    | CTLT2 (H1=1) | X position high bits (OH[8:4]) |
+//    | CTLT1 (H1=0) | X position high bits (OH[8:4]) |
+//    | CTLT2 (H1=1) | ROM index bits for the sprite (tile address) |
 
-// XXX negedge ?
-always @(posedge clk) begin // All operations are synchronized to the falling edge of the clock.
+always @(posedge clk) begin
     if (rst) begin // Asynchronous or synchronous reset.
         OH        <= 5'b0;      // Initialize Object Horizontal Position to 0.
         ADDR      <= 5'b0;      // Initialize ROM Address Offset to 0.
         NOOBJ_CT2 <= 1'b0;      // Initialize synchronized NOOBJ flag to inactive/false.
         end
    else begin
-       // Phase 1 (CTLT1 low): latch ROM index bits (tile address fragment)
-       if (!CTLT1) begin
+       // Phase 1 (CTLT2 low): latch ROM index bits + NOOBJ sync
+       if (!CTLT2) begin
             ADDR[4:0] <= OVD[8:4];
+            NOOBJ_CT2 <= NOOBJ;
        end
 
-       // Phase 2 (CTLT2 low): latch X position and NOOBJ
-       if (!CTLT2) begin
+       // Phase 2 (CTLT1 low): latch X position
+       if (!CTLT1) begin
             // Invert only X position on HREV, do NOT invert ROM index.
             OH[8:4] <= HREV ? ~OVD[8:4] : OVD[8:4];
-            NOOBJ_CT2 <= NOOBJ;
        end
        end
     end

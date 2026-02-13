@@ -1,108 +1,100 @@
-//  SEI0060BU is the line‑buffer X‑address generator + line‑clear controller for sprites.
- // It does three jobs per line:
-
-//  1. Generates the read address that scans the line buffer left‑to‑right during display.
-//  2. Generates the write address that places the 16 pixels of a sprite line at its X position.
-//  3. Clears the buffer that will be written on the next line (ping‑pong).
-
-
 module SEI0060BU(
-   input wire clk,        // System Clock (48Mhz)
-   input wire cen,        // Pixel Clock Enable (6MHz)
+   input wire clk,      // System Clock
+   input wire cen,      // Pixel Clock Enable (6MHz)
 
-   input wire [8:0] ADDR, // Sprite X base from OF/FH 
+   input wire [8:0] ADDR, // Base Sprite X Position
    input wire ODD_LD,     // Load Strobe for Odd path (Active Low)
    input wire EVN_LD,     // Load Strobe for Even path (Active Low)
    
-   input wire HBLB,       // Horizontal Blanking (Low = Blank, High = Active) reset & clear timing
-   input wire OBJT2_7,    // Timing/size flag (likely 8‑wide vs 16‑wide)
-   input wire V1B,        // Line parity, selects odd/even buffer for read/write 
-   input wire T8H,        // (Timing / half‑line strobe (8‑pixel) 
-   input wire HREV,       // Horizontal Reverse (1=Reverse Scan)
+   input wire HBLB,       // Horizontal Blanking (Low = Blank, High = Active)
+   input wire OBJT2_7,    // (Unused)
+   input wire V1B,        // Vertical Line LSB (0=Even, 1=Odd)
+   input wire T8H,        // (Unused)
+   input wire HREV,       // (Unused)
 
-   output reg [8:0] OA,   // Odd buffer address
-   output reg [8:0] EA,   // Even buffer address
-   output reg EVNCLR,     // Even buffer clear (Active Low)
-   output reg ODDCLR      // Odd buffer clear (Active Low)
+   output reg [8:0] OA,   // Odd Address Output
+   output reg [8:0] EA,   // Even Address Output
+
+   output reg EVNCLR,     // Even Buffer Clear (Active Low)
+   output reg ODDCLR      // Odd Buffer Clear (Active Low)
 );
 
+   // Base address latches and 4-bit pixel counters (limit to 16 pixels).
+   reg [8:0] even_base;
+   reg [8:0] odd_base;
+   reg [3:0] even_pix;
+   reg [3:0] odd_pix;
+   reg       even_active;
+   reg       odd_active;
 
-    // 1) Read scan counter for line buffer (video X position).
-    //    Reset at HBLB rising edge, increment while HBLB=1.
-    reg [8:0] x_scan;
-    reg       hblb_prev;
+   // Read/beam counter (reset each line).
+   reg [8:0] beam_cnt;
+   reg       hblb_d;
 
-    always @(posedge clk) begin
-        if (cen) begin
-            hblb_prev <= HBLB;
-            if (!hblb_prev && HBLB)
-                x_scan <= 9'd0;
-            else if (HBLB)
-                x_scan <= x_scan + 9'd1;
-        end
-    end
+   always @(posedge clk) begin
+       if (cen) begin
+           hblb_d <= HBLB;
+           // Reset at start of active video (HBLB rising edge) to align X origin.
+           if (!hblb_d && HBLB)
+               beam_cnt <= 9'b0;
+           else
+               beam_cnt <= beam_cnt + 1'b1;
+       end
 
-    // 2) Write address generation.
-    //    Trace shows write bursts with fixed high bits and cycling low nibble.
-    //    That implies: write_x = {ADDR[8:4], pix_off[3:0]} (no carry).
-    reg [4:0] odd_base_hi;
-    reg [4:0] even_base_hi;
-    reg [3:0] odd_pix;
-    reg [3:0] even_pix;
+       // Load strobes are active low; capture base and restart pixel counter.
+       if (!EVN_LD) begin
+           even_base   <= ADDR;
+           even_pix    <= 4'b0;
+           even_active <= 1'b1;
+       end else if (cen && !V1B && even_active) begin
+           even_pix <= even_pix + 1'b1;
+           if (even_pix == 4'd15)
+               even_active <= 1'b0;
+       end
 
-    wire [3:0] pix_max = OBJT2_7 ? 4'd7 : 4'd15;
+       if (!ODD_LD) begin
+           odd_base   <= ADDR;
+           odd_pix    <= 4'b0;
+           odd_active <= 1'b1;
+       end else if (cen && V1B && odd_active) begin
+           odd_pix <= odd_pix + 1'b1;
+           if (odd_pix == 4'd15)
+               odd_active <= 1'b0;
+       end
+   end
 
-    always @(posedge clk) begin
-        if (cen) begin
-            if (!ODD_LD) odd_base_hi <= ADDR[8:4];
-            if (!EVN_LD) even_base_hi <= ADDR[8:4];
+   // 3. Clear Logic (Pulse during H-Blank)
+   // Target the FUTURE buffer (Next Line)
+   always @(posedge clk) begin
+       if (cen) begin
+           EVNCLR <= 1'b1;
+           ODDCLR <= 1'b1;
 
-            if (!ODD_LD)
-                odd_pix <= 4'd0;
-            else if (odd_pix < pix_max) begin
-                if (!OBJT2_7 || T8H)
-                    odd_pix <= odd_pix + 4'd1;
-            end
+           if (!HBLB) begin
+               // If V1B=1 (Odd Displaying), Next is Even -> Clear Even
+               if (V1B) EVNCLR <= 1'b0;
+               // If V1B=0 (Even Displaying), Next is Odd -> Clear Odd
+               else     ODDCLR <= 1'b0;
+           end
+       end
+   end
 
-            if (!EVN_LD)
-                even_pix <= 4'd0;
-            else if (even_pix < pix_max) begin
-                if (!OBJT2_7 || T8H)
-                    even_pix <= even_pix + 4'd1;
-            end
-        end
-    end
+   // 4. Address Muxing
+   wire [3:0] even_pix_adj = HREV ? ~even_pix : even_pix;
+   wire [3:0] odd_pix_adj  = HREV ? ~odd_pix  : odd_pix;
+   wire [8:0] even_wr_cnt  = even_base + {5'b0, even_pix_adj};
+   wire [8:0] odd_wr_cnt   = odd_base  + {5'b0, odd_pix_adj};
 
-    wire [8:0] odd_write_x  = {odd_base_hi,  odd_pix};
-    wire [8:0] even_write_x = {even_base_hi, even_pix};
-
-    // Optional HREV flip for read scan.
-    wire [8:0] read_x = HREV ? ~x_scan : x_scan;
-
-    // Ping-pong mux.
-    always @(*) begin
-        if (V1B) begin
-            // Odd line active: write ODD, read EVEN
-            OA = odd_write_x;
-            EA = read_x;
-        end else begin
-            // Even line active: write EVEN, read ODD
-            EA = even_write_x;
-            OA = read_x;
-        end
-    end
-
-    // --- Clear pulses during HBLB ---
-    // Trace shows EVNCLR low when HBLB=0 && V1B=1
-    // and ODDCLR low when HBLB=0 && V1B=0
-    always @(*) begin
-      EVNCLR = 1'b1;
-      ODDCLR = 1'b1;
-      if (!HBLB) begin
-        if (V1B) EVNCLR = 1'b0;
-        else     ODDCLR = 1'b0;
-      end
-    end
-
+   always @(*) begin
+       // When V1B=0 (even line): even buffer writes, odd buffer reads.
+       // When V1B=1 (odd line):  odd buffer writes, even buffer reads.
+       if (V1B) begin
+           OA = HREV ? ~beam_cnt   : beam_cnt;
+           EA = odd_wr_cnt;
+       end else begin
+           OA = even_wr_cnt;
+           EA = HREV ? ~beam_cnt   : beam_cnt;
+       end
+   end
 
 endmodule

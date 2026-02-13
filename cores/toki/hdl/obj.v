@@ -112,7 +112,7 @@ wire DLHD;
 /////////// SPRITE DMA & VISBILITY CHECK ////////// 
 //  At start (STARTV/ODMARQ), take control of memory bus 
 //  Scan the object in main RAM (sprite X, Y, code, color, flip attributes)
-//  Filter sprite using sg0140 vheck, to determine which one are visible on 
+//  Filter sprite using sg0140 vcheck, to determine which one are visible on 
 //  current scanline 
 OBJDMA objdma_u(
     .clk(clk),

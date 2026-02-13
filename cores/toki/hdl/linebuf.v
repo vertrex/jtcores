@@ -42,8 +42,8 @@ wire [5:0] nc1;
 wire [5:0] nc2;
 wire [5:0] nc3;
 
-// Avoid writing transparent pixels (color = 0xF) and ignore hi-Z (masked) bus.
-// OBJ*_Z emulates the tri-state output on the original PCB.
+// Only write active, non-transparent sprite pixels.
+// OBJ*_Z emulates the tri-state output enable from OBJPS/PLD gating.
 wire obj1_pix_valid = (~OBJ1_Z) & (OBJ1[3:0] != 4'hF);
 wire obj2_pix_valid = (~OBJ2_Z) & (OBJ2[3:0] != 4'hF);
 
@@ -119,22 +119,21 @@ sis6091B u_184(
 //FIND is active high 
 
 always @(posedge clk) begin 
-  if (D1V_7P) begin 
+  if (D1V_7P) begin
     if (E1FIND) 
-      { PRIOR_D, PRIOR_C, OOD[7:0] } <= Q_EVN1; //depend of OBJON too 
+      { PRIOR_D, PRIOR_C, OOD[7:0] } <= Q_EVN1;
     else if (E2FIND) 
-      { PRIOR_D, PRIOR_C, OOD[7:0] } <= Q_EVN2; //depend of OBJON too 
+      { PRIOR_D, PRIOR_C, OOD[7:0] } <= Q_EVN2;
     else
-      { PRIOR_D, PRIOR_C, OOD[7:0] } <= 10'b11_1111_1111; //depend of OBJON too 
-      end 
-  else begin //if (ND1V_7P) begin  ND1V_7P = ~D1V_7P
-    if (O1FIND)
-      { PRIOR_D, PRIOR_C, OOD[7:0] } <= Q_ODD1; //depend of OBJON TOO 
-    else if (O2FIND)
-      { PRIOR_D, PRIOR_C, OOD[7:0] } <= Q_ODD2; //depend of OBJON TOO
-    else 
       { PRIOR_D, PRIOR_C, OOD[7:0] } <= 10'b11_1111_1111;
-     end 
+  end else begin
+    if (O1FIND)
+      { PRIOR_D, PRIOR_C, OOD[7:0] } <= Q_ODD1;
+    else if (O2FIND)
+      { PRIOR_D, PRIOR_C, OOD[7:0] } <= Q_ODD2;
+    else
+      { PRIOR_D, PRIOR_C, OOD[7:0] } <= 10'b11_1111_1111;
+  end
 end
 
 //assign {PRIOR_D, PRIOR_C, OOD[7:0]} = E1FIND ? Q_EVN1 : E2FIND ? Q_EVN2 :  O1FIND ? Q_ODD1 : O2FIND ? Q_ODD2 : 10'b0; 

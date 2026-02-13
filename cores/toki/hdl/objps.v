@@ -106,7 +106,7 @@ wire [3:0] OBJ1_COLOR_EN;
 // XXX OBJ_COLOR EN !!!! NE MARHCERA PAS probleme de clocking ~ / ? 
 // better sans mais il faudrait le probleme c'est qu il est low 1 fois sur
 // 2w... peut etre le probleme du PLD et rdv
-assign OBJ1_COLOR_EN[3:0] = ~PLD_O19 ? OBJ1_COLOR[3:0] : 4'b0;// 
+assign OBJ1_COLOR_EN[3:0] = ~PLD_O19 ? OBJ1_COLOR[3:0] : 4'b0;
 //ERREUR DANS OBJMASK ou NOOBJCT_2 ? !! NOOBJ_CT2 c'est sg0140 ... 
     //donc forcement si sg0140 est pas bon on est pas mon est on masque 1 pixel sur 2 
     //ca permettre d'avoir un affichage clean si NOOBJ_CT2 est stable pour 1 object 
@@ -138,6 +138,7 @@ wire NC;
 wire PLD_O18;
 wire HREV_HD; 
 wire NHREV_HD; 
+wire OBJON_RAW;
 
 //set to 0 and set to 11111 in linebuf to disable obj
 //assign OBJON = 1'b0;
@@ -156,13 +157,15 @@ PLD29 u_pld29(
 
     .HREV_HD(HREV_HD), 
     .NHREV_HD(NHREV_HD), 
-    .OBJON(OBJON), //removoe here and set to 0 and in linebuf to remove obj 
+    .OBJON(OBJON_RAW),
     .o16_n(NC),     // why it's dumped ?
     // OBJMASK => cpu/addrs.v  if (MASKS~ ) OBJMASK <=MDB[2] 
     // NOOBJCT_2 => sg0140_ohmax
     .MASK_NOOBJ_2(PLD_O18),  //~( ~OBJMASK & NOOBJ_CT2_LATCH1 );
     .MASK_NOOBJ_1(PLD_O19)   //~( ~OBJMASK & NOOBJ_CT2_LATCH2 );
 );
+
+assign OBJON = OBJON_RAW;
 
 
 wire       NC4;

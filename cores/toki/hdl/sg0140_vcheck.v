@@ -20,6 +20,7 @@
 module sg0140_vcheck(
   input             clk,      // main clk 48Mhz
   input             rst,      // reset signal 
+
   input       [7:0] VPD,      // Sprite Y Position (Lower 8 bits) + offset (objdma -> hvpos -> SIS6091 -> VPD)
   input             ODMARQ,   // DMA Request (Bus Arbitration) Assertion should drive OBUSRQ low
   input             OBUSAK,   // Bus Acknowledge from CPU. When asserted, OIBDIR becomes active (bus granted).
@@ -96,9 +97,6 @@ module sg0140_vcheck(
         end
     end
 
-    // -------------------------------------------------------------------------
-    // 3. Visibility Calculation
-    // -------------------------------------------------------------------------
     // Extended Y to 9 bits for calculation logic
     wire [8:0] sprite_y = {1'b0, VPD};
     //wire [8:0] sprite_y = {VREVD_2, VPD};
@@ -145,12 +143,13 @@ module sg0140_vcheck(
                     VFIND <= 1'b0;
                     VMT   <= screen_flip ? ~diff_y[3:0] : diff_y[3:0];
 
-                    // Choose list RAM by line parity.
-                    // Use current_y[0] which is aligned to VORIGIN/VCLK.
+                    // Ping-pong target:
+                    // when current line is odd, build next even list (EVNWR2 low)
+                    // when current line is even, build next odd list (ODDWR2 low)
                     if (current_y[0]) begin
-                        ODDWR2 <= 1'b0;
-                    end else begin
                         EVNWR2 <= 1'b0;
+                    end else begin
+                        ODDWR2 <= 1'b0;
                     end
                 end else begin
                     VFIND <= 1'b1;
@@ -161,4 +160,3 @@ module sg0140_vcheck(
     end
 
 endmodule
-

@@ -19,41 +19,41 @@ module sg0140_sort48(
     input       RDCLK,    // Read clock for list RAMs
 
     input       VFIND,    // Active-low “sprite found” from vcheck (DMA/list-build phase)
-    input       XSDTS,    // Phase: 0 = DMA/list-build, 1 = display/list-consume
-    input       ILD2,     // Display-phase strobe (~SDTS & DLHD)
+    input       XSDTS,    // From objdma: XSDTS = ~SDTS
+    input       ILD2,     // From PLD24: ILD2 = ~SDTS & DLHD (line cadence)
     input       V1B,      // Line parity (0 even, 1 odd) for ping-pong buffer select
-    input       NH2,      // Unused (kept for pin compatibility)
-    input       H2,       // Unused (kept for pin compatibility)
-    input       H2_2,     // Unused (kept for pin compatibility)
-    input [8:4] H,        // Unused (kept for pin compatibility)
+    input       NH2,      // Kept for pin compatibility
+    input       H2,       // H slot bit
+    input       H2_2,     // Kept for pin compatibility
+    input [8:4] H,        // H slot bits
 
     output reg  OVER48,
     output reg  [5:0] DMA2_EA,
     output reg  [5:0] DMA2_OA
 );
 
-    // Two independent pointers
+    // Write pointer for per-line visible-sprite list.
     reg [5:0] wr_ptr;
+    // Kept for debug visibility in VCD.
     reg [5:0] rd_ptr;
 
     // Edge detectors
     reg vfind_d;
     reg ild2_d;
-    reg xsdts_d;
     reg rdclk_d;
 
     wire vfind_fall = (vfind_d == 1'b1) && (VFIND == 1'b0);
     wire ild2_rise  = (ild2_d  == 1'b0) && (ILD2  == 1'b1);
-    wire xsdts_rise = (xsdts_d == 1'b0) && (XSDTS == 1'b1);
-    wire xsdts_fall = (xsdts_d == 1'b1) && (XSDTS == 1'b0);
     wire rdclk_fall = (rdclk_d == 1'b1) && (RDCLK == 1'b0);
 
-    // From trace analysis: VFIND activity is almost entirely when XSDTS=1,
-    // so DMA/list-build phase is XSDTS=1 and display/list-consume phase is XSDTS=0.
-    wire dma_phase   = (XSDTS == 1'b1);
-    wire disp_phase  = (XSDTS == 1'b0);
+    // H-based consume slot (0..63), limited to hardware list depth (48).
+    wire [5:0] hslot = {H[8:7], H2, H[6:4]};
+    wire [5:0] read_slot = (hslot < 6'd48) ? hslot : 6'd0;
 
-    // Pointer control
+    // Trace-backed: VFIND pulses are in XSDTS=1 phase.
+    wire list_phase = (XSDTS == 1'b1);
+
+    // Pointer and overflow control
     always @(posedge clk) begin
         if (rst) begin
             wr_ptr   <= 6'd0;
@@ -61,41 +61,35 @@ module sg0140_sort48(
             OVER48   <= 1'b0;
             vfind_d  <= 1'b1;
             ild2_d   <= 1'b0;
-            xsdts_d  <= 1'b0;
             rdclk_d  <= 1'b0;
         end else begin
             vfind_d <= VFIND;
             ild2_d  <= ILD2;
-            xsdts_d <= XSDTS;
             rdclk_d <= RDCLK;
 
-            // Reset pointers at phase boundaries
-            if (xsdts_rise) begin
-                // Enter DMA/list-build phase (XSDTS: 0 -> 1)
+            // New line: restart list build and clear overflow budget.
+            if (ild2_rise) begin
                 wr_ptr <= 6'd0;
                 OVER48 <= 1'b0;
             end
-            if (xsdts_fall) begin
-                // Enter display/list-consume phase (XSDTS: 1 -> 0)
-                rd_ptr <= 6'd0;
-            end
 
-            // Build list: increment on VFIND falling edge
-            if (dma_phase && vfind_fall) begin
+            // List build: one slot consumed per VFIND pulse.
+            if (list_phase && vfind_fall) begin
                 if (wr_ptr < 6'd48)
                     wr_ptr <= wr_ptr + 6'd1;
                 else
                     OVER48 <= 1'b1;
             end
 
-            // Consume list: increment on ILD2 rising edge
-            if (disp_phase && ild2_rise) begin
-                rd_ptr <= rd_ptr + 6'd1;
+            if (rdclk_fall) begin
+                rd_ptr <= read_slot;
             end
         end
     end
 
-    // Ping-pong output mux, updated on RDCLK falling edge for stability
+    // Ping-pong address mux:
+    // - one RAM port receives write slot (wr_ptr)
+    // - the other RAM port receives consume slot (read_slot from H timing)
     always @(posedge clk) begin
         if (rst) begin
             DMA2_EA <= 6'd0;
@@ -104,11 +98,11 @@ module sg0140_sort48(
             if (V1B) begin
                 // Odd line: write odd, read even
                 DMA2_OA <= wr_ptr;
-                DMA2_EA <= rd_ptr;
+                DMA2_EA <= read_slot;
             end else begin
                 // Even line: write even, read odd
                 DMA2_EA <= wr_ptr;
-                DMA2_OA <= rd_ptr;
+                DMA2_OA <= read_slot;
             end
         end
     end

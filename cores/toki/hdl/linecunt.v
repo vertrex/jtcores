@@ -238,10 +238,11 @@ SEI0060BU sei60bu_u1711(
    .ODDCLR(ODDCLR)
 );
 
-//74LS04
-//22F
-assign ODDWREN = ~ODDCLR;
-assign EVNWREN = ~EVNCLR;
+//74LS04 22F on schematics generates active-low write enables.
+// Keep clear strobes from SEI0060BU for RAM clear, but gate write bank
+// by line parity so only one bank is written per line.
+assign EVNWREN = ~(HBLB &  V1B);  // write even bank on odd lines
+assign ODDWREN = ~(HBLB & ~V1B);  // write odd  bank on even lines
 
 //SEI0060BU
 //16CD

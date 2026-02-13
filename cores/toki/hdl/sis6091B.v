@@ -94,10 +94,10 @@ always @(posedge clk) begin
     end else if (clr_n) begin
         clr_hold <= 1'b0;
         if (wr_cen == 1'b0) begin
-        if (we) begin
-            mem[addr]  <= data;
-            used[addr] <= 1'b1;
-        end
+            if (we) begin
+                mem[addr]  <= data;
+                used[addr] <= 1'b1;
+            end
         end
     end
 

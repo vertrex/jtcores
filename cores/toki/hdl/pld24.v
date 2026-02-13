@@ -30,6 +30,7 @@ module PLD24(
 
     assign MATCHV =  ~(OVER256 & ~VFIND);
 
+    // JED-derived polarity: object is valid only when not in-screen-clip and OBJEN_2 is low.
     assign OBJEN_3 = ~INSCRN & ~OBJEN_2;
 
     assign LSBLD = (~FDA[1] &  FDA[2] &  SDTS & ~OIBDIR) |
@@ -56,4 +57,3 @@ module PLD24(
     assign ILD2 = ~SDTS & DLHD;
 
 endmodule
-
