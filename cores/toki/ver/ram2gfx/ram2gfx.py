@@ -186,13 +186,14 @@ def tile_bitplanes(sprite_rom1, sprite_rom2, rom_index):
     even_h_nibbles = []  # plan 3
     even_l_nibbles = []  # plan 4
 
-    if rom_index < 0x2000:
+    if rom_index < 0x1000:
         rom = sprite_rom1
     else:
         rom = sprite_rom2
+        rom_index -= 0x1000
 
     for x in range(0, 128, 2):
-        print(f"rom addr {hex((rom_index * 128) + x)}")
+        print(f"rom addr {hex((rom_index * 128) + x)} index : {rom_index}")
         # odd bytes
         # odd = gfx_rom[(rom_index * 128) + x]
         odd = rom[(rom_index * 128) + x]
