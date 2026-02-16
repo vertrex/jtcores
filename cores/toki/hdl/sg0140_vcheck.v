@@ -133,10 +133,13 @@ module sg0140_vcheck(
             ODDWR2 <= 1'b1;
             VMT <= 4'h0;
         end else begin
-            // Defaults (inactive)
-            VFIND  <= 1'b1;
+            // Defaults (inactive strobes)
             EVNWR2 <= 1'b1;
             ODDWR2 <= 1'b1;
+
+            if (!list_phase) begin
+                VFIND <= 1'b1;
+            end
 
             if (list_phase && rdclk_fall) begin
                 if (visible && OBJEN_3 && !OVER48) begin

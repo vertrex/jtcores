@@ -42,7 +42,9 @@ always @(posedge clk) begin
        // Phase 1 (CTLT2 low): latch ROM index bits + NOOBJ sync
        if (!CTLT2) begin
             ADDR[4:0] <= OVD[8:4];
-            NOOBJ_CT2 <= NOOBJ;
+            // PLD29 OE equations indicate the latched "NOOBJ/2" polarity is
+            // opposite to the raw SCNDDMA NOOBJ bit.
+            NOOBJ_CT2 <= ~NOOBJ;
        end
 
        // Phase 2 (CTLT1 low): latch X position

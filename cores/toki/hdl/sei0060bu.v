@@ -30,8 +30,16 @@ module SEI0060BU(
    // Read/beam counter (reset each line).
    reg [8:0] beam_cnt;
    reg       hblb_d;
+   reg       evn_ld_d = 1'b1;
+   reg       odd_ld_d = 1'b1;
+
+   wire evn_ld_fall = (evn_ld_d == 1'b1) && (EVN_LD == 1'b0);
+   wire odd_ld_fall = (odd_ld_d == 1'b1) && (ODD_LD == 1'b0);
 
    always @(posedge clk) begin
+       evn_ld_d <= EVN_LD;
+       odd_ld_d <= ODD_LD;
+
        if (cen) begin
            hblb_d <= HBLB;
            // Reset at start of active video (HBLB rising edge) to align X origin.
@@ -41,8 +49,8 @@ module SEI0060BU(
                beam_cnt <= beam_cnt + 1'b1;
        end
 
-       // Load strobes are active low; capture base and restart pixel counter.
-       if (!EVN_LD) begin
+       // Latch once per load strobe.
+       if (evn_ld_fall) begin
            even_base   <= ADDR;
            even_pix    <= 4'b0;
            even_active <= 1'b1;
@@ -52,7 +60,7 @@ module SEI0060BU(
                even_active <= 1'b0;
        end
 
-       if (!ODD_LD) begin
+       if (odd_ld_fall) begin
            odd_base   <= ADDR;
            odd_pix    <= 4'b0;
            odd_active <= 1'b1;
@@ -86,14 +94,19 @@ module SEI0060BU(
    wire [8:0] odd_wr_cnt   = odd_base  + {5'b0, odd_pix_adj};
 
    always @(*) begin
-       // When V1B=0 (even line): even buffer writes, odd buffer reads.
-       // When V1B=1 (odd line):  odd buffer writes, even buffer reads.
+       // Trace-backed mapping from real SEI0060BU captures:
+       // - V1B=0: OA behaves as beam/read counter, EA carries write address.
+       // - V1B=1: EA behaves as beam/read counter, OA carries write address.
+       //
+       // Write-side address source follows the matching load domain:
+       // - EA <= even_wr_cnt (EVN_LD/even_pix path)
+       // - OA <= odd_wr_cnt  (ODD_LD/odd_pix path)
        if (V1B) begin
-           OA = HREV ? ~beam_cnt   : beam_cnt;
-           EA = odd_wr_cnt;
+           OA = odd_wr_cnt;
+           EA = HREV ? ~beam_cnt : beam_cnt;
        end else begin
-           OA = even_wr_cnt;
-           EA = HREV ? ~beam_cnt   : beam_cnt;
+           OA = HREV ? ~beam_cnt : beam_cnt;
+           EA = even_wr_cnt;
        end
    end
 

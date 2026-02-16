@@ -53,7 +53,6 @@ jtframe:
     get:
       - jtframe_ram.v
       - jtframe_ram16.v
-      - jtframe_obj_buffer.v
   - from: sdram
     get:
       - jtframe_dwnld.v
@@ -75,9 +74,7 @@ jtframe:
   - from: sound
     get:
       - jtframe_mixer.v
-modules:
-  jt:
-    - name: jt6295
-  other:
-    - get:
-      - jtopl/hdl/jtopl2.yaml
+jt6295:
+jtopl:
+  - get:
+    - jtopl2.yaml

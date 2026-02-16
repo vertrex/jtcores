@@ -40,11 +40,10 @@ module sg0140_sort48(
     // Edge detectors
     reg vfind_d;
     reg ild2_d;
-    reg v1b_d;
     reg rdclk_d;
 
     wire vfind_fall = (vfind_d == 1'b1) && (VFIND == 1'b0);
-    wire v1b_edge   = (v1b_d   != V1B);
+    wire ild2_rise  = (ild2_d  == 1'b0) && (ILD2  == 1'b1);
     wire rdclk_fall = (rdclk_d == 1'b1) && (RDCLK == 1'b0);
 
     // H-based consume slot (0..63), limited to hardware list depth (48).
@@ -66,13 +65,10 @@ module sg0140_sort48(
         end else begin
             vfind_d <= VFIND;
             ild2_d  <= ILD2;
-            v1b_d   <= V1B;
             rdclk_d <= RDCLK;
 
-            // New line boundary: restart list build and clear overflow budget.
-            // ILD2 can pulse multiple times per line in current integration,
-            // while V1B toggles once per scanline.
-            if (v1b_edge) begin
+            // New line: restart list build and clear overflow budget.
+            if (ild2_rise) begin
                 wr_ptr <= 6'd0;
                 OVER48 <= 1'b0;
             end
