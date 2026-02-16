@@ -1,16 +1,16 @@
-/*  This file is part of JTCORES1.
-    JTCORES1 program is free software: you can redistribute it and/or modify
+/*  This file is part of JTCORES.
+    JTCORES program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
     the Free Software Foundation, either version 3 of the License, or
     (at your option) any later version.
 
-    JTCORES1 program is distributed in the hope that it will be useful,
+    JTCORES program is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
 
     You should have received a copy of the GNU General Public License
-    along with JTCORES1.  If not, see <http://www.gnu.org/licenses/>.
+    along with JTCORES.  If not, see <http://www.gnu.org/licenses/>.
 
     Author: Jose Tejada Gomez. Twitter: @topapate
     Version: 2.0
@@ -87,6 +87,7 @@ always @(posedge clk, posedge rst) begin
         wait_cycle <= 0;
         draw_cnt   <= 8'h0;
         rom_bank   <= 2'd0;
+        pxl_data   <= 0;
     end else begin
         wait_cycle <= 0;
         if( idle ) begin

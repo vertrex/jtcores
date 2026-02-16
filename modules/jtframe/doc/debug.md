@@ -28,15 +28,15 @@ By pressing SHIFT+CTRL, the core will switch from displaying the regular *debug_
 -------------|-------------------------------------------------------
   00??_????  |  Frame count in BCD (hundreds. Set st_addr[0] for tenths/units)
   01??_????  |  Audio information (see below)
-  0111_00??  |  IOCTL status { 3'd0, ioctl_ram, 2'd0, ioctl_cart, downloading }
+  0111_00??  |  IOCTL status { gfx_en[0:3], 1'b0, ioctl_ram, ioctl_cart, ioctl_rom }
   0111_0100  |  dipsw[ 7: 0]
   0111_0101  |  dipsw[15: 8]
   0111_0110  |  dipsw[23:16]
   10??_????  |  SDRAM stats
   1100_????  | { core_mod[3:0], dial_x, game_led, dip_flip }
-  1101_????  |  mouse_dx[8:1]
-  1110_????  |  mouse_dy[8:1]
-  1111_????  |  mouse_f
+  1101_????  |  Joysticks and inputs
+  1110_????  |  Crosshair coordinates
+  1111_????  |
 
 See core_mod description [here](osd.md)
 
@@ -54,13 +54,28 @@ st_addr[1:0] |  Read
 
 If the core exercises the *sample* signal, JTFRAME can report the current sample rate.
 
-st_addr[5:4] |  Read
+st_addr[7:4] |  Read
 -------------|-----------
   0          | 8-bit VU (average power)
-  1, [1:0]=0 | 1-bit VU (signals sound activity per channel)
-  1, [1:0]=1 | Channel enable bits
-  1, [1:0]=2 | Sample rate in kHz (BCD)
-  2          | Sound volume (gain set by the user/MRA)
+  5, [1:0]=0 | 1-bit VU (signals sound activity per channel)
+  5, [1:0]=1 | Channel enable bits
+  5, [1:0]=2 | Sample rate in kHz (BCD)
+  6          | Sound volume (gain set by the user/MRA)
+
+### Joysticks
+
+See [jtframe_sys_info.v](../hdl/debug/jtframe_sys_info.v)
+
+st_addr[3:0] | Read
+-------------|---------
+ 0           | game_joy1[7:0]
+ 1           | {game_coin[0],game_start[0],game_joy1[9:4]}
+ 2           | {rot,game_tilt,game_test,game_service,game_coin[1:0],game_start[1:0]}
+ 3           | joyana_l1[ 7:0]
+ 4           | joyana_l1[15:8]
+ 5           | mouse_dx[8:1]
+ 6           | mouse_dy[8:1]
+ 7           | mouse_f
 
 ### SDRAM, IOCTL and DIPSW
 

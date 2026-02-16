@@ -75,6 +75,8 @@ module jtkarnov_main(
     input       [15:0] dipsw,
 
     // Debug
+    input    [1:0]     ioctl_addr,
+    output   [7:0]     ioctl_din,
     input    [7:0]     st_addr,
     output   [7:0]     st_dout
 );
@@ -223,6 +225,7 @@ jtframe_68kdtack_cen #(.W(8)) u_dtack(
     .bus_cs     ( bus_cs    ),
     .bus_busy   ( bus_busy  ),
     .bus_legit  ( bus_legit ),
+    .bus_ack    ( 1'b0      ),
     .ASn        ( ASn       ),
     .DSn        ( dsn       ),
     .num        ( 7'd5      ),  // numerator
@@ -278,21 +281,17 @@ assign sonreq   = 0;
 assign RnW      = 1;
 assign st_dout  = 0;
 assign secreq   = 0;
-assign flip     = 0;
 assign mcu_din  = 0;
 assign dsn      = 3;
-// Read the scroll values in simulation
-reg [8:0] scrfile[0:1];
 
-initial begin
-    $readmemh( "scrpos.hex", scrfile);
-    scrx = scrfile[0];
-    scry = scrfile[1];
-end
-always @(negedge LVBL) begin
-    scrx <= scrx+1'd1;
-end
 always @(posedge clk) dmarq <= LVBL;
 
 `endif
+
+jtframe_simdumper #(.DW(19)) dumper(
+    .clk        ( clk           ),
+    .data       ( {flip,scry,scrx} ),
+    .ioctl_addr ( ioctl_addr    ),
+    .ioctl_din  ( ioctl_din     )
+);
 endmodule

@@ -43,7 +43,7 @@ module jt053244(    // sprite logic
     output     [ 6:0] attr,     // OC pins
     output            hflip,
     output            vflip,
-    output     [ 8:0] hpos,
+    output     [ 9:0] hpos,
     output     [ 3:0] ysub,
     output     [11:0] hzoom,
     output            hz_keep,
@@ -53,7 +53,7 @@ module jt053244(    // sprite logic
     input      [ 8:0] vdump,    // generated internally.
                                 // Hdump goes from 20 to 19F, 384 pixels
                                 // Vdump goes from F8 to 1FF, 264 lines
-    input             vs,
+    input             lvbl,
     input             hs,
 
     // shadow
@@ -70,6 +70,8 @@ module jt053244(    // sprite logic
     output     [ 7:0] st_dout
 );
 
+parameter HFLIP_OFFSET = 0;
+
 localparam [2:0] REG_XOFF  = 0, // X offset
                  REG_YOFF  = 1, // Y offset
                  REG_CFG   = 2; // interrupt control, ROM read
@@ -80,7 +82,7 @@ wire [11:2] scan_addr;
 wire [11:1] dma_wr_addr;
 wire [ 9:0] xoffset, yoffset;
 wire [ 7:0] cfg;
-wire        dma_wel, dma_weh, dma_trig, vb_rd,
+wire        dma_wel, dma_weh, dma_trig, vb_rd, nc,
             cpu_bsy, ghf, gvf, mode8, dma_en, flicker;
 
 
@@ -91,7 +93,8 @@ assign cpu_bsy   = cfg[3];
 assign dma_en    = cfg[4];
 assign dma_trig  = cs && cpu_addr[2:1]==3;
 
-jt053244_scan u_scan(
+jt053244_scan #(.HFLIP_OFFSET(HFLIP_OFFSET)
+    )u_scan(
     .rst       ( rst        ),
     .clk       ( clk        ),
     .code      ( code       ),
@@ -128,10 +131,9 @@ jt053246_dma u_dma(
     .dma_trig   ( dma_trig  ),
     .k44_en     ( 1'b1      ),   // enable k053244/5 mode (default k053246/7)
     .simson     ( 1'b0      ),
-    .reversed   ( 1'b0      ),
 
     .hs         ( hs        ),
-    .vs         ( vs        ),
+    .lvbl       ( lvbl      ),
 
     // External RAM
     .dma_addr   ( dma_addr  ), // up to 16 kB
@@ -158,7 +160,7 @@ jt053246_mmr u_mmr(
     .cfg        ( cfg       ),
     .xoffset    ( xoffset   ),
     .yoffset    ( yoffset   ),
-    .rmrd_addr  ( rmrd_addr ),
+    .rmrd_addr  ({nc,rmrd_addr}),
     .st_addr    ( st_addr   ),
     .st_dout    ( st_dout   )
 );

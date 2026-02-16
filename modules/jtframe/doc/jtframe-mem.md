@@ -4,6 +4,29 @@ The YAML file name must be mem.yaml and be stored in cores/corename/cfg
 The output files are stored in cores/corename/target where target is
 one of the names in the $JTFRAME/target folder (mist, mister, etc.).
 
+## Audio Connections
+
+- If both outputs of YM3012 are connected to the same summing net at an opamp input use the resistance value of one of the outputs as rsum.
+
+Example with YM3012 having both channels connected to the summing net via:
+
+- 1kOhm, 33pF parallel, 1kOhm, 4.7uF series, 1.2kOhm
+
+The RC resistors is the parallel of 1k and 1+1.2
+
+``` YAML
+- {name: fm,  module: jt51, rsum:  3.2k,  rc: [{ r:  687, c: 33n  }, {r: 1rout, c: 2.2n }] }
+```
+
+- If only one output of YM3012 is connected to the summing net, set the pregain to 0.5
+
+``` YAML
+- {name: fm,  module: jt51, rsum:  3.2k,  rc: [{ r:  687, c: 33n  }, {r: 1rout, c: 2.2n }], pre: 0.5 }
+```
+
+
+- For K007232, the output of jt007232 can be taken as two separate channels or a mixed one. The mixed one does not attenuate each channel, so it can clip. On the board, each channel will have its own DAC
+
 ## mem.yaml Syntax
 ```
 # Include other .yaml files
@@ -39,6 +62,35 @@ clocks:
         - cen_fm
         - cen_fm2
 
+# Audio filters and accumulator
+audio:
+  rsum: 1k
+  gain: 2.0   # global gain, applied to all channels before summing them
+  rsum_feedback_res: false # if false, rsum attenuates, if true, rsum gives gain
+  mute: true  # add mute signal
+  RC: { r: 1k, c: 1n } # global RC filter
+  pcb:
+    # must match PCB order in TOML file - not automated check yet
+    - { rfb: 10k, rsums: [  7.1k, 12.25k ], pres: [ 1.0, 0.19 ] }
+    - { rfb: 10k, rsums: [  3.2k, 13.25k ], pres: [ 1.0, 0.19 ] }
+    - { rfb: 27k, rsums: [ 12.0k, 12.25k ], pres: [ 1.0, 0.16 ] }
+    - { rfb: 27k, rsums: [  4.7k, 12.25k ], pres: [ 1.0, 0.16 ] }
+  Channels:
+    - Name: psg
+      Rsum: 1k
+      Rout: 100k
+      Pre: 0.5    # pre-amplifier gain
+      Vpp: 5      # peak-to-peak amplitude in Volts
+      RC:
+        - { r: 1k, c: 1n }  # up to two filters
+        - ...
+      # Fir: myfilter.csv   # use RC or FIR filter
+      DCrm: true  # DC offset removal
+      stereo: true
+      unsigned: false
+      data_width: 12
+      rc_en: true # add a signal to control the RC filters
+
 # Details about the SDRAM usage
 sdram:
   banks:
@@ -54,10 +106,15 @@ sdram:
           rw: true # normally false
           cs: myown_cs # use a cs signal not based on the bus name
           addr: myown_addr # use a cs signal not based on the bus name
-          gfx_sort: hhvvv/hhvvvv/hhvvvvx(x/xx) # moves h bits after v bits
+          gfx_sort:hhvvv/hhvvvv/hhvvvvx(x/xx) # moves h bits after v bits
+          gfx_sort: hvvv # makes it vvvh useful for 4-bit encodings
+          gfx_sort_en: signal to and with gfx_sort to isolate sort convention for only a game
+          do_not_erase: true # for rw slots, do not clear upon reset
         - name: another bus...
+          when: [ POCKET ]        # use when/unless to set conditions that enabled or disabled the buses
     - buses: # same for bank 1
         - name: another bus...
+          unless: [ MISTER ]
     - buses: # same for bank 2
         - name: another bus...
     - buses: # same for bank 3
@@ -71,11 +128,13 @@ bram:
       [cs:]
       [addr:]
       [din:]
-      [sim_file:]
+      [sim_file: true]
       ioctl:  # optionally dump to RAM file (mainly MiST/SiDi)
         save: true # a dump2bin.sh file will be generated in the sim folder
         restore: true # whether to load it upon core boot
         order: 0   # order in the file
+        unless: [ JTFRAME_RELEASE ] # include only for debug builds
+        when: [ SIDI ] # include only for sidi builds
       dual_port:
         name: main
         [din:]
@@ -90,4 +149,10 @@ bram:
       sim_file: required if load is skipped
       rom:
         offset: position in prog_addr*2, with the bank number taking bits 24:23
+    # BRAM used as PROM. Data width must be 8 or less
+    # PROMs must be listed in the same order as in the MRA file
+    - name: mcu
+      addr_width: 11
+      data_width: 8
+      prom: true
 ```

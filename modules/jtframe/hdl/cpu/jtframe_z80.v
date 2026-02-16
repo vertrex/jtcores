@@ -27,7 +27,7 @@
 `ifndef VERILATOR_KEEP_CPU
 /* verilator tracing_off */
 `endif
-
+/* verilator coverage_off */
 // This is a wrapper for jtframe_sysz80_nvram, for volatile RAM
 module jtframe_sysz80(
     input         rst_n,
@@ -65,7 +65,7 @@ module jtframe_sysz80(
         .CLR_INT ( CLR_INT  ),
         .M1_WAIT ( M1_WAIT  ),
         .RECOVERY( RECOVERY )
-    ) u_cpu(
+    ) u_sysz80_nvram(
         .rst_n      ( rst_n     ),
         .clk        ( clk       ),
         .cen        ( cen       ),
@@ -219,7 +219,7 @@ module jtframe_z80_romwait (
               CLR_INT  = 0;  // if 0, int_n is the Z80 port
                 // if 1, int_n is latched and cleared with m1 and iorq signals
 
-    jtframe_z80_devwait #(.RECOVERY(RECOVERY),.CLR_INT(CLR_INT)) u_cpu(
+    jtframe_z80_devwait #(.RECOVERY(RECOVERY),.CLR_INT(CLR_INT)) u_z80_devwait(
         .rst_n      ( rst_n     ),
         .clk        ( clk       ),
         .cen        ( cen       ),
@@ -298,7 +298,7 @@ module jtframe_z80_devwait (
         if( M1_WAIT>0 ) begin
             reg [M1_WAIT-1:0] wsh;
             reg m1n_l;
-            always @(posedge clk, negedge rst_n ) begin
+            always @(posedge clk) begin
                 if( !rst_n ) begin
                     wsh <= 0;
                 end else if(cen) begin
@@ -383,7 +383,7 @@ module jtframe_z80 (
         if( CLR_INT==1 ) begin
             // This is the most common logic used to handle interrupts
             reg int_ff, intn_l;
-            always @(posedge clk, negedge rst_n) begin
+            always @(posedge clk) begin
                 if( !rst_n ) begin
                     int_ff <= 0;
                     intn_l <= 0;

@@ -1,4 +1,4 @@
-/*  This file is part of JT_FRAME.
+/*  This file is part of JTFRAME.
     JTFRAME program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
     the Free Software Foundation, either version 3 of the License, or
@@ -49,7 +49,7 @@ always @(cmdcnt) begin
     cur_cmd   = cmd_list  [ (ptr<<3)-1 -: 8];
 end
 
-always @(posedge clk, posedge rst) begin
+always @(posedge clk) begin
     if( rst ) begin
         cmdcnt <= 0;
         framecnt <= 1;

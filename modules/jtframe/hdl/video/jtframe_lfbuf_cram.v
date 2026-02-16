@@ -27,11 +27,13 @@ module jtframe_lfbuf_cram #(parameter
 )(
     input               rst,     // hold in reset for >150 us
     input               clk,
+    input               clk48,
     input               pxl_cen,
 
     // video status
     input      [VW-1:0] vrender,
     input      [HW-1:0] hdump,
+    input               hs,
     input               vs,
     input               lhbl,
     input               lvbl,
@@ -40,7 +42,7 @@ module jtframe_lfbuf_cram #(parameter
     input      [HW-1:0] ln_addr,
     input      [DW-1:0] ln_data,
     input               ln_done,
-    output              ln_hs,
+    output              ln_hs, ln_vs, ln_lvbl,
     output     [DW-1:0] ln_pxl,
     output     [VW-1:0] ln_v,
     input               ln_we,
@@ -58,14 +60,21 @@ module jtframe_lfbuf_cram #(parameter
     output              cr_wen
 );
 
-wire          frame, fb_clr, fb_done, line, scr_we;
+wire          frame, fb_clr, fb_done, line, scr_we, fb_blank, pxl48_cen;
 wire [HW-1:0] fb_addr, rd_addr;
 wire [  15:0] fb_din, fb_dout;
 
+jtframe_crossclk_cen u_crosscen(
+    .clk_in     ( clk       ),    // fast clock
+    .cen_in     ( pxl_cen   ),
+    .clk_out    ( clk48     ),    // slow clock
+    .cen_out    ( pxl48_cen )
+);
+
 jtframe_lfbuf_ctrl #(.HW(HW),.VW(VW)) u_ctrl (
     .rst        ( rst       ),
-    .clk        ( clk       ),
-    .pxl_cen    ( pxl_cen   ),
+    .clk        ( clk48     ),
+    .pxl_cen    ( pxl48_cen ),
 
     .lhbl       ( lhbl      ),
     .vs         ( vs        ),
@@ -74,6 +83,7 @@ jtframe_lfbuf_ctrl #(.HW(HW),.VW(VW)) u_ctrl (
     .ln_v       ( ln_v      ),
     // data written to external memory
     .frame      ( frame     ),
+    .fb_blank   ( fb_blank  ),
     .fb_addr    ( fb_addr   ),
     .rd_addr    ( rd_addr   ),
     .fb_din     ( fb_din    ),
@@ -102,16 +112,20 @@ jtframe_lfbuf_ctrl #(.HW(HW),.VW(VW)) u_ctrl (
 jtframe_lfbuf_line #(.DW(DW),.HW(HW),.VW(VW)) u_line(
     .rst        ( rst       ),
     .clk        ( clk       ),
+    .clk_ctrl   ( clk48     ),
     .pxl_cen    ( pxl_cen   ),
     // video status
     .vrender    ( vrender   ),
     .hdump      ( hdump     ),
+    .hs         ( hs        ),
     .vs         ( vs        ),   // vertical sync, the buffer is swapped here
     .lvbl       ( lvbl      ),   // vertical blank, active low
 
     // core interface
     .ln_hs      ( ln_hs     ),
     .ln_v       ( ln_v      ),
+    .ln_vs      ( ln_vs     ),
+    .ln_lvbl    ( ln_lvbl   ),
     .ln_addr    ( ln_addr   ),
     .ln_data    ( ln_data   ),
     .ln_we      ( ln_we     ),
@@ -119,6 +133,7 @@ jtframe_lfbuf_line #(.DW(DW),.HW(HW),.VW(VW)) u_line(
 
     // data written to external memory
     .frame      ( frame     ),
+    .fb_blank   ( fb_blank  ),
     .fb_addr    ( fb_addr   ),
     .rd_addr    ( rd_addr   ),
     .fb_din     ( fb_din    ),

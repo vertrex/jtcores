@@ -15,7 +15,7 @@
     Author: Jose Tejada Gomez. Twitter: @topapate
     Version: 1.0
     Date: 29-4-2021 */
-
+/* verilator coverage_off */
 module jtframe_sdram64_latch #(parameter LATCH=0, AW=22)(
     input               rst,
     input               clk,
@@ -50,7 +50,7 @@ wire prog_rq = prog_en &(prog_wr | prog_rd);
 
 generate
     if( LATCH==1 ) begin
-        always @(posedge clk, posedge rst) begin
+        always @(posedge clk) begin
             if( rst ) begin
                 ba0_addr_l <= 0;
                 ba1_addr_l <= 0;

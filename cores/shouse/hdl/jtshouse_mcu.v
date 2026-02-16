@@ -23,7 +23,7 @@ module jtshouse_mcu(
     input              clk,
     input              game_rst,
     input              rstn,
-    input              cen,
+    input              cen, pxl_cen,
     input              lvbl,
 
     input       [8:0]  hdump,
@@ -32,7 +32,7 @@ module jtshouse_mcu(
     output             rnw,
     output reg         ram_cs,      // Tri port RAM
     input       [7:0]  ram_dout,
-    output             halted,      // signals an decoding error too
+    output             halted,      // signals a decoding error too
     // Ports
     // cabinet I/O
     input       [1:0]  io_mode,
@@ -293,6 +293,7 @@ jtframe_6801mcu #(.ROMW(12),.SLOW_FRC(2),.MODEL("HD63701V")) u_63701(
     .rst        ( ~rstn         ),
     .clk        ( clk           ),
     .cen        ( cen           ),
+    .cen_tmr    ( pxl_cen       ),
 
     // Bus
     .wr         ( wr            ),

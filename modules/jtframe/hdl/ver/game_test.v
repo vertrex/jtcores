@@ -96,8 +96,6 @@ module game_test(
     output  signed [15:0] snd_left,
     output  signed [15:0] snd_right,
     output          sample,
-    input           enable_psg,
-    input           enable_fm,
 
     // SDRAM interface
     output          sdram_init,
@@ -221,6 +219,11 @@ wire        prog_rdy;
 wire [15:0] data_read;
 wire        SDRAM_DQML;     // SDRAM Low-byte Data Mask
 wire        SDRAM_DQMH;     // SDRAM High-byte Data Mask
+// SRAM
+wire [16:0]  sram_addr;
+wire [15:0]  sram_din, sram_dout;
+wire [ 1:0]  sram_dsn;
+wire         sram_wen, sram_ok;
 
 assign SDRAM_DQM= { SDRAM_DQMH, SDRAM_DQML };
 
@@ -264,6 +267,29 @@ endgenerate
 // clock is shifted or not.
 `ifdef VERILATOR_KEEP_SDRAM /* verilator tracing_on */ `else /* verilator tracing_off */ `endif
 wire prog_en = ioctl_rom | dwnld_busy;
+
+`ifdef JTFRAME_SRAM
+    // SRAM
+    assign sram_ok=1; // to do: change it to proper delay
+    jtframe_ram16 #(.AW(18))u_sram(
+        .clk    ( clk48     ),
+        .data   ( sram_din  ),
+        .addr   ( sram_addr ),
+        .we     ( ~sram_dsn ),
+        .q      ( sram_dout )
+    );
+`endif
+
+wire [1:0] rfsh;
+
+// Automatic JTFRAME macros set a 64us refresh period
+jtframe_frac_cen #(.WC(`JTFRAME_RFSH_WC)) u_rfsh(
+    .clk    ( clk_rom           ),
+    .n      ( `JTFRAME_RFSH_N   ),
+    .m      ( `JTFRAME_RFSH_M   ),
+    .cen    ( rfsh              ),
+    .cenb   (                   )
+);
 
 jtframe_sdram64 #(
     .AW           ( SDRAMW        ),
@@ -346,7 +372,7 @@ jtframe_sdram64 #(
 
     // Common signals
     .dout       ( data_read     ),
-    .rfsh       ( !prog_en & ~LHBL ) // Do not refresh during programming
+    .rfsh       ( !prog_en & rfsh[0] ) // Do not refresh during programming
                                      // the verilator code sends the data too fast
 );
 /* verilator tracing_off */
@@ -365,14 +391,14 @@ jtframe_sdram_stats_sim #(.AW(SDRAMW)) u_stats(
 );
 `endif
 
-/* verilator tracing_on */
+/* verilator tracing_off */
 `ifdef JTFRAME_LF_BUFFER
         wire  [ 7:0] game_vrender;
         wire  [ 8:0] game_hdump;
         wire  [ 8:0] ln_addr;
         wire  [15:0] ln_data;
         wire         ln_done;
-        wire         ln_hs;
+        wire         ln_hs, ln_vs, ln_lvbl;
         wire  [15:0] ln_pxl;
         wire  [ 7:0] ln_v;
         wire         ln_we;
@@ -392,8 +418,10 @@ jtframe_sdram_stats_sim #(.AW(SDRAMW)) u_stats(
         jtframe_lfbuf_cram u_lf_buf(
             .rst        ( rst           ),
             .clk        ( clk_rom       ),
+            .clk48      ( clk48         ),
             .pxl_cen    ( pxl_cen       ),
 
+            .hs         ( HS            ),
             .vs         ( VS            ),
             .lvbl       ( LVBL          ),
             .lhbl       ( LHBL          ),
@@ -407,6 +435,8 @@ jtframe_sdram_stats_sim #(.AW(SDRAMW)) u_stats(
             .ln_hs      ( ln_hs         ),
             .ln_pxl     ( ln_pxl        ),
             .ln_v       ( ln_v          ),
+            .ln_vs      ( ln_vs         ),
+            .ln_lvbl    ( ln_lvbl       ),
             .ln_we      ( ln_we         ),
 
             // PSRAM chip 0
@@ -459,6 +489,7 @@ jtframe_sdram_stats_sim #(.AW(SDRAMW)) u_stats(
             .clk        ( clk_rom       ),
             .pxl_cen    ( pxl_cen       ),
 
+            .hs         ( HS            ),
             .vs         ( VS            ),
             .lvbl       ( LVBL          ),
             .lhbl       ( LHBL          ),
@@ -472,6 +503,8 @@ jtframe_sdram_stats_sim #(.AW(SDRAMW)) u_stats(
             .ln_hs      ( ln_hs         ),
             .ln_pxl     ( ln_pxl        ),
             .ln_v       ( ln_v          ),
+            .ln_vs      ( ln_vs         ),
+            .ln_lvbl    ( ln_lvbl       ),
             .ln_we      ( ln_we         ),
 
             .ddram_clk  ( DDRAM_CLK     ),
@@ -489,7 +522,7 @@ jtframe_sdram_stats_sim #(.AW(SDRAMW)) u_stats(
         );
     `endif
 `endif
-
+/* verilator tracing_on */
 //////// GAME MODULE
 `GAMETOP
 u_game(
@@ -523,28 +556,23 @@ u_game(
     .joystick3   ( joystick3[GAME_BUTTONS+3:0]   ),
     .joystick4   ( joystick4[GAME_BUTTONS+3:0]   ),
 
-`ifdef JTFRAME_DIAL
-    .dial_x (2'd0), .dial_y(2'd0), `endif
+    .dial_x (2'd0), .dial_y(2'd0),
 
-`ifdef JTFRAME_ANALOG
     .joyana_l1    ( joyana_l1        ),
     .joyana_l2    ( joyana_l2        ),
     .joyana_l3    ( joyana_l3        ),
     .joyana_l4    ( joyana_l4        ),
-    `ifdef JTFRAME_ANALOG_DUAL
-        .joyana_r1( joyana_r1        ),
-        .joyana_r2( joyana_r2        ),
-        .joyana_r3( joyana_r3        ),
-        .joyana_r4( joyana_r4        ),
-    `endif
-`endif
+    .joyana_r1    ( joyana_r1        ),
+    .joyana_r2    ( joyana_r2        ),
+    .joyana_r3    ( joyana_r3        ),
+    .joyana_r4    ( joyana_r4        ),
 
 `ifdef JTFRAME_MOUSE
     .mouse_1p( 16'd0 ), .mouse_2p( 16'd0 ), .mouse_strobe( 2'd0 ), `endif
+`ifdef JTFRAME_LIGHTGUN
+    .gun_1p_x( 9'd0 ), .gun_1p_y( 9'd0 ),
+    .gun_2p_x( 9'd0 ), .gun_2p_y( 9'd0 ), `endif
 
-    // Sound control
-    .enable_fm   ( enable_fm      ),
-    .enable_psg  ( enable_psg     ),
     // PROM programming
     .ioctl_addr  ( ioctl_addr     ),
     .ioctl_dout  ( ioctl_dout     ),
@@ -589,7 +617,15 @@ u_game(
     .prog_rd    ( prog_rd       ),
     .prog_we    ( prog_we       ),
     .prog_mask  ( prog_mask     ),
-
+`ifdef JTFRAME_SRAM
+    // SRAM
+    .sram_addr   ( sram_addr      ),
+    .sram_din    ( sram_din       ),
+    .sram_dout   ( sram_dout      ),
+    .sram_wen    ( sram_wen       ),
+    .sram_dsn    ( sram_dsn       ),
+    .sram_ok     ( sram_ok        ),
+`endif
     // DIP switches
     .status      ( status[31:0]   ),
     .dip_pause   ( dip_pause      ),
@@ -614,6 +650,8 @@ u_game(
     .ln_hs       ( ln_hs          ),
     .ln_pxl      ( ln_pxl         ),
     .ln_v        ( ln_v           ),
+    .ln_vs       ( ln_vs          ),
+    .ln_lvbl     ( ln_lvbl        ),
     .ln_we       ( ln_we          ),
 `endif
 
@@ -649,7 +687,7 @@ u_game(
 `endif
 
 endmodule
-
+/* verilator tracing_on */
 module jtframe_ddr_model(
     input         clk,
     output reg    busy,
@@ -672,7 +710,7 @@ module jtframe_ddr_model(
     reg [SW-1:0] areg;
     reg        rding, wring;
 
-    assign dout       = mem[areg];
+    assign dout = mem[areg];
 
     integer aux;
     initial begin
@@ -688,33 +726,35 @@ module jtframe_ddr_model(
         end
     end
 
-    assign busy = busy_cnt!=0 && !(rding || wring);
+    assign busy = 0; //busy_cnt==7 && !(rding || wring);
 
     always @(posedge clk) begin
         busy_cnt <= busy_cnt+1'd1;
-        dout_cnt <= dout_cnt-1'd1;
+        if(dout_cnt != 0) begin
+            dout_cnt <= dout_cnt-1'd1;
+        end else begin
+            dout_ready <= rding;
+        end
         if( cnt==0 ) begin
             rding <= 0;
             wring <= 0;
             dout_ready <= 0;
         end
-        if( (rd || we) && !busy ) begin
-            cnt      <= burstcnt;
-            areg     <= addr[SW-1:0];
-            rding    <= rd;
-            wring    <= we;
-            dout_cnt <= 15;
+        if( (wring || dout_ready) && cnt != 0 && !busy ) begin
+            cnt  <= cnt-8'd1;
+            areg <= areg + 1'd1;
         end
-        if( dout_cnt==0 ) begin
-            dout_ready <= 1;
+        if( (rd || (we&&!wring)) && !busy ) begin
+            cnt        <= burstcnt;
+            areg       <= addr[SW-1:0];
+            rding      <= rd;
+            wring      <= we;
+            dout_ready <= 0;
+            dout_cnt   <= 7;
         end
         if( wring ) begin
             for( aux=0;aux<8;aux=aux+1)
                 if( be[aux] ) mem[areg][8*aux+:8] <= din[8*aux+:8];
-        end
-        if( (wring || dout_ready) && cnt != 0 ) begin
-            cnt <= cnt-8'd1;
-            areg <= areg + 1'd1;
         end
     end
 

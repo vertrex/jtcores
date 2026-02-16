@@ -15,7 +15,7 @@
     Author: Jose Tejada Gomez. Twitter: @topapate
     Version: 1.0
     Date: 29-4-2021 */
-
+/* verilator coverage_off */
 module jtframe_sdram64_init #(parameter
     HF      =1,
     BURSTLEN=64
@@ -46,7 +46,7 @@ reg [13:0] wait_cnt;
 reg [ 2:0] init_st;
 reg [ 3:0] init_cmd;
 
-always @(posedge clk, posedge rst) begin
+always @(posedge clk) begin
     if( rst ) begin
         // initialization loop
         init     <= 1;

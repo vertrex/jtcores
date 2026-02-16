@@ -30,6 +30,7 @@ module jtframe_6801mcu #(
     input              rst,     // use it for standby too, RAM is always preserved
     input              clk,
     input              cen,     // clk must be at leat x4 cen (24MHz -> 6MHz maximum)
+    input              cen_tmr, // cen for timer, derive it from video circuitry
 
     // all inputs are active high
     input              irq,
@@ -130,6 +131,18 @@ localparam  P1DDR = 'h0,
             ICR2H = 'h1E,    // input capture register 2 (MSB)
             ICR2L = 'h1F;    // input capture register 2 (LSB)
 
+`ifdef SIMULATION
+integer ticks=0;
+reg [1:0] subticks=0;
+
+always @(posedge clk) begin
+    if(rst) begin
+        {ticks,subticks} <= 0;
+    end else if(cen) begin
+        {ticks,subticks} <= {ticks,subticks}+1'd1;
+    end
+end
+`endif
 
 assign buf_we = buf_cs & wr;
 assign rom_addr = addr[0+:ROMW];
@@ -219,7 +232,7 @@ always @(*) begin
 end
 
 // ports
-always @(posedge clk, posedge rst) begin
+always @(posedge clk) begin
     if( rst ) begin
         p1ddr <= 0;
         p2ddr <= 0;
@@ -246,7 +259,7 @@ always @(posedge clk, posedge rst) begin
             ocr3 <= 'hffff;
         end
     end else begin
-        if( cen ) begin
+        if( cen_tmr ) begin
             oc_en_aux <= 3'b111;
             // Free running counter
             cen_frc <= cen_frc+1'd1;
@@ -335,7 +348,7 @@ always @(posedge clk, posedge rst) begin
 end
 
 // interrupts
-always @(posedge clk, posedge rst) begin
+always @(posedge clk) begin
     if( rst ) begin
         irq_ocf <= 0;
         irq_icf <= 0;
@@ -356,7 +369,7 @@ wire [7:0] ramAE=ram[8'hae];
 wire [7:0] ram92=ram[8'h92];
 assign buf_dout = bdout_aux;
 
-always @(posedge clk,posedge rst) begin
+always @(posedge clk) begin
     if( rst ) begin
         for(rk=0;rk<256;rk=rk+1) ram[rk]=0;
         bdout_aux <= 0;
@@ -378,7 +391,7 @@ jtframe_ram #(.AW(8)) u_buffer( // internal RAM
 
 // reg [7:0] tracka, trackd;
 
-// always @(posedge clk, posedge rst) begin
+// always @(posedge clk) begin
 //     if( rst ) begin
 //         tracka <= 0;
 //         trackd <= 0;

@@ -30,13 +30,14 @@ module jtframe_objdraw #( parameter
     ZENLARGE= 0,
     SWAPH =  0,
     HJUMP =  0,
+    HFIX  =  1,
     LATCH =  0,
     FLIP_OFFSET=0,
     KEEP_OLD  = 0,
+    ALPHA     = 0,
     SHADOW    = 0,
     SHADOW_PEN  = ALPHA,
     SW        = 1,
-    ALPHA     = 0,
     PACKED    = 0
 )(
     input               rst,
@@ -78,6 +79,7 @@ module jtframe_objdraw #( parameter
         .ZENLARGE       ( ZENLARGE      ),
         .SWAPH          ( SWAPH         ),
         .HJUMP          ( HJUMP         ),
+        .HFIX           ( HFIX          ),
         .LATCH          ( LATCH         ),
         .FLIP_OFFSET    ( FLIP_OFFSET   ),
         .SHADOW         ( SHADOW        ),

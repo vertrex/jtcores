@@ -7,18 +7,21 @@
 		(in_bom yes)
 		(on_board yes)
 		(property "Reference" "U"
-			(at 13.97 10.16 0)
+			(at 15.24 10.16 0)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
+				(justify right)
 			)
 		)
 		(property "Value" "TA7630P"
-			(at -11.43 10.16 0)
+			(at 13.97 -11.43 0)
 			(effects
 				(font
-					(size 1.27 1.27)
+					(size 1.778 1.778)
+					(thickness 0.3556)
+					(bold yes)
 				)
 			)
 		)
@@ -32,7 +35,7 @@
 			)
 		)
 		(property "Datasheet" "https://pdf1.alldatasheet.com/datasheet-pdf/download/31321/TOSHIBA/TA7630P.html"
-			(at -1.27 -10.16 0)
+			(at -1.27 -25.4 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -62,7 +65,7 @@
 				)
 			)
 			(text "DUAL. VOLUME/BALANCE\n/TONE(BASS/TREBLE)\n"
-				(at 0 2.54 0)
+				(at 0 0 0)
 				(effects
 					(font
 						(size 0.762 0.762)
@@ -90,7 +93,7 @@
 			(pin passive line
 				(at 5.08 -13.97 90)
 				(length 5.08)
-				(name "TRBL_CONTROL"
+				(name "Treble"
 					(effects
 						(font
 							(size 0.762 0.762)
@@ -270,7 +273,7 @@
 			(pin passive line
 				(at -5.08 -13.97 90)
 				(length 5.08)
-				(name "R_CONTROL"
+				(name "Vref"
 					(effects
 						(font
 							(size 0.762 0.762)
@@ -306,7 +309,7 @@
 			(pin passive line
 				(at -2.54 -13.97 90)
 				(length 5.08)
-				(name "BAL_CONTROL"
+				(name "Balance"
 					(effects
 						(font
 							(size 0.762 0.762)
@@ -324,7 +327,7 @@
 			(pin passive line
 				(at 0 -13.97 90)
 				(length 5.08)
-				(name "V_CONTROL"
+				(name "Volume"
 					(effects
 						(font
 							(size 0.762 0.762)
@@ -342,7 +345,7 @@
 			(pin passive line
 				(at 2.54 -13.97 90)
 				(length 5.08)
-				(name "BASS_CONTROL"
+				(name "Bass"
 					(effects
 						(font
 							(size 0.762 0.762)

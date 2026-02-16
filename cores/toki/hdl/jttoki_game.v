@@ -338,8 +338,6 @@ music1 u_music1(
 
   .snd(snd),
   .fxlevel(dip_fxlevel),
-  .enable_fm(enable_fm),
-  .enable_psg(enable_psg),
 
   .pcm_rom_addr(pcm_rom_addr),
   .pcm_rom_data(pcm_rom_data),

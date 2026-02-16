@@ -1,16 +1,16 @@
-/*  This file is part of JTCORES1.
-    JTCORES1 program is free software: you can redistribute it and/or modify
+/*  This file is part of JTCORES.
+    JTCORES program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
     the Free Software Foundation, either version 3 of the License, or
     (at your option) any later version.
 
-    JTCORES1 program is distributed in the hope that it will be useful,
+    JTCORES program is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
 
     You should have received a copy of the GNU General Public License
-    along with JTCORES1.  If not, see <http://www.gnu.org/licenses/>.
+    along with JTCORES.  If not, see <http://www.gnu.org/licenses/>.
 
     Author: Jose Tejada Gomez. Twitter: @topapate
     Version: 1.0
@@ -59,8 +59,10 @@ always @(posedge clk) begin
     if( pxl_cen ) begin
         cnt4    <= ~cnt4;
     end
-    // interrupt pulse lasts at least one pixel, so the CPU cupnowcan
-    // catch it
+end
+
+// interrupt pulse lasts at least one pixel, so the CPU can catch it
+always @(posedge clk) if(cen4) begin
     if( set_irq )
         { raster, irqsh } <= 2'b11;
     else if( pxl_cen ) begin

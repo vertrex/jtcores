@@ -175,13 +175,16 @@ assign cpu_haltn = ~mmr[2][1] | cpu_sel;
 assign cpu_berrn = 1;
 assign sndmap_dout = mmr[3];
 
-reg rst_aux, status_msb, rst_req;
+reg rst_aux, status_msb, rst_req, vint_ln;
 
 always @(negedge clk) begin
     rst_req <= (mmr[2][0]&~cpu_sel) | rst;
-    if( rst_req ) cpu_rst <= 1;
-    else if( !last_vint && vint && !bus_mcu ) cpu_rst <= 0;
-    // { cpu_rst, rst_aux } <= { rst_aux, (mmr[2][0]&~cpu_sel) | rst };
+    vint_ln <= vint;
+    if( rst_req ) begin
+        cpu_rst <= 1;
+    end else if( !vint_ln && vint && !bus_mcu ) begin
+        cpu_rst <= 0;
+    end
 end
 
 wire [15:0] mcu_addr_s;
@@ -301,6 +304,7 @@ jtframe_68kdtack_cen #(.W(8),.RECOVERY(1)) u_dtack(
     .bus_cs     ( bus_cs    ),
     .bus_busy   ( bus_busy  ),
     .bus_legit  ( 1'b0      ),
+    .bus_ack    ( 1'b0      ),
     .ASn        ( cpu_asn || cpu_fc[1:0]==2'b11  ),  // BUSn = ASn | (LDSn & UDSn)
     .DSn        ( cpu_dsn   ),
     .num        ( FNUM      ),  // numerator

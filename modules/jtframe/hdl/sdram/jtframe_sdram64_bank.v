@@ -17,7 +17,7 @@
     Date: 29-4-2021 */
 
 // SDRAM is set to burst=2 (64 bits)
-
+/* verilator coverage_off */
 module jtframe_sdram64_bank #(
     parameter AW=22,
               HF=1,     // 1 for HF operation (idle cycles), 0 for LF operation
@@ -83,7 +83,7 @@ localparam IDLE    = 0,
            ACT     = PRE_ACT+1,
            PRE_RD  = PRE_ACT + (HF ? 2:1),
            READ    = PRE_RD+1,
-           DST     = READ + (SHIFTED ? 1 : 2) ,
+           DST     = READ + (SHIFTED==1 ? 1 : 2) ,
            DTICKS  = BURSTLEN==64 ? 4 : (BURSTLEN==32?2:1),
            BUSY    = DST+(DTICKS-1),
            RDY     = DST + (BALEN==16 ? 0 : (BALEN==32? 1 : 3)),
@@ -129,7 +129,7 @@ assign ack      = st[READ],
        rd_wr    = rd | wr,
        idle     = st[0];
 
-always @(posedge clk, posedge rst) begin
+always @(posedge clk) begin
     if( rst ) begin
         in_busy   <= 0; // |st[ (BALEN==16? READ+1 : RDY-2):READ]
         in_busy64 <= 0; // |{st[BUSY:READ], do_read}
@@ -187,7 +187,7 @@ end
 
 generate
     if( HF==1 ) begin
-        always @(posedge clk, posedge rst) begin
+        always @(posedge clk) begin
             if( rst ) begin
                 br <= 0;
             end else begin
@@ -220,7 +220,7 @@ always @(*) begin
             { do_read ? AUTOPRECH[0] : PRECHARGE_ALL[0], addr[AW-1], addr[8:0]};
 end
 
-always @(posedge clk, posedge rst) begin
+always @(posedge clk) begin
     if( rst ) begin
         prechd   <= 0;
         actd     <= 0;

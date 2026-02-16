@@ -1,3 +1,20 @@
+/*  This file is part of JTFRAME.
+    JTFRAME program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    JTFRAME program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with JTFRAME.  If not, see <http://www.gnu.org/licenses/>.
+
+    Author: Jose Tejada Gomez. Twitter: @topapate
+    Date: 4-1-2025 */
+
 package betas
 
 import (
@@ -16,30 +33,31 @@ import (
 
 type BetaCores map[string][]string
 
-var All BetaCores
+var all BetaCores
 var Md5sum, Crcsum string
 var Betakey uint32
+var verbose bool
 
-func (this BetaCores) IsBeta(core string) bool {
+func (this BetaCores) isBeta(core string) bool {
     _, f := this[core]
     return f
 }
 
-func (this BetaCores) IsBetaFor(core, target string) bool {
+func (this BetaCores) isBetaFor(core, target string) bool {
     vv, f := this[core]
     if !f { return false }
     return slices.Contains(vv,target)
 }
 
 func IsBeta(core string) bool {
-    return All.IsBeta(core)
+    return all.isBeta(core)
 }
 
 func IsBetaFor(core, target string) bool {
-    return All.IsBetaFor(core,target)
+    return all.isBetaFor(core,target)
 }
 
-func ListBetas(verbose bool) BetaCores{
+func ListBetas() BetaCores {
 	fp := filepath.Join(os.Getenv("JTROOT"),".beta.yaml")
 	buf, e := os.ReadFile(fp)
 	betas := make(BetaCores)
@@ -52,19 +70,37 @@ func ListBetas(verbose bool) BetaCores{
 }
 
 func CalcBetaSums() (md5sum string, crcsum string, betakey uint32) {
-	betapath := filepath.Join(os.Getenv("JTUTIL"),"beta.bin")
+	betapath := get_betakey_path()
 	buf, e := os.ReadFile(betapath)
 	if e != nil {
-		buf = make([]byte,4)
-		rand.Read(buf)
+		buf = make_random_key()
 	}
-	crcsum = fmt.Sprintf("%x", crc32.ChecksumIEEE(buf) )
-	md5sum = fmt.Sprintf("%x", md5.Sum(buf) )
+	crcsum = make_crc32_string(buf)
+	md5sum = make_md5_string(buf)
 	betakey = binary.LittleEndian.Uint32(buf)
 	return md5sum, crcsum, betakey
 }
 
+func get_betakey_path() string {
+	return filepath.Join(os.Getenv("JTUTIL"),"beta.bin")
+}
+
+func make_random_key() (buf []byte) {
+	buf = make([]byte,4)
+	rand.Read(buf)
+	return buf
+}
+
+func make_crc32_string(buf []byte) string {
+	return fmt.Sprintf("%x", crc32.ChecksumIEEE(buf) )
+}
+
+func make_md5_string(buf []byte) string {
+	return fmt.Sprintf("%x", md5.Sum(buf) )
+}
+
 func Init() {
-	All = ListBetas(false)
+	verbose = false
+	all = ListBetas()
 	Md5sum, Crcsum, Betakey = CalcBetaSums()
 }

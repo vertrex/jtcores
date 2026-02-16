@@ -19,18 +19,17 @@
 module jtframe_dip(
     input              clk,
     input      [63:0]  status,
-    input      [ 6:0]  core_mod,
     input              game_pause,
+                       vertical, dipflip_xor,
 
     //Video aspect ratio for HDMI. Most retro systems have ratio 4:3.
     output reg [12:0]  hdmi_arx,
     output reg [12:0]  hdmi_ary,
     output reg [ 1:0]  rotate,
+    output reg         rot_osdonly,
     output reg         rot_control, // rotate player control inputs
 
-    output reg         enable_fm,
-    output reg         enable_psg,
-    output             osd_pause,
+    output reg         osd_pause,
     input              osd_shown,
 
     input              game_test,
@@ -82,36 +81,19 @@ assign dip_flip    = ~status[1];
         `ifdef DIP_TEST
         assign dip_test = 0;
         `else
-        assign dip_test = ~game_test;
+        assign dip_test = game_test;
         `endif
     `else
-        assign dip_test = ~(status[10] | game_test); // assumes it is always active low
+        assign dip_test = ~status[10] & game_test; // assumes it is always active low
     `endif
 `else
-assign dip_test = ~game_test;
+assign dip_test = game_test;
 `endif
 
 wire [1:0] ar = status[17:16];    // only MiSTer
 
-`ifdef POCKET
-    assign osd_pause = osd_shown;
-`else
-    `ifndef JTFRAME_OSD_NOCREDITS
-        `ifndef MISTER // Only MiST and derivatives can pause via the OSD
-            assign osd_pause   = status[12];
-        `else
-            assign osd_pause   = 1'b0;  // MiSTer relies on the keyboard/gamepad for pause
-        `endif
-    `else
-        assign osd_pause = 1'b0;
-    `endif
-`endif
-
 // Screen or control rotation
 `ifdef JTFRAME_VERTICAL
-    // core_mod[0] = 0 horizontal game
-    //             = 1 vertical game
-    // core_mod[2] = XOR with dip_flip
     // status[13]  = 0 Rotate screen
     //             = 1 no rotation
     wire tate;
@@ -122,43 +104,49 @@ generate
         `else
             wire status_roten= ~status[2];
         `endif
-        assign tate = (!MISTER || status_roten) && core_mod[0]; // 1 if screen is vertical (tate in Japanese)
+        assign tate = (!MISTER || status_roten) && vertical; // 1 if screen is vertical (tate in Japanese)
         initial rot_control = 0;
+        initial rot_osdonly = 0;
     end else begin // MiST derivativatives are always vertical
-        assign tate   = 1'b1 & core_mod[0];
-        always @(posedge clk) rot_control = (status[2]^XOR_ROT[0])&core_mod[0];
+        assign tate   = vertical;
+        always @(posedge clk) begin
+            rot_control <= (status[2]^XOR_ROT[0]) & tate & rot_osdonly;
+            rot_osdonly <= !status[13];
+        end
     end
 endgenerate
-    wire   swap_ar = ~tate | ~core_mod[0];
+    wire   swap_ar = ~tate | ~vertical;
 `else
     wire    tate        = 0;
     initial rot_control = 0;
+    initial rot_osdonly = 0;
     wire    swap_ar     = 1;
 `endif
 
+always @* begin
+    osd_pause = 0;
+    `ifndef JTFRAME_OSD_NOCREDITS
+    `ifndef MISTER // Only MiST and derivatives can pause via the OSD
+        osd_pause = status[12];
+    `endif
+    `endif
+end
+
 // all signals that are not direct re-wirings are latched
 always @(posedge clk) begin
-    rotate      <= { dip_flip ^ core_mod[2], tate && !rot_control }; // rotate[1] keeps the image upright regardless of dip_flip
+    rotate      <= { dip_flip ^ dipflip_xor, tate && !rot_control }; // rotate[1] keeps the image upright regardless of dip_flip
     dip_fxlevel <= 2'b10 ^ status[7:6];
-    `ifndef JTFRAME_OSD_SND_EN
-    enable_fm   <= 1;
-    enable_psg  <= 1;
-    `else
-    enable_fm   <= ~status[9];
-    enable_psg  <= ~status[8];
-    `endif
     // only for MiSTer
-    hdmi_arx    <= (!ar) ? (swap_ar ? ARX : ARY) : (ar-2'd1);
-    hdmi_ary    <= (!ar) ? (swap_ar ? ARY : ARX) : 13'd0;
+    hdmi_arx    <= ar==0 ? (swap_ar ? ARX : ARY) : {11'd0,ar-2'd1};
+    hdmi_ary    <= ar==0 ? (swap_ar ? ARY : ARX) : 13'd0;
 
+    dip_pause   <= ~game_pause & ~osd_shown; // active low
     `ifdef SIMULATION
         `ifdef DIP_PAUSE
             dip_pause <= 1'b0; // use to simulate pause screen
         `else
             dip_pause <= 1'b1; // avoid having the main CPU halted in simulation
         `endif
-    `else
-        dip_pause <= ~game_pause; // all dips are active low
     `endif
 end
 

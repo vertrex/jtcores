@@ -1,18 +1,37 @@
+/*  This file is part of JTFRAME.
+    JTFRAME program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    JTFRAME program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with JTFRAME.  If not, see <http://www.gnu.org/licenses/>.
+
+    Author: Jose Tejada Gomez. Twitter: @topapate
+    Date: 4-1-2025 */
+
 package mra
 
-import (
-    "github.com/jotego/jtframe/def"
+import(
+    . "jotego/jtframe/xmlnode"
 )
 
+var Verbose bool
+
 type Args struct {
-    Def_cfg                      def.Config
+    Core, Target                 string
     Toml_path, Xml_path          string
     outdir, altdir               string
     cheatdir, pocketdir          string
     Info                         []Info
     Buttons                      string
-    Year                         string
-    Verbose, SkipMRA, SkipPocket bool
+    Year, Setname                string
+    SkipMRA, SkipPocket          bool
     SkipROM, Md5                 bool // By skipping the ROM generation,
         // the md5 will be set to None, unless Md5 is true
     Show_platform                bool
@@ -22,7 +41,8 @@ type Args struct {
     URL, Rom_path        string
     // private
     firmware_dir string
-    macros       map[string]string
+    mra_cfg Mame2MRA
+    main_copied bool
 }
 
 type Selectable struct {
@@ -34,9 +54,13 @@ type Matchable interface {
     Match( x *MachineXML ) int
 }
 
+type Matcher interface {
+    IsMatch(m Matchable) bool
+}
+
 // find if a selectable object is a match for a machine
 // use bestMatch below for slices
-func (this *Selectable) Match( x *MachineXML ) int {
+func (this Selectable) Match( x *MachineXML ) int {
     if this.Setname==x.Name || (this.Machine==x.Name && x.Cloneof=="") {
         return 3
     }
@@ -88,6 +112,9 @@ type RegCfg struct {
     Width, Len    int
     Rom_len       int
     Reverse, Skip bool
+    // Mirror will duplicate the part entries until the region length is filled
+    // instead of filling it with FF
+    Mirror        bool
     Reverse_only  []int // specify ROM widths to which the reverse will be applied
     No_offset     bool // Using the default offset helps in some CPU configurations. If the file order is not changed,
     // keeping the original offset usually has no effect as the offset is just the file size
@@ -95,12 +122,12 @@ type RegCfg struct {
     // warning messages or fillers, so no_offset=true is needed
     Sort_even    bool // sort ROMs by pushing all even ones first, and then the odd ones
     Singleton    bool // Each file can only merge with itself to make interleave sections
-    // The upper and lower halves of the same file are merged together
-    Ext_sort   []string // sorts by matching the file extension
-    Name_sort  []string // sorts by name
+                      // The upper and lower halves of the same file are merged together
     Sequence   []int    // File sequence, where the first file is identified with a 0, the next with 1 and so on
     // ROM files can be repeated or omitted in the sequence
     Frac struct {
+        // take n bytes from each part (1 part=1 file)
+        // files=multiple of parts
         Bytes, Parts int
     }
     Overrules []struct { // Overrules the region settings for specific files
@@ -112,11 +139,13 @@ type RegCfg struct {
         // Machine, Setname string // Optional filters
         Dev string // Device name for assembler
     }
-    Parts []struct {
-        Name, Crc, Map  string
-        Length, Offset int
-    }
+    Parts []RegParts
     Files []MameROM // This replaces the information in mame.xml completely if present
+}
+
+type RegParts struct {
+    Name, Crc, Map  string
+    Length, Offset int
 }
 
 func (this *RegCfg) EffName() string {
@@ -127,26 +156,59 @@ func (this *RegCfg) EffName() string {
 }
 
 type RawData struct {
+    Data string
     Selectable
-    Dev              string // required device name to apply these data, ignored if blank
-    Offset           int
-    Data             string
 }
 
 type HeaderCfg struct {
     Info    string
     Fill    int
-    Data   []RawData
+    Data   []HeaderData
+    Registers []HeaderReg
+    PCBs   []Selectable
     // Offset in the ROM stream of each ROM region
-    Offset struct {
-        Bits    int
-        Reverse bool
-        Start   int // Start location for the offset table
-        Regions []string
-    }
+    Offset HeaderOffset
     Frames []FrameCfg // indicates that the game draws a black frame around the active video
     // Filled automatically
-    Len int
+    len int
+    node *XMLNode
+}
+
+type HeaderData struct {
+    RawData
+    Offset  int
+    Dev     string // required device name to apply these data, ignored if blank
+    Pcb_id  bool
+}
+
+type HeaderReg struct {
+    Name string
+    Pos  string // format: byte[msb:lsb] or byte[bit]
+    Desc string
+    Values []HeaderRegValue
+    // private
+    parts []headerRegPart
+    bitwidth int
+}
+
+type HeaderRegValue struct {
+    Selectable
+    Value int
+}
+
+type headerRegPart struct {
+    // from header byte at offset take [msb:lsb]
+    offset, msb, lsb int
+    // and place it at bit [at]
+    at   int
+    mask int
+}
+
+type HeaderOffset struct {
+    Bits    int
+    Reverse bool
+    Start   int // Start location for the offset table
+    Regions []string
 }
 
 type Info struct {
@@ -158,34 +220,10 @@ type Overrule_t struct {
     Rotate           int
 }
 
-type DIPswDelete struct{
-    Selectable
-    Names []string
-}
-
 type DIPOffset struct {
     Selectable
     Name string
     Value int
-}
-
-type DipswCfg struct {
-    Delete []DIPswDelete
-    Offset []DIPOffset
-    base   int // Define it macros.def as JTFRAME_DIPBASE
-    Bitcnt int // Total bit count (including all switches)
-    Defaults [] struct {
-        Selectable
-        Value            string // used big-endian order, comma separated
-    }
-    Extra []struct {
-        Selectable
-        Name, Options, Bits string
-    }
-    Rename []struct {
-        Name, To string   // Will make Name <- To
-        Values   []string // Will rename the values if present
-    }
 }
 
 type FrameCfg struct {
@@ -193,20 +231,22 @@ type FrameCfg struct {
     Width int
 }
 
-type Mame2MRA struct {
-    Global struct {
-        Info      []Info
-        Author []string
-        Webpage, Twitter   string
-        Platform  string // Used by the Pocket target
-        Zip       struct {
-            Alt string
-        }
-        Orientation struct {
-            Fixed bool
-        }
-        Overrule []Overrule_t  // overrules values in MAME XML
+type GlobalCfg struct {
+    Info      []Info
+    Author []string
+    Webpage, Twitter   string
+    Platform  string // Used by the Pocket target
+    Zip       struct {
+        Alt string
     }
+    Orientation struct {
+        Fixed bool
+    }
+    Overrule []Overrule_t  // overrules values in MAME XML
+}
+
+type Mame2MRA struct {
+    Global GlobalCfg
 
     Pocket struct {
         Display_modes []int
@@ -249,10 +289,7 @@ type Mame2MRA struct {
 
     Header HeaderCfg
     Audio struct {
-        Volume []struct {
-            Selectable
-            Value int
-        }
+        Volume []VolumeCfg
     }
     ROM struct {
         Firmware string     // Used for consoles by the Pocket target
@@ -285,6 +322,37 @@ type Mame2MRA struct {
             Defaults []RawData // Initial value for NVRAM
         }
     }
+}
+
+type VolumeCfg struct {
+    Selectable
+    Value int
+}
+
+type DipswCfg struct {
+    Delete []DIPswDelete
+    Offset []DIPOffset
+    base   int // Define it macros.def as JTFRAME_DIPBASE
+    Bitcnt int // Total bit count (including all switches)
+    Defaults [] struct {
+        Selectable
+        Value            string // used big-endian order, comma separated
+    }
+    Extra []struct {
+        Selectable
+        Name, Options, Bits string
+    }
+    Rename []DipswCfgRename
+}
+
+type DIPswDelete struct{
+    Selectable
+    Names []string
+}
+
+type DipswCfgRename struct {
+    Name, To string   // Will make Name <- To
+    Values   []string // Will rename the values if present
 }
 
 type ParsedMachine struct {

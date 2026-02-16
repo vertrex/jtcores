@@ -92,11 +92,12 @@ module jtframe_6809wait(
 endmodule
 
 
-// Wrapper that hides the DMA access to RAM
+// Wrapper with RAM but without DMA
 module jtframe_sys6809 #( parameter
     RAM_AW   = 12,
     RECOVERY = 1,   // Recover clock cycles if needed
     KONAMI   = 0,   // Enable Konami-1 mode
+    IRQFF    = KONAMI==2,// Add latches for IRQ signals
     CENDIV   = 1    // set to zero to not divide by four the input cen, implies RECOVERY=0
 )(
     input           rstn,
@@ -127,7 +128,8 @@ module jtframe_sys6809 #( parameter
         .RAM_AW     ( RAM_AW    ),
         .RECOVERY   ( RECOVERY  ),
         .KONAMI     ( KONAMI    ),
-        .CENDIV     ( CENDIV    )
+        .CENDIV     ( CENDIV    ),
+        .IRQFF      ( IRQFF     )
     ) u_sys6809(
         .rstn       ( rstn      ),
         .clk        ( clk       ),
@@ -217,7 +219,7 @@ module jtframe_sys6809_dma #( parameter
     assign irq_ack = {BA,BS}==2'b01;
     assign bg      = {BA,BS}==2'b11; // this will toggle once every 16 cycles when granted
 
-    always @(posedge clk, negedge rstn) begin
+    always @(posedge clk) begin
         if( !rstn )
             VMA <= 1;
         else

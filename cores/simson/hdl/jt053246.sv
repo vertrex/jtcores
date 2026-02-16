@@ -23,8 +23,10 @@ module jt053246(    // sprite logic
     input             clk,
     input             pxl2_cen,
     input             pxl_cen,
+    input             simson,
 
-    input             simson,   // enables temporary hack for The Simpsons
+    output            ln_done,
+
     // CPU interface
     input             cs,
     input             cpu_we,
@@ -33,7 +35,7 @@ module jt053246(    // sprite logic
     input      [ 1:0] cpu_dsn,  // only used for MMR in 16-bit mode
 
     // ROM check by CPU
-    output     [21:1] rmrd_addr,
+    output     [22:1] rmrd_addr,
 
     // External RAM
     output     [13:1] dma_addr, // up to 16 kB
@@ -56,7 +58,8 @@ module jt053246(    // sprite logic
     input      [ 8:0] vdump,    // generated internally.
                                 // Hdump goes from 20 to 19F, 384 pixels
                                 // Vdump goes from F8 to 1FF, 264 lines
-    input             vs,
+    input      [ 9:0] voffset,
+    input             lvbl,
     input             hs,
 
     // shadow
@@ -72,11 +75,15 @@ module jt053246(    // sprite logic
     input      [ 7:0] st_addr,
     output     [ 7:0] st_dout
 );
-parameter XMEN = 0;
+parameter       K55673=0, K55673_DESC_SORT=0, EDGE_TRIGGER=0;
+parameter [9:0] HOFFSET   = 10'd62;
 
 localparam [2:0] REG_XOFF  = 0, // X offset
                  REG_YOFF  = 1, // Y offset
                  REG_CFG   = 2; // interrupt control, ROM read
+// K55673 seems to have fewer objects. Or maybe the lower half
+// is used for the second screen on Run'n Gun (?)
+localparam [7:0] SCAN_START = K55673==1 ? 8'h40 : 8'h0;
 
 wire [15:0] scan_even, scan_odd, dma_din;
 wire [11:2] scan_addr;
@@ -92,10 +99,10 @@ assign mode8     = cfg[2]; // guess, use it for 8-bit access on 46/47 pair
 assign cpu_bsy   = cfg[3];
 assign dma_en    = cfg[4];
 
-jt053246_scan #(.XMEN(XMEN)) u_scan(
+jt053246_scan #(.HOFFSET(HOFFSET),.SCAN_START(SCAN_START)) u_scan(
     .rst       ( rst        ),
     .clk       ( clk        ),
-    .simson    ( simson     ),
+    .done      ( ln_done    ),
     .code      ( code       ),
     .attr      ( attr       ),
     .hflip     ( hflip      ),
@@ -106,6 +113,7 @@ jt053246_scan #(.XMEN(XMEN)) u_scan(
     .hz_keep   ( hz_keep    ),
     .hdump     ( hdump      ),
     .vdump     ( vdump      ),
+    .voffset   ( voffset    ),
     .hs        ( hs         ),
     .scan_even ( scan_even  ),
     .scan_odd  ( scan_odd   ),
@@ -121,7 +129,11 @@ jt053246_scan #(.XMEN(XMEN)) u_scan(
 );
 
 
-jt053246_dma u_dma(
+jt053246_dma #(
+    .K55673          ( K55673           ),
+    .K55673_DESC_SORT( K55673_DESC_SORT ),
+    .EDGE_TRIGGER    ( EDGE_TRIGGER     )
+)u_dma(
     .rst        ( rst       ),
     .clk        ( clk       ),
     .pxl2_cen   ( pxl2_cen  ),
@@ -131,10 +143,9 @@ jt053246_dma u_dma(
     .dma_trig   ( 1'b0      ),
     .k44_en     ( 1'b0      ),   // enable k053244/5 mode (default k053246/7)
     .simson     ( simson    ),
-    .reversed   ( XMEN      ),
 
     .hs         ( hs        ),
-    .vs         ( vs        ),
+    .lvbl       ( lvbl      ),
 
     // External RAM
     .dma_addr   ( dma_addr  ), // up to 16 kB

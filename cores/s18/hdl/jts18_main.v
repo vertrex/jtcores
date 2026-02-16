@@ -67,10 +67,10 @@ module jts18_main(
     input       [ 7:0] joystick1,
     input       [ 7:0] joystick2,
     input       [ 7:0] joystick3,
-    input       [ 8:0] lg1_x,
-    input       [ 8:0] lg1_y,
-    input       [ 8:0] lg2_x,
-    input       [ 8:0] lg2_y,
+    input       [ 8:0] gun_1p_x,
+    input       [ 8:0] gun_1p_y,
+    input       [ 8:0] gun_2p_x,
+    input       [ 8:0] gun_2p_y,
     input       [ 1:0] dial_x,
     input       [ 1:0] dial_y,
     input       [ 2:0] cab_1p,
@@ -143,17 +143,6 @@ wire        BRn, BGACKn, BGn,
 reg         sdram_ok, io_cs, vdp_cs;
 wire [15:0] rom_dec, cpu_dout_raw;
 
-assign BUSn    = LDSn & UDSn;
-assign gray_n  = misc_o[6];
-assign flip    = misc_o[5];
-assign io_we   = io_cs && !RnW && !LDSn;
-assign io_rd   = io_cs &&  RnW && !LDSn;
-assign st_dout = st_io;
-// No peripheral bus access for now
-assign cpu_addr = A[23:1];
-// assign BERRn = !(!ASn && BGACKn && !rom_cs && !char_cs && !objram_cs  && !pal_cs
-//                               && !io_cs  && vram_cs && ram_cs);
-
 wire [ 7:0] active, mcu_din, mcu_dout;
 wire        mcu_wr, mcu_acc;
 wire [15:0] mcu_addr;
@@ -170,10 +159,28 @@ wire [15:0] mapper_dout;
 wire        none_cs;
 
 reg   [7:0] p1, p2, p3, coinage;
-
 wire        dial_cs;
 wire        dial_rst;
 wire  [7:0] dial_dout;
+reg         mwalk, mwalka, ind_coin, play3;
+
+assign BUSn    = LDSn & UDSn;
+assign gray_n  = misc_o[6];
+assign flip    = misc_o[5];
+assign io_we   = io_cs && !RnW && !LDSn;
+assign io_rd   = io_cs &&  RnW && !LDSn;
+assign st_dout = st_io;
+// No peripheral bus access for now
+assign cpu_addr = A[23:1];
+// assign BERRn = !(!ASn && BGACKn && !rom_cs && !char_cs && !objram_cs  && !pal_cs
+//                               && !io_cs  && vram_cs && ram_cs);
+
+always @( posedge clk ) begin
+    mwalk    <= game_id[6];
+    mwalka   <= game_id[7]; // In US version switches are exchanged
+    ind_coin <= ~(dipsw[13]^mwalka) & mwalk;
+    play3    <= ~(dipsw[12]^mwalka) & mwalk;
+end
 
 `ifndef NOMCU
 jtframe_8751mcu #(
@@ -305,10 +312,10 @@ always @(posedge clk) begin
 
     if (io_we && A[15:4] == 12'h301) begin
         case (A[2:1])
-            0: m6253_shift_reg <= ~lg1_y[7:0];
-            1: m6253_shift_reg <= lg_xscale(lg1_x);
-            2: m6253_shift_reg <= ~lg2_y[7:0];
-            3: m6253_shift_reg <= lg_xscale(lg2_x);
+            0: m6253_shift_reg <= ~gun_1p_y[7:0];
+            1: m6253_shift_reg <= lg_xscale(gun_1p_x);
+            2: m6253_shift_reg <= ~gun_2p_y[7:0];
+            3: m6253_shift_reg <= lg_xscale(gun_2p_x);
             default: ;
         endcase
     end
@@ -357,9 +364,14 @@ always @(*) begin
         p3 = {joystick3[3:0],joystick3[7:4]};
         // MSB 7-6 are select inputs, used in Wally
         // It may be safe to connect to button 0
-        coinage = cab3 ?
+        coinage = cab3 || ( play3 && ind_coin ) ?
             { coin[0], cab_1p[2:0], service, dip_test, coin[1], coin[2] }:
             {   2'b11, cab_1p[1:0], service, dip_test, coin[1:0] };
+        if( mwalk ) begin
+            p3[3]      = cab_1p[2];
+            coinage[6] = 1'b1;
+            if( !play3 ) coinage[1:0] = {coin[0],coin[1]};
+        end
     end
 end
 

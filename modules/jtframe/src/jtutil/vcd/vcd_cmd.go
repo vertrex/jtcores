@@ -1,17 +1,67 @@
+/*  This file is part of JTCORES.
+    JTFRAME program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    JTFRAME program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with JTFRAME.  If not, see <http://www.gnu.org/licenses/>.
+
+    Author: Jose Tejada Gomez. Twitter: @topapate
+    Date: 4-1-2025 */
+
 package vcd
 
 import(
     "bufio"
     "fmt"
-    "log"
     "os"
     "sort"
+    "slices"
     "strings"
     "strconv"
     "github.com/PaesslerAG/gval"
 )
 
-func Prompt( vcd, trace *LnFile, ss vcdData, mame_alias mameAlias ) {
+const CMD_HELP=`
+a,alias             links a MAME variable name with a signal name in the VCD
+                    alias mame-name=vcd-name        declares an alias
+                    alias clear                     deletes all aliases
+                    alias -foo                      deletes the alias "foo"
+d,diff              show differences between MAME and simulation at current time
+ds,display          display simulation signals at current time
+dt,display-trace    display MAME trace values at current time
+f,frame #number     advances the simulation upto the given frame
+g,go                compare MAME and simulation until a discrepancy cannot be resolved
+?,help              produces this help screen
+h,hierarchy         shows the signal hierarchy in the simulation
+i,ignore foo boo    ignores the given MAME variables in comparison. Shows the
+                    list of ignored variables if called without names
+kmax [newmax]       sets the maximum number of VCD cycles to advance before the
+                    comparison is deemed bad.
+mask name FF        sets bit masks for signals. Bits set at 1 will be ignored.
+match-vcd           moves MAME forward until it matches simulation vcd
+match-trace         moves the simulation forward until it matches MAME trace
+mt,mt-trace foo     moves MAME forward until the given condition is met
+                    start hex numbers with $ for comparison
+mv,mv-vcd foo       moves simulation forward until the given condition is met
+o,option foo        sets processing options
+    foo[=false/true]
+    retry               when a difference is found, a step-trace is executed
+                        if there are no differences, the comparison continues
+p,print             evaluates an expression. Use to test conditions
+q,quit              quits the program
+.,source foo        executes the commands in the given file
+s,step              forwards simulation by one relevant change
+set vcd-name=value  alters the value of a simulation signal
+st,step-trace       forwards MAME trace by one relevant change`
+
+func Prompt( vcd, trace *LnFile, ss VCDData, mame_alias mameAlias ) {
     fses, e := os.Create("trace.ses") // echo all session commands to a file
     defer fses.Close()
     must(e)
@@ -20,17 +70,14 @@ func Prompt( vcd, trace *LnFile, ss vcdData, mame_alias mameAlias ) {
     nested[0] = bufio.NewScanner(os.Stdin)
     scn := nested[0]
     pc_name := find_similar( "pc", ss)
-    alu_busy := ss.Get(find_similar( "alu_busy", ss ))
-    str_busy := ss.Get(find_similar( "str_busy", ss ))
-    stack_busy := ss.Get(find_similar( "stack_busy", ss ))
+    cmp := NewComparator(ss,vcd,trace)
 
     scope := findCommonScope(ss)
     fmt.Printf("At scope %s\n",scope)
     hier := GenerateHierarchy(ss)
-    mame_st := &MAMEState{ alias: mame_alias }
+    mame_st := &MAMEState{ alias: mame_alias, mask: make(NameValue) }
     sim_st := &SimState{ data: ss }
-    ignore := make(boolSet)
-    kmax := 4
+    ignore := newBoolSet(mame_st)
 
     cmd_diff := func() {
         if diff( mame_st, fmt.Sprintf("trace at %d - vcd time %s",trace.line,formatTime(vcd.time)), true, ignore )==0 {
@@ -68,33 +115,14 @@ func Prompt( vcd, trace *LnFile, ss vcdData, mame_alias mameAlias ) {
         if len(tokens)==0 { continue }
         if( nested[0]!=scn ) { fmt.Println(">",lt) } // echo if we are parsing a file
         switch tokens[0] {
-        case "g","go": searchDiff( vcd, trace, sim_st, mame_st, ignore, alu_busy, stack_busy, str_busy, kmax )
+        case "g","go": cmp.searchDiff(sim_st, mame_st, ignore )
         case "ds","display": {
             var t []string
             if len(tokens)>1 { t = tokens[1:]}
             display( t, vcd, trace, sim_st.data, scope )
         }
         case "d","diff": cmd_diff()
-        case "dt","display-trace": {
-            names := make([]string,len(mame_st.data))
-            k := 0
-            for n,_ := range mame_st.data {
-                names[k]=n
-                k++
-            }
-            sort.Slice(names,func(i,j int) bool { return strings.Compare(names[i],names[j])<0})
-            fmt.Printf("At line %d",trace.line)
-            ltxt := trace.Text()
-            if k:=strings.Index(ltxt,"*"); k!=-1 { fmt.Printf(ltxt[k+1:])}
-            fmt.Println()
-            for _,each := range names {
-                if each=="frame_cnt" {
-                    fmt.Printf("%s=%d\n", each, mame_st.data[each] )
-                } else {
-                    fmt.Printf("%s=0x%X\n", each, mame_st.data[each] )
-                }
-            }
-        }
+        case "dt","display-trace": display_trace(mame_st,trace)
         case "a","alias": {
             if len(tokens)==1 {
                 for k, each := range mame_st.alias {
@@ -147,37 +175,56 @@ func Prompt( vcd, trace *LnFile, ss vcdData, mame_alias mameAlias ) {
                 fmt.Printf("Start running a trace first\n")
                 break
             }
-            for k:=1; k<len(tokens);k++ {
-                name := tokens[k]
-                turnon:= true
-                if name[0]=='-' {
-                    turnon = false
-                    name=name[1:]
-                }
-                _, f := mame_st.data[name]
-                if !f {
-                    fmt.Printf("Couldn't find %s\n", name)
-                    continue
-                }
-                ignore[name]=turnon
-            }
-        }
-        case "il", "ignore-list": {
-            for k, each := range ignore {
-                if each { fmt.Printf("%s\n",k) }
+            if len(tokens)==1 {
+                ignore.Dump()
+            } else {
+                ignore.Update(tokens[1:]...)
             }
         }
         case "kmax": {
+            if len(tokens)==1 {
+                fmt.Printf("KMAX=%d\n",cmp.kmax)
+                break
+            }
             if len(tokens)!=2 {
                 fmt.Println("Wrong arguments. Use kmax <number>")
                 break
             }
             aux,_ := strconv.ParseUint(tokens[1],0,64)
-            kmax = int(aux)
-            if kmax < 2 {
+            cmp.kmax = int(aux)
+            if cmp.kmax < 2 {
                 fmt.Printf("Setting KMAX to minimum (2)")
-                kmax=2
+                cmp.kmax=2
             }
+        }
+        case "mask": {
+            if len(tokens)==1 {
+                if len(mame_st.mask)==0 {
+                    fmt.Println("No masks defined")
+                } else {
+                    for k,v := range mame_st.mask {
+                        fmt.Printf("%-10s %02X\n",k,v)
+                    }
+                }
+                break
+            }
+            if len(tokens)!=3 {
+                fmt.Println("Wrong arguments. Use mask <signal name> <hex mask>")
+                fmt.Println("Use mask without arguments to show the current mask set")
+                break
+            }
+            mask,e := strconv.ParseUint(tokens[2],16,64)
+            if e!=nil {
+                fmt.Println(e)
+                break
+            }
+            name := tokens[1]
+            _, found := mame_st.data[name]
+            if !found {
+                fmt.Printf("Signal %s not found in MAME trace\n", name)
+                break
+            }
+            mame_st.mask[name]=mask
         }
         case "q","quit": break prompt_loop
         case "scope": {
@@ -188,6 +235,15 @@ func Prompt( vcd, trace *LnFile, ss vcdData, mame_alias mameAlias ) {
                     fmt.Println(scope)
                 }
                 default: fmt.Println("Wrong number of arguments")
+            }
+        }
+        case "o","option": {
+            if len(tokens)==1 {
+                cmp.show_options()
+            } else if len(tokens)>2 {
+                fmt.Println("Too many options. Use: option foo[=true/false]")
+            } else {
+                print_error( cmp.set_option(tokens[1]) )
             }
         }
         case "p","print": {
@@ -225,15 +281,16 @@ func Prompt( vcd, trace *LnFile, ss vcdData, mame_alias mameAlias ) {
             break
         }
         case "s","step": {
-            nxVCDChange( vcd, sim_st, mame_st.alias, alu_busy, stack_busy, str_busy )
+            cmp.nxVCDChange( sim_st, mame_st.alias )
             cmd_diff()
         }
         case "st","step-trace": {
             old_data := mame_st.data
             var good bool
-            mame_st.data, good = nxTraceChange( trace, mame_st )
+            mame_st.data, good = cmp.nxTraceChange( mame_st )
             if good {
                 mame_st.data.showDiff(old_data)
+                cmd_diff()
             }
         }
         case "mv","mv-vcd": {
@@ -252,41 +309,24 @@ func Prompt( vcd, trace *LnFile, ss vcdData, mame_alias mameAlias ) {
             }
             expr := replaceHex(strings.Join(tokens[1:],""))
             fmt.Println(expr)
-            if !mvTrace( trace, mame_st, expr ) { break } // EOF
+            if !mvTrace( trace, mame_st, expr ) { break prompt_loop } // EOF
         }
-        case "match-trace": { // moves the trace until it matches the VCD data
-            matchTrace( trace, sim_st, mame_st, ignore )
+        case "match-vcd": { // moves the trace until it matches the VCD data
+            if len(tokens)!=1 {
+                fmt.Printf("match-vcd does not take arguments\n")
+                break
+            }
+            cmp.matchVCD( sim_st, mame_st, ignore )
         }
-        case "match-vcd": { // moves the VCD until it matches MAME data
-            matchVCD( vcd, sim_st, mame_alias, alu_busy, stack_busy, str_busy, mame_st, ignore )
+        case "match-trace": { // moves the VCD until it matches MAME data
+            if len(tokens)!=1 {
+                fmt.Printf("match-trace does not take arguments\n")
+                break
+            }
+            cmp.matchTrace( sim_st, mame_st, mame_alias, ignore )
         }
         case "?","help": {
-            fmt.Println(`
-a,alias             links a MAME variable name with a signal name in the VCD
-                    alias mame-name=vcd-name        declares an alias
-                    alias clear                     deletes all aliases
-                    alias -foo                      deletes the alias "foo"
-d,diff              show differences between MAME and simulation at current time
-ds,display          display simulation signals at current time
-dt,display-trace    display MAME trace values at current time
-f,frame #number     advances the simulation upto the given frame
-g,go                compare MAME and simulation until a discrepancy cannot be resolved
-?,help              produces this help screen
-h,hierarchy         shows the signal hierarchy in the simulation
-i,ignore foo boo    ignores the given MAME variables in comparison
-il,ignore-list      shows the list of ignored variables
-match-trace         moves MAME forward until it matches simulation
-match-vcd           moves the simulation forward until it matches MAME data
-mt,mt-trace foo     moves MAME forward until the given condition is met
-                    start hex numbers with $ for comparison
-mv,mv-vcd foo       moves simulation forward until the given condition is met
-p,print             evaluates an expression. Use to test conditions
-q,quit              quits the program
-.,source foo        executes the commands in the given file
-s,step              forwards simulation by one relevant change
-set vcd-name=value  alters the value of a simulation signal
-st,step-trace       forwards MAME trace by one relevant change
-`)
+            fmt.Println(CMD_HELP)
         }
         default: fmt.Println("Unknown command ",tokens[0])
         }
@@ -386,7 +426,7 @@ func mvVCD( vcd *LnFile, sim_st *SimState, hier *Hierarchy, expr string, scope s
     return false
 }
 
-func find_similar( name string, ss vcdData ) string {
+func find_similar( name string, ss VCDData ) string {
     pc := ""
     for _, each := range ss {
         if strings.ToLower(each.Name)==name {
@@ -411,7 +451,7 @@ func find_similar( name string, ss vcdData ) string {
     return pc
 }
 
-func findCommonScope( ss vcdData ) string {
+func findCommonScope( ss VCDData ) string {
     scope := ""
     var tokens []string
     first := true
@@ -442,7 +482,7 @@ func findCommonScope( ss vcdData ) string {
 }
 
 // t must be MAME-name=VCD-name
-func parseAlias( t []string, ss vcdData, mame_alias mameAlias ) {
+func parseAlias( t []string, ss VCDData, mame_alias mameAlias ) {
     main_loop:
     for _,each := range t {
         if each[0]=='-' {
@@ -470,7 +510,7 @@ func parseAlias( t []string, ss vcdData, mame_alias mameAlias ) {
 }
 
 // display all signals, or only the ones with partial string matches in the t []string
-func display( t []string, vcd, trace *LnFile, ss vcdData, scope string ) {
+func display( t []string, vcd, trace *LnFile, ss VCDData, scope string ) {
     fmt.Printf("Trace at line %d - VCD at line %d (time %s)\n",
         trace.line, vcd.line, formatTime(vcd.time))
     sorted := make([]struct{
@@ -497,57 +537,35 @@ func display( t []string, vcd, trace *LnFile, ss vcdData, scope string ) {
     }
 }
 
-func parseTrace( s string ) NameValue {
-    nv := make(NameValue)
-
-    if k := strings.Index(s,"*"); k!=-1 {
-        rest := s[k:]
-        s = s[0:k]
-        if k:=strings.Index(rest,"RTI");k!=-1 {
-            nv["RTI"]++
-            fmt.Printf("MAME RTI\n")
-        }
-        if k:=strings.Index(rest,"868D");k!=-1 {
-            fmt.Printf("MAME enters IRQ\n")
-        }
-    }
-    for _, token := range strings.Split(s,",") {
-        k := strings.Index(token,"=")
-        if k==-1 || k+1>len(token) { continue }
-        v,_ := strconv.ParseInt(token[k+1:],16,64)
-        n := token[0:k]
-        nv[n] = uint64(v)
-    }
-    return nv
-}
-
-func diff( st *MAMEState, context string, verbose bool, ignore boolSet ) int {
+func diff( st *MAMEState, context string, verbose bool, ignore *boolSet ) int {
     d := 0
-    var diffs sort.StringSlice
+    var diffs []string
     for name, value := range st.data {
         if name=="PC" { continue }
         p, _ := st.alias[name]
         if p == nil { continue }
-        toignore, _ := ignore[name]
-        if p.FullValue() == value && toignore { // use full value to concatenate data
-            ignore[name]=false  // stops ignoring it
+        toignore := ignore.IsSet(name)
+        mask, _ := st.mask[name]
+        equal := (p.FullValue() | mask) == (value | mask)
+        if equal && toignore { // use full value to concatenate data
+            ignore.Remove(name) // stops ignoring it
             fmt.Printf("%s taken out of the ignore list\n",name)
         }
-        if p.FullValue() !=value && !toignore {
+        if !equal && !toignore {
             if verbose {
                 if diffs==nil { diffs = make([]string,0,1) }
                 diffs = append(diffs, name)
             }
             d++
         }
-        if p.Name=="irq_bsy" && p.Value==1 { // do not compare the interrupt interval
+        if p.Name=="irq_bsy" && p.Value==1 { // do not compare during the interrupt interval
             return 0
         }
     }
     if verbose && diffs!=nil {
         if context!="" { fmt.Println(context) }
         fmt.Println("\t     MAME  -   SIM")
-        diffs.Sort()
+        slices.Sort(diffs)
         for _,name := range diffs {
             p,_ := st.alias[name]
             if p==nil { continue }
@@ -557,167 +575,7 @@ func diff( st *MAMEState, context string, verbose bool, ignore boolSet ) int {
     return d
 }
 
-func nxVCDChange( file *LnFile, sim_st *SimState, mame_alias mameAlias,
-        alu_busy, stack_busy, str_busy *VCDSignal ) (int,bool) {
-    l0 := file.line
-    changed := false
-    irq_bsy := sim_st.data.Get("TOP.game_test.u_game.u_game.u_main.u_cpu.u_ctrl.u_ucode.irq_bsy")
-    was_irq := irq_bsy!=nil && irq_bsy.Value!=0
-    was_stack := stack_busy!=nil && stack_busy.Value!=0
-    was_alu := alu_busy!=nil && alu_busy.Value!=0
-    was_str := str_busy!=nil && str_busy.Value!=0
-    for file.Scan() {
-        txt := file.Text()
-        if txt[0]=='#' {
-            file.time, _ = strconv.ParseUint( txt[1:],10,64 )
-            if changed {
-                break
-            } else {
-                continue
-            }
-        }
-        a, v := parseValue(txt)
-        assign( a, v, sim_st.data )
-        p,_ := sim_st.data[a]
-        if p==nil {
-            log.Fatal("Error: bad pointer to VCDSignal\n")
-        }
-        // Skip busy sections
-        if alu_busy!=nil && alu_busy.Value==1 {
-            was_alu = true
-            continue
-        } else if was_alu {
-            changed = true
-            break
-        }
-        if str_busy!=nil && str_busy.Value==1 {
-            was_str = true
-            continue
-        } else if was_str {
-            changed = true
-            break
-        }
-        if stack_busy!=nil && stack_busy.Value==1 {
-            was_stack = true
-            continue
-        } else if was_stack {
-            changed = true
-            break
-        }
-        if irq_bsy!=nil && irq_bsy.Value==1 {
-            if !was_irq {
-                was_irq=true
-                fmt.Println("VCD enters IRQ")
-            }
-            continue  // fly over the interrupt
-        } else if was_irq {
-            changed = true
-            break
-        }
-        for _,v := range mame_alias {
-            if p==v {
-                changed = true
-                // fmt.Printf("%s=%X\n",p.FullName(),p.Value)
-                break
-            }
-        }
-    }
-    if !changed {
-        fmt.Printf("Reached EOF of VCD file after ")
-    }
-    return file.line-l0, changed
-}
-
-func nxTraceChange( trace *LnFile, mame_st *MAMEState ) (NameValue,bool) {
-    // l0 := trace.line
-    for trace.Scan() {
-        old := mame_st.data
-        mame_st.data = parseTrace(trace.Text())
-        for name, _ := range mame_st.alias {
-            if mame_st.data[name] != old[name] {
-                // fmt.Printf(">%s changed\n",name)
-                // fmt.Printf("trace +%d lines\n",trace.line-l0)
-                return mame_st.data,true
-            }
-        }
-    }
-    fmt.Printf("Trace EOF\n")
-    return mame_st.data,false
-}
-
-func searchDiff( vcd,trace *LnFile, sim_st *SimState, mame_st *MAMEState,
-        ignore boolSet, alu_busy, stack_busy, str_busy *VCDSignal, KMAX int ) {
-    if mame_st.data==nil || len(mame_st.data)==0 {
-        trace.Scan()
-        mame_st.data = parseTrace(trace.Text())
-    }
-
-    var good bool
-    tvcd := vcd.time
-    var div_time uint64
-    main_loop:
-    for {
-        mame_st.data, good = nxTraceChange( trace, mame_st )
-        if !good { break }
-        div_time = vcd.time
-        for k:=0;k<KMAX;k++ {
-            if diff( mame_st, "", false, ignore )==0 { continue main_loop }
-            _, good := nxVCDChange( vcd, sim_st, mame_st.alias, alu_busy, stack_busy, str_busy )
-            if !good { break }
-            // fmt.Printf("+%d VCD lines\n",lines)
-        }
-        if diff( mame_st, "", false, ignore )!=0 {
-            break
-        }
-    }
-    fmt.Printf("+%s\n", formatTime(vcd.time-tvcd))
-    // display the difference
-    diff( mame_st, fmt.Sprintf("trace at %d - vcd time %s (diverged at %s)",
-        trace.line,formatTime(vcd.time), formatTime(div_time)), true, ignore )
-}
-
-func matchTrace( trace *LnFile, sim_st *SimState, mame_st *MAMEState, ignore boolSet ) bool {
-    if mame_st.data==nil || len(mame_st.data)==0 {
-        trace.Scan()
-        mame_st.data = parseTrace(trace.Text())
-    }
-    line0 := trace.line
-    var good, matched bool
-    for {
-        mame_st.data, good = nxTraceChange( trace, mame_st )
-        matched = diff( mame_st, "", false, ignore )==0
-        if !good || matched { break }
-    }
-    // display the difference
-    if !matched {
-        fmt.Printf("Impossible to match MAME to VCD")
-        diff( mame_st, fmt.Sprintf("trace at %d",trace.line), true, ignore )
-    } else {
-        fmt.Printf("Matched (+ %d lines)\n",trace.line-line0)
-    }
-    return matched
-}
-
-func matchVCD( file *LnFile, sim_st *SimState, mame_alias mameAlias,
-        alu_busy, stack_busy, str_busy *VCDSignal, mame_st *MAMEState, ignore boolSet ) bool {
-    var good, matched bool
-    for {
-        mv := 0
-        mv, good = nxVCDChange( file, sim_st, mame_alias, alu_busy, stack_busy, str_busy )
-        fmt.Printf("Moved by %d lines\n",mv)
-        matched = diff( mame_st, "", false, ignore )==0
-        if !good || matched { break }
-    }
-    // display the difference
-    if !matched {
-        fmt.Printf("Impossible to match VCD to MAME")
-        diff( mame_st, fmt.Sprintf("sim at time %d",file.time), true, ignore )
-    }
-    return matched
-}
-
-
-func MakeAlias( trace string, ss vcdData ) mameAlias {
+func MakeAlias( trace string, ss VCDData ) mameAlias {
     mame_alias := make(mameAlias)
     tokens := strings.Split(trace,",")
     if len(tokens)==0 { return mame_alias }
@@ -744,3 +602,28 @@ func MakeAlias( trace string, ss vcdData ) mameAlias {
     return mame_alias
 }
 
+func display_trace(mame_st *MAMEState, trace *LnFile) {
+    fmt.Printf("At line %d",trace.line)
+    ltxt := trace.Text()
+    print_assembler_code(ltxt)
+
+    names := mame_st.get_sorted_name_indexes()
+    if len(names)==0 {
+        fmt.Println("\nNo register content in line")
+        fmt.Printf("Line: '%s'\n",ltxt)
+        return
+    }
+    mame_st.print_registers(names)
+}
+
+func print_assembler_code(line string) {
+    if k:=strings.Index(line,"*"); k!=-1 {
+        assembler_code := line[k+1:]
+        fmt.Println(assembler_code)
+    }
+}
+
+func print_error( e error ) {
+    if e==nil { return }
+    fmt.Println(e)
+}

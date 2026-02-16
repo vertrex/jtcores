@@ -111,7 +111,7 @@ jtvigil_main u_main(
     .dipsw_a     ( dipsw[ 7:0]),
     .dipsw_b     ( dipsw[15:8])
 );
-/* verilator tracing_on */
+/* verilator tracing_off */
 jtvigil_video u_video(
     .rst        ( rst       ),
     .clk        ( clk       ),
@@ -167,7 +167,7 @@ jtvigil_video u_video(
     .gfx_en     ( gfx_en    ),
     .debug_bus  ( debug_bus )
 );
-
+/* verilator tracing_on */
 jtvigil_snd u_sound(
     .rst        ( rst       ),
     .clk        ( clk       ),

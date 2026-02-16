@@ -27269,6 +27269,18 @@
 		)
 		(uuid "03a7bcd1-796d-4e3f-bf28-619fccd763cc")
 	)
+	(text "256kB tile RAM\n16-bit access by CPU\n32-bit access by video"
+		(exclude_from_sim no)
+		(at 226.06 46.99 0)
+		(effects
+			(font
+				(size 1.651 1.651)
+				(thickness 0.2064)
+			)
+			(justify left)
+		)
+		(uuid "04afd9cf-fb24-46ea-8a9b-a2586f3dc3ce")
+	)
 	(text "N2H"
 		(exclude_from_sim no)
 		(at 87.63 233.68 0)
@@ -27599,6 +27611,17 @@
 		)
 		(uuid "7cca24a7-d836-4a97-8300-c0c5985d351a")
 	)
+	(text "64k x 4bit"
+		(exclude_from_sim no)
+		(at 238.76 92.71 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left)
+		)
+		(uuid "7da1722f-9621-46a6-aa90-6b2a302753a5")
+	)
 	(text "~{MREAD2}"
 		(exclude_from_sim no)
 		(at 116.84 248.92 0)
@@ -27686,6 +27709,17 @@
 			(justify left bottom)
 		)
 		(uuid "8dc40a68-33c9-465e-b5df-76f5d5144a01")
+	)
+	(text "CPUCTL flag must be set in 007779\nto get the VA bus driven by the CPUs"
+		(exclude_from_sim no)
+		(at 21.59 187.96 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left)
+		)
+		(uuid "8de954b3-f4ca-41f5-9406-66c99fd85185")
 	)
 	(text "P4H"
 		(exclude_from_sim no)
@@ -27829,6 +27863,18 @@
 			(justify left bottom)
 		)
 		(uuid "c8389f97-7bd0-4d9b-87c7-8cf801aa7aea")
+	)
+	(text "ZIP RAM"
+		(exclude_from_sim no)
+		(at 240.03 40.64 0)
+		(effects
+			(font
+				(size 1.905 1.905)
+				(thickness 0.254)
+				(bold yes)
+			)
+		)
+		(uuid "c8e3ab0a-389e-4290-a973-7bae365889e9")
 	)
 	(text "T"
 		(exclude_from_sim no)
@@ -32637,7 +32683,7 @@
 		)
 		(uuid "ec22ea06-1a89-4b7a-a08b-c6079d463e0f")
 	)
-	(label "BUS"
+	(label "2C6"
 		(at 389.89 118.11 0)
 		(fields_autoplaced yes)
 		(effects
@@ -33306,7 +33352,7 @@
 		)
 		(uuid "3bb3cefe-d629-4748-a516-1776daf13bed")
 	)
-	(hierarchical_label "{2C}"
+	(hierarchical_label "2C[0..6]"
 		(shape output)
 		(at 397.51 100.33 0)
 		(fields_autoplaced yes)

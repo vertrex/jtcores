@@ -1,4 +1,23 @@
+/*  This file is part of JTFRAME.
+    JTFRAME program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    JTFRAME program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with JTFRAME.  If not, see <http://www.gnu.org/licenses/>.
+
+    Author: Jose Tejada Gomez. Twitter: @topapate
+    Date: 4-1-2025 */
+
 package mem
+
+var Verbose bool
 
 type Args struct {
     Core     string
@@ -6,6 +25,7 @@ type Args struct {
     Verbose  bool
     Local    bool  // Dump to local folder, else dump to target folder
     Make_inc bool
+    Nodbg    bool
     // The memory selection (SDRAM, DDR, BRAM...) will be here
 }
 
@@ -21,31 +41,11 @@ type Bus interface {
     Is_nbits(n int) bool
 }
 
-type Selectable struct {
-    Target      string
-    Targets   []string
-    NoTarget    string
-    NoTargets []string
-}
-
-type SDRAMBus struct {
-    Selectable
-    Name       string `yaml:"name"`
-    Offset     string `yaml:"offset"`
-    Addr       string `yaml:"addr"`
-    Addr_width int    `yaml:"addr_width"` // Width for counting all *bytes*
-    Data_width int    `yaml:"data_width"`
-    Cache_size int    `yaml:"cache_size"`
-    Rw         bool   `yaml:"rw"`
-    Dont_erase bool   `yaml:"do_not_erase"`
-    Dsn        string `yaml:"dsn"`  // optional name for dsn signal
-    Din        string `yaml:"din"`  // optional name for din signal
-    Cs         string `yaml:"cs"`
-    Gfx        string `yaml:"gfx_sort"`
-}
-
 type BRAMBus struct {
-    Selectable
+    // MacroEnabled
+    When    []string `yaml:"when"`
+    Unless  []string `yaml:"unless"`
+
     Name       string `yaml:"name"`
     Addr_width int    `yaml:"addr_width"` // Width for counting all *bytes*
     Data_width int    `yaml:"data_width"`
@@ -55,11 +55,8 @@ type BRAMBus struct {
     Din        string `yaml:"din"`  // optional name for din signal
     Dout       string `yaml:"dout"` // optional name for dout signal
     Sim_file   bool   `yaml:"sim_file"`
-    Ioctl      struct {
-        Save bool `yaml:"save"`
-        Order int `yaml:"order"`
-        Restore bool `yaml:"restore"`
-    } `yaml:"ioctl"`
+    Prom       bool   `yaml:"prom"` // program contents after JTFRAME_PROM_START
+    Ioctl      BRAMBus_Ioctl `yaml:"ioctl"`
     Dual_port  struct {
         Name string `yaml:"name"`
         Addr string `yaml:"addr"` // may be needed if the RAM is 8 bits, but the dual port comes from a 16-bit address bus, so [...:1] should be added
@@ -73,12 +70,18 @@ type BRAMBus struct {
     ROM struct { // Use the BRAM as ROM
         Offset string `yaml:"offset"`
     } `yaml:"rom"`
+    // Derived information
+    PROM_offset   int // PROM offset in .rom file
 }
 
-type SDRAMBank struct {
-    Buses []SDRAMBus `yaml:"buses"`
-    // Precalculated values
-    MemType string
+type BRAMBus_Ioctl struct {
+    // Instantiating MacroEnabled anonymously does not work
+    // with the YAML package, so When and Unless are duplicated here
+    When    []string `yaml:"when"`
+    Unless  []string `yaml:"unless"`
+    Save    bool `yaml:"save"`
+    Order   int  `yaml:"order"`
+    Restore bool `yaml:"restore"`
 }
 
 type DownloadCfg struct {
@@ -88,12 +91,8 @@ type DownloadCfg struct {
     Noswab    bool `yaml:"noswab"`    // SWAB parameter of jtframe_download
 }
 
-type SDRAMCfg struct {
-    Banks []SDRAMBank `yaml:"banks"`
-}
-
 type Include struct {
-    Game string `yaml:"game"` // if not null, it will load from that game cfg folder
+    Core string `yaml:"core"` // if not null, it will load from that game cfg folder
     File string `yaml:"file"` // if null, mem.yaml will be used
 }
 
@@ -123,6 +122,8 @@ type ClockCfg struct {
     OutStr  string
     Comment string
     Busy    string
+    // private
+    ratio   float64
 }
 
 type IoctlBus struct{ // not a YAML type
@@ -166,18 +167,33 @@ type AudioCh struct {
     Fcut       [2]int
     Gain       string
     gain       float64
+    rout       float64
+}
+
+type AudioPCB struct{
+    Machine     string `yaml:"machine"`
+    Machines    string `yaml:"machines"`
+    Rfb         string `yaml:"rfb"`     // feedback resistor of final opamp
+    Rsums     []string `yaml:"rsums"`   // summing resistor for each channel
+    Pres      []float64 `yaml:"pres`    // pre-gains
+    // Derived, not in YAML
+    Gaincfg     string
 }
 
 type Audio struct {
-    Rsum    string `yaml:"rsum"`
     Mute    bool   `yaml:"mute"`
     RC         AudioRC `yaml:"rc"`
+    Rsum    string `yaml:"rsum"`
+    Rsum_feedback_res bool `yaml:"rsum_feedback_res"`
+    Gain    float64 `yaml:"gain"` // additional global gain
     Channels []AudioCh `yaml:"channels"`
     // Fractional divider information to generate 192kHz clock
     FracW,FracN,FracM int
+    PCB []AudioPCB `yaml:"pcb"`
     // Derived information
     GlobalPole string
     GlobalFcut int
+    Stereo     bool
 }
 
 type MemConfig struct {
@@ -201,9 +217,43 @@ type MemConfig struct {
     Unused   [4]bool // true for unused banks
     // Derived information
     Ioctl    Ioctl
-    Stereo   bool
+    Gfx4     string
     Gfx8     string
-    Gfx16    string
+    Gfx16, Gfx16b string
     Gfx8b0, Gfx16b0 int
     Balut,Lutsh int
+}
+
+type SDRAMCfg struct {
+    Banks []SDRAMBank `yaml:"banks"`
+}
+
+type SDRAMBank struct {
+    Buses []SDRAMBus `yaml:"buses"`
+    // Precalculated values
+    MemType string
+}
+
+type SDRAMBus struct {
+    // MacroEnabled
+    When    []string `yaml:"when"`
+    Unless  []string `yaml:"unless"`
+
+    Name       string `yaml:"name"`
+    Offset     string `yaml:"offset"`
+    Addr       string `yaml:"addr"`
+    Addr_width int    `yaml:"addr_width"` // Width for counting all *bytes*
+    Data_width int    `yaml:"data_width"`
+    Cache_size int    `yaml:"cache_size"`
+    Rw         bool   `yaml:"rw"`
+    Dont_erase bool   `yaml:"do_not_erase"`
+    Dsn        string `yaml:"dsn"`  // optional name for dsn signal
+    Din        string `yaml:"din"`  // optional name for din signal
+    Cs         string `yaml:"cs"`
+    Gfx        string `yaml:"gfx_sort"`
+    Gfx_en     string `yaml:"gfx_sort_en"`
+}
+
+type Optional interface{
+    Enabled() bool
 }

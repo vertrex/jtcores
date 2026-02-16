@@ -60,8 +60,8 @@ assign prom_irq_we   = prom_we && prog_addr[11:8]==(!hige ? 4'd8 : 4'd3); // sb-
 
 assign pxl2_cen = cen12;
 assign pxl_cen  = cen6;
-assign debug_view = 0;
-assign dip_flip = eff_flip^flip_xor;
+assign debug_view = {dipsw[16], 3'b0, 1'b0, dip_flip, flip_xor, flip };
+assign dip_flip = (game_id==VULGUS & dipsw[16]) ^ flip;
 // CHAR VRAM in mem.yaml
 assign chram_dout = cpu_AB[10] ? chram_o16[15:8] : chram_o16[7:0];
 assign chram_din  = {2{cpu_dout}};
@@ -83,8 +83,8 @@ always @(posedge clk) begin
             1: flip_xor <= prog_data[0];
         endcase
     end
-    // Vulgus has an "extra" DIP switch to enable screnn flip
-    eff_flip <= (game_id==VULGUS & dipsw[16]) ^ flip_xor ^ flip ;
+    // Vulgus has an "extra" DIP switch to enable screen flip
+    eff_flip <= dip_flip ^ flip_xor;
 end
 /* verilator tracing_off */
 jt1942_main u_main(
@@ -187,7 +187,7 @@ jt1942_video u_video(
     .H          ( H             ),
     .rd_n       ( rd_n          ),
     .wr_n       ( wr_n          ),
-    .flip       ( dip_flip      ),
+    .flip       ( eff_flip      ),
     .cpu_dout   ( cpu_dout      ),
     .pause      ( ~dip_pause    ), //dipsw_a[7]    ),
     // CHAR

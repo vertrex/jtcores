@@ -1,4 +1,4 @@
-/*  This file is part of JT_FRAME.
+/*  This file is part of JTFRAME.
     JTFRAME program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
     the Free Software Foundation, either version 3 of the License, or
@@ -33,7 +33,7 @@ module jtframe_virq(
 
 reg last_LVBL, last_cin, skip;
 
-always @(posedge clk, posedge rst) begin : int_gen
+always @(posedge clk) begin : int_gen
     if( rst ) begin
         custom_n <= 1;
         blin_n   <= 1;

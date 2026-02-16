@@ -62,6 +62,7 @@ module jtframe_68kdtack_cen
     input         bus_cs,
     input         bus_busy,
     input         bus_legit,
+    input         bus_ack, // do not recover cycles if another CPU has the bus
     input         ASn,  // DTACKn set low at the next cpu_cen after ASn goes low
     input [1:0]   DSn,  // If DSn goes high, DTACKn is reset high
     input [W-2:0] num,  // numerator
@@ -79,9 +80,9 @@ localparam CW=W+WD;
 
 reg [CW-1:0] cencnt=0;
 reg  [1:0]   waitsh;
-wire         halt;
 wire [W-1:0] num2 = { num, 1'b0 }; // num x 2
-wire over = cencnt>den-num2;
+wire         recover, delayed;
+wire         over = cencnt>den-num2;
 reg  [CW:0] cencnt_nx=0;
 reg         risefall=0, wait1;
 
@@ -93,9 +94,6 @@ reg         risefall=0, wait1;
     // Not needed in synthesis
     wire rstl=0;
 `endif
-
-assign halt = !rstl && RECOVERY==1 && !ASn && {waitsh,wait1}==0 && (bus_cs && bus_busy && !bus_legit);
-
 
 always @(posedge clk) begin : dtack_gen
     if( rst ) begin
@@ -120,14 +118,36 @@ always @(posedge clk) begin : dtack_gen
 end
 
 always @* begin
-    cencnt_nx = over && !halt ? {1'b0,cencnt}+num2-den : { 1'b0, cencnt} +num2;
+    cencnt_nx = over ? {1'b0,cencnt}+num2-den : { 1'b0, cencnt}+num2;
 end
+
+generate if (RECOVERY==1) begin
+    reg [CW-1:0] missing;
+    assign recover =  ASn && missing>0 && !over && !bus_ack;
+    assign delayed = !ASn && !rstl && {waitsh,wait1}==0 && (bus_cs && bus_busy && !bus_legit);
+
+    always @(posedge clk) begin
+        if( rst ) begin
+            missing <= 0;
+        end else begin
+            if( delayed && (cpu_cen|cpu_cenb) ) begin
+                missing <= missing + 1'b1;
+            end
+            if( recover ) begin
+                missing <= missing - 1'b1;
+            end
+        end
+    end
+end else begin
+    assign recover=0;
+    assign delayed=0;
+end endgenerate
 
 always @(posedge clk) begin
     cencnt  <= cencnt_nx[CW] ? {CW{1'b1}} : cencnt_nx[CW-1:0];
     if( rst ) cencnt <= 0;
-    if( over || rst || halt ) begin
-        cpu_cen  <= risefall;
+    if( over || rst || recover) begin
+        cpu_cen  <=  risefall;
         cpu_cenb <= ~risefall;
         risefall <= ~risefall;
     end else begin
@@ -142,11 +162,12 @@ end
 
 // Frequency reporting
 wire [3:0] nc1, nc2;
+wire       eff_cen = cpu_cen && !delayed;
 
 jtframe_freqinfo #(.DIGITS(5),.MFREQ(MFREQ)) u_freq(
     .rst    ( rst               ),
     .clk    ( clk               ),
-    .pulse  ( cpu_cen && !halt  ),
+    .pulse  ( eff_cen           ),
     .fave   ( { fave, nc1 }     ),
     .fworst ( { fworst, nc2 }   )
 );

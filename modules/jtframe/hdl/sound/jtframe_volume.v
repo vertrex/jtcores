@@ -1,4 +1,4 @@
-/*  This file is part of JT_FRAME.
+/*  This file is part of JTFRAME.
     JTFRAME program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
     the Free Software Foundation, either version 3 of the License, or
@@ -23,14 +23,24 @@ module jtframe_volume(
     input            peak,
     input            up,
     input            down,
+    input      [7:0] game_vol,
     output reg [7:0] vol
 );
 
-reg lock, vs_l, peaked;
+localparam [7:0] UNSET=8'h0;
 
-always @(posedge clk, posedge rst) begin
+reg lock, vs_l, peaked;
+reg [ 7:0] knob;
+reg [15:0] vol16;
+
+always @(posedge clk) begin
+    vol16 <= game_vol==UNSET ? {knob,8'd0} : knob*game_vol;
+    vol   <= vol16[15] ? 8'hff : vol16[14-:8];
+end
+
+always @(posedge clk) begin
     if( rst ) begin
-        vol    <= 8'h80; // matching value in game_test.v
+        knob   <= 8'h80; // matching value in game_test.v
         vs_l   <= 0;
         lock   <= 0;
         peaked <= 0;
@@ -38,11 +48,11 @@ always @(posedge clk, posedge rst) begin
         vs_l <= vs;  
         if(  peak ) peaked <= 1;
         if( !lock ) begin
-            if( ~&vol && up && !peaked ) begin
-                vol <= vol+8'd1;
+            if( ~&knob && up && !peaked ) begin
+                knob <= knob+8'd1;
             end
-            if(  |vol && down ) begin
-                vol <= vol-8'd1;
+            if(  |knob && down ) begin
+                knob <= knob-8'd1;
                 peaked <= 0;
             end
             lock <= 1;

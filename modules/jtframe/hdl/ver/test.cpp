@@ -26,6 +26,7 @@
 #include <iostream>
 #include <fstream>
 #include <string>
+#include <sys/stat.h>
 #include "UUT.h"
 #include "defmacros.h"
 
@@ -46,7 +47,6 @@
     #define _JTFRAME_COLORW 4
 #endif
 
-
 #ifndef _JTFRAME_GAMEPLL
     #define _JTFRAME_GAMEPLL "jtframe_pll6000"
 #endif
@@ -54,13 +54,22 @@
 using namespace std;
 
 #ifdef _JTFRAME_SDRAM_LARGE
-    const int BANK_LEN = 0x100'0000;
+    const int COLW     = 10;
 #else
-    const int BANK_LEN = 0x080'0000;
+    const int COLW     = 9;
 #endif
+const int BANK_LEN = 0x4000 << COLW;
+const int AMASK    = (BANK_LEN>>1)-1;
+const int COLMASK  = (1<<COLW)-1;
 
 #ifndef _JTFRAME_SIM_DIPS
     #define _JTFRAME_SIM_DIPS 0xffffffff
+#endif
+
+#if _JTFRAME_SIM96 || _JTFRAME_SDRAM96
+const bool use96 = true;
+#else
+const bool use96 = false;
 #endif
 
 #define ANSI_COLOR_RED     "\x1b[31m"
@@ -135,25 +144,92 @@ public:
     void dump();
 };
 
+
+////// Clock advance
+class MultiClock {
+protected:
+    int cnt;
+    UUT& game;
+    vluint64_t semi;
+public:
+    MultiClock(UUT& g) : game(g) {
+        cnt=0;
+#ifdef _JTFRAME_PLL
+        semi = (vluint64_t)(1e12/(16.0*_JTFRAME_PLL*1000.0));
+#else
+        semi = (vluint64_t)10416; // 48MHz
+#endif
+    }
+    virtual void advance_half_period()=0;
+    virtual vluint64_t get_semi_period() { return semi; }
+};
+
+class MultiClock48 : MultiClock {
+public:
+    MultiClock48(UUT& g) : MultiClock(g) { }
+    virtual void advance_half_period();
+};
+
+class MultiClock96 : MultiClock {
+public:
+    MultiClock96(UUT& g) : MultiClock(g) { semi/=2; }
+    virtual void advance_half_period();
+};
+
+class MultiClockSim96 : MultiClock {
+public:
+    virtual void advance_half_period();
+};
+
+MultiClock* MakeMultiClock(UUT& game) {
+    return use96 ? (MultiClock*)new MultiClock96(game):
+                   (MultiClock*)new MultiClock48(game);
+}
+
+void MultiClock48::advance_half_period() {
+    // keep order so clk signals are in phase
+    game.clk24 = (cnt>>1)&1;
+    cnt++;
+    game.clk   =  cnt    &1;
+#ifdef _JTFRAME_CLK48
+    game.clk48 =  game.clk;
+#endif
+}
+
+void MultiClock96::advance_half_period() {
+    // keep order so clk signals are in phase
+    game.clk48 = (cnt>>1)&1;
+    cnt++;
+    cnt&=7;
+    game.clk24 = (cnt>6 || cnt<=2) ? 1 : 0;
+    game.clk96 =  cnt    &1;
+#ifdef _JTFRAME_SDRAM96
+    game.clk   =  game.clk96;
+#else
+    game.clk   =  game.clk48;
+#endif
+}
+
 class SimInputs {
     ifstream fin;
     UUT& dut;
     int line;
-    bool done;
+    bool done, rst_assigned;
 public:
     SimInputs( UUT& _dut) : dut(_dut) {
-        dut.dip_pause=1;
+        dut.dip_pause = 1;
+        rst_assigned  = 0;
         dut.joystick1 = 0xff;
         dut.joystick2 = 0xff;
         dut.joystick3 = 0xff;
         dut.joystick4 = 0xff;
-        dut.cab_1p = 0xf;
-        dut.coin   = 0xf;
-        dut.service      = 1;
-        dut.tilt         = 1;
-        dut.dip_test     = 1;
+        dut.cab_1p    = 0xf;
+        dut.coin      = 0xf;
+        dut.service   = 1;
+        dut.tilt      = 1;
+        dut.dip_test  = 1;
 #ifdef _JTFRAME_OSD_FLIP
-        dut.dip_flip     = 1; // Disable OSD-based flip
+        dut.dip_flip  = 1; // Disable OSD-based flip
 #endif
 #ifdef _SIM_INPUTS
         line = 0;
@@ -169,6 +245,7 @@ public:
         done = true;
 #endif
     }
+    bool is_controlling_reset() { return rst_assigned; }
     void next() {
         if( !done && fin.good() ) {
             string s;
@@ -190,19 +267,48 @@ public:
     }
     void parse_inputs( unsigned v ) {
         v = ~v;
+        apply_reset(v);
+        apply_joystick(v);
         auto coin_l   = dut.coin&3;
         dut.dip_test  = (v & 0x800) ? 1 : 0;
         dut.service   = (v & 0x002) ? 1 : 0;
         dut.cab_1p    = 0xc | ((v>>2)&3);
         dut.coin      = 0xe | (v&1);
+        if( coin_l != (dut.coin&3) && coin_l!=3 ) {
+            cout << "\ncoin inserted (sim_inputs.hex line " << line << ")\n";
+        }
+    }
+    void apply_reset(unsigned v) {
+        const int RESET_BIT=0x1000;
+        if( (v&RESET_BIT)!=0 && rst_assigned ) {
+            rst_assigned = false;
+            dut.rst  =0;
+            dut.rst24=0;
+            dut.rst96=0;
+        }
+        if( (v&RESET_BIT)==0 ) {
+            if(!rst_assigned) cout << "\nReset forced through cabinet input file";
+            rst_assigned = true;
+            dut.rst  =1;
+            dut.rst24=1;
+            dut.rst96=1;
+        }
+    }
+    void apply_joystick(unsigned v) {
         dut.joystick1 = 0x30f | ((v>>4)&0xf0); // buttons 1~4
         v >>= 4;    // directions:
         dut.joystick1    = (dut.joystick1&0xf0) | (v&0xf); // _JTFRAME_JOY_UDLR
 #ifdef _JTFRAME_JOY_LRUD
         dut.joystick1    = (dut.joystick1&0xf0) | ((v&3)<<2) | ((v>>2)&3);
 #endif
+#ifdef _JTFRAME_JOY_LRDU
+        dut.joystick1    = (dut.joystick1&0xf0) | ((v&3)<<2) | ((v>>3)&1) | ((v>>1)&2);
+#endif
 #ifdef _JTFRAME_JOY_RLDU
         dut.joystick1    = (dut.joystick1&0xf0) | ((v&1)<<3) | ((v&2)<<1) | ((v&4)>>1) | ((v&8)>>3);
+#endif
+#ifdef _JTFRAME_JOY_RLUD
+        dut.joystick1    = (dut.joystick1&0xf0) | ((v&1)<<3) | ((v&2)<<1) | ((v&4)>>2) | ((v&8)>>2);
 #endif
 #ifdef _JTFRAME_JOY_DURL
         dut.joystick1    = (dut.joystick1&0xf0) | ((v&8)>>1) | ((v&4)<<1) | ((v&2)>>1) | ((v&1)<<1);
@@ -213,9 +319,6 @@ public:
 #ifdef _JTFRAME_JOY_UDRL
         dut.joystick1    = (dut.joystick1&0xf0) | (v&0xc) | ((v&2)>>1) | ((v&1)<<1);
 #endif
-        if( coin_l != (dut.coin&3) && coin_l!=3 ) {
-            cout << "\ncoin inserted (sim_inputs.hex line " << line << ")\n";
-        }
     }
 };
 
@@ -227,7 +330,7 @@ int fileLength( const char *name ) {
 
 class Download {
     UUT& dut;
-    int addr, din, ticks,len, cart_start, nvram_start;
+    int addr, din, ticks, zeroat, len, cart_start, nvram_start;
     char *buf, *iodin;
     bool done, cart, nvram, full_download, iodump_busy;
     int read_buf() {
@@ -304,7 +407,7 @@ public:
                 fputs("Short ROM download\n",stderr);
             }
         }
-        ticks = 0;
+        ticks = 0; zeroat = 0;
         done = false;
         dut.ioctl_rom = 1;
         dut.ioctl_addr = 0;
@@ -313,8 +416,12 @@ public:
         addr = -1;
     }
     void update() {
+#ifdef _JTFRAME_SIM96
+        if(ticks==zeroat) dut.ioctl_wr = 0;
+#else
         dut.ioctl_wr = 0;
-        if( dut.ioctl_rom ) step_download();
+#endif
+        if( dut.ioctl_rom || dut.ioctl_ram ) step_download();
         if( iodump_busy ) iodump_step();
     }
     void step_download() {
@@ -337,6 +444,7 @@ public:
                     if( nvram && addr>=nvram_start) {
                         dut.ioctl_addr -= nvram_start;
                         dut.ioctl_ram = 1;
+                        dut.ioctl_rom = 0;
                     }
 #endif
                     dut.ioctl_dout = read_buf();
@@ -344,6 +452,7 @@ public:
                 case 1:
                     if( addr < len ) {
                         dut.ioctl_wr = 1;
+                        zeroat = ticks+2;
                     } else {
 #ifdef _JTFRAME_IOCTL_RD
                         dut.ioctl_ram   = 0;
@@ -397,12 +506,13 @@ const int VIDEO_BUFLEN = _JTFRAME_WIDTH*_JTFRAME_HEIGHT;
 
 class JTSim {
     vluint64_t simtime;
-    vluint64_t semi_period;
     WaveWritter wav;
     string convert_options;
     int coremod;
+    MultiClock *multi_clock;
 
     void parse_args( int argc, char *argv[] );
+    void measure_screen_rate();
     void video_dump();
     void get_coremod();
     bool trace;   // trace enable or not
@@ -412,7 +522,7 @@ class JTSim {
     SDRAM sdram;
     SimInputs sim_inputs;
     Download dwn;
-    int frame_cnt, last_LVBL, last_VS;
+    int frame_cnt, last_LVBL, last_VS, last_flip;
     // Video dump
     struct t_dump{
         ofstream fout;
@@ -458,12 +568,20 @@ class JTSim {
         }
     }
     void reset(int r);
+    void report_flip_changes() {
+        if( !game.rst ) {
+            if( last_flip != game.dip_flip ) fputs("\ndip_flip toggled\n", stderr);
+        }
+        last_flip = game.dip_flip;
+    }
 public:
     int finish_time, finish_frame, totalh, totalw, activeh, activew;
+    float vrate;
     bool done() {
         if( game.contextp()->gotFinish() ) return true;
         return (finish_frame>0 ? frame_cnt > finish_frame :
-                simtime/1000'000'000 >= finish_time ) && (!game.ioctl_rom && !game.dwnld_busy);
+                simtime/1000'000'000 >= finish_time ) &&
+               (!game.ioctl_rom && !game.ioctl_ram && !game.dwnld_busy);
     };
     UUT& game;
     int get_frame() { return frame_cnt; }
@@ -471,6 +589,7 @@ public:
     JTSim( UUT& g, int argc, char *argv[] );
     ~JTSim();
     void clock(int n);
+    int time2ticks(vluint64_t time_in_ps) { return int(time_in_ps/(2L*multi_clock->get_semi_period())); }
 };
 
 ////////////////////////////////////////////////////////////////////////
@@ -482,7 +601,6 @@ int SDRAM::read_bank( char *bank, int addr ) {
     addr &= mask;
     int16_t *b16 =(int16_t*)bank;
     int v = b16[addr]&0xffff;
-    //printf("\tread %x\n", addr );
     return v;
 }
 
@@ -502,7 +620,6 @@ void SDRAM::write_bank16( char *bank, int addr, int val, int dm /* act. low */ )
     }
     v &= 0xffff;
     b16[addr] = (int16_t)v;
-    //if(verbose) printf("%04X written to %X\n", v,addr);
 }
 
 void SDRAM::dump() {
@@ -575,12 +692,12 @@ void SDRAM::update() {
             change_burst();
         }
         if( !dut.SDRAM_nRAS && dut.SDRAM_nCAS && dut.SDRAM_nWE ) { // Row address - Activate command
-            ba_addr[ cur_ba ] = dut.SDRAM_A << 9; // 32MB module
-            ba_addr[ cur_ba ] &= 0x3fffff;
+            ba_addr[ cur_ba ] = dut.SDRAM_A << COLW;
+            ba_addr[ cur_ba ] &= AMASK;
         }
         if( dut.SDRAM_nRAS && !dut.SDRAM_nCAS ) {
-            ba_addr[ cur_ba ] &= ~0x1ff;
-            ba_addr[ cur_ba ] |= (dut.SDRAM_A & 0x1ff);
+            ba_addr[ cur_ba ] &= ~COLMASK;
+            ba_addr[ cur_ba ] |= (dut.SDRAM_A & COLMASK);
             if( dut.SDRAM_nWE ) { // enque read
                 rd_st[ cur_ba ] = burst_len+2;
             } else {
@@ -593,14 +710,7 @@ void SDRAM::update() {
         }
         int ba_busy=-1;
         for( int k=0; k<4; k++ ) {
-            // switch( k ) {
-            //  case 0: dut.SDRAM_BA_ADDR0 = ba_addr[0]; break;
-            //  case 1: dut.SDRAM_BA_ADDR1 = ba_addr[1]; break;
-            //  case 2: dut.SDRAM_BA_ADDR2 = ba_addr[2]; break;
-            //  case 3: dut.SDRAM_BA_ADDR3 = ba_addr[3]; break;
-            // }
             if( rd_st[k]>0 && rd_st[k]<=burst_len ) { // Tested with 32 and 64-bit reads (JTFRAME_BAx_LEN=64)
-                // May fail when using 96MHz for SDRAM. Needs investigation
                 if( ba_busy>=0 && maxwarn>0 ) {
                     maxwarn--;
                     fputs("WARNING: (test.cpp) SDRAM reads clashed. This may happen if only some banks are used for longer bursts.\n",stderr);
@@ -612,11 +722,11 @@ void SDRAM::update() {
                 dut.SDRAM_DQ = data_read;
                 if( burst_len>1 ) {
                     // Increase the column within the burst
-                    auto col = ba_addr[k]&0x1ff;
+                    auto col = ba_addr[k]&COLMASK;
                     auto col_inc = (col+1) & ~burst_mask;
                     col &= burst_mask;
                     col |= col_inc;
-                    ba_addr[k] &= ~0x1ff;
+                    ba_addr[k] &= ~COLMASK;
                     ba_addr[k] |= col;
                 }
                 ba_busy = k;
@@ -698,7 +808,7 @@ void JTSim::reset( int v ) {
 }
 
 JTSim::JTSim( UUT& g, int argc, char *argv[]) :
-    wav("test.wav",48000,false), sdram(g), sim_inputs(g), dwn(g), game(g)
+    wav("test.wav",48000,false), sdram(g), sim_inputs(g), dwn(g), game(g),vrate(0)
 {
     simtime   = 0;
     frame_cnt = 0;
@@ -706,23 +816,16 @@ JTSim::JTSim( UUT& g, int argc, char *argv[]) :
     last_VS   = 0;
     char *opt = getenv("CONVERT_OPTIONS");
     if ( opt!=NULL ) convert_options = opt;
+    multi_clock = MakeMultiClock(g);
     get_coremod();
     // Derive the clock speed from _JTFRAME_PLL
-#ifdef _JTFRAME_PLL
-    semi_period = (vluint64_t)(1e12/(16.0*_JTFRAME_PLL*1000.0));
-#elif _JTFRAME_SIM96 || _JTFRAME_SDRAM96
-    semi_period = (vluint64_t)(10416/2); // 96MHz
-#else
-    semi_period = (vluint64_t)10416; // 48MHz
-#endif
-    fprintf(stderr,"Simulation clock period set to %d ps (%f MHz)\n", ((int)semi_period<<1), 1e6/(semi_period<<1));
+    fprintf(stderr,"Simulation clock period set to %d ps (%.3f MHz)\n",
+        ((int)multi_clock->get_semi_period()<<1), 1e6/(multi_clock->get_semi_period()<<1));
 #ifdef _LOADROM
     download = true;
 #else
     download = false;
 #endif
-    game.enable_fm  = 1;
-    game.enable_psg = 1;
 #ifdef _JTFRAME_SIM_DEBUG
     game.debug_bus = _JTFRAME_SIM_DEBUG;
 #endif
@@ -774,13 +877,14 @@ void JTSim::get_coremod() {
         fin.read(c,2);
         coremod = ((int)c[0])&0xff;
     }
-    // fprintf(stderr,"coremod=%X\n",coremod);
 }
 
 JTSim::~JTSim() {
 #ifdef _DUMP
     delete tracer;
 #endif
+    delete multi_clock;
+    multi_clock = NULL;
 }
 
 void JTSim::clock(int n) {
@@ -790,17 +894,8 @@ void JTSim::clock(int n) {
     n <<= 2;
 #endif
     while( n-- > 0 ) {
-        int cur_dwn = game.ioctl_rom | game.dwnld_busy;
-        game.clk24 = (ticks & ((JTFRAME_CLK96||JTFRAME_SDRAM96) ? 2 : 1)) == 0 ? 0 : 1;
-#ifdef _JTFRAME_CLK48
-    game.clk48 = 1-game.clk48;
-#endif
-#ifdef _JTFRAME_SIM96
-        game.clk96 = 1;
-        game.clk   = 1-game.clk;
-#else
-        game.clk = 1;
-#endif
+        int cur_dwn = game.ioctl_rom | game.ioctl_ram | game.dwnld_busy;
+        multi_clock->advance_half_period();
         game.eval();
         if( game.contextp()->gotFinish() ) return;
         sdram.update();
@@ -824,19 +919,15 @@ void JTSim::clock(int n) {
         reset( simtime < RST_DLY*1000'000L ? 1 : 0);
 #endif
         last_dwnd = cur_dwn;
-        simtime += semi_period;
+        simtime += multi_clock->get_semi_period();
 #ifdef _DUMP
         if( tracer && dump_ok ) tracer->dump(simtime);
 #endif
-#ifdef _JTFRAME_SIM96
-        game.clk96 = 0;
-#else
-        game.clk = 0;
-#endif
+        multi_clock->advance_half_period();
         game.eval();
         if( game.contextp()->gotFinish() ) return;
         sdram.update();
-        simtime += semi_period;
+        simtime += multi_clock->get_semi_period();
         ticks++;
 
 #ifdef _DUMP
@@ -844,6 +935,7 @@ void JTSim::clock(int n) {
 #endif
         // frame counter & inputs
         if( game.VS && !last_VS ) {
+            measure_screen_rate();
             fprintf(stderr,ANSI_COLOR_RED "%X" ANSI_COLOR_RESET, frame_cnt&0xf); // do not flush the streams. It can mess up
             frame_cnt++;
 #ifdef _JTFRAME_SIM_IODUMP
@@ -859,13 +951,20 @@ void JTSim::clock(int n) {
             game.debug_bus++;
 #endif
         }
-        if( game.VS && !last_VS && !game.rst ) sim_inputs.next();    // sim inputs are applied when entering sync
+        if( game.VS && !last_VS && (sim_inputs.is_controlling_reset() || !game.rst) ) sim_inputs.next();    // sim inputs are applied when entering sync
         last_LVBL = game.LVBL;
         last_VS   = game.VS;
 
         // Video dump
         video_dump();
     }
+}
+
+void JTSim::measure_screen_rate() {
+    static vluint64_t last=0;
+    auto vperiod=simtime-last;
+    last=simtime;
+    vrate = 1e12/float(vperiod);
 }
 
 void JTSim::video_dump() {
@@ -891,14 +990,13 @@ void JTSim::video_dump() {
             activew= cntw[1];
             cntw[0]=0; cntw[1]=0;
             if( !game.LVBL && LVBLl!=0 ) {
+                report_flip_changes();
                 totalh = cnth[0];
                 activeh= cnth[1];
                 cnth[0]=0; cnth[1]=0;
                 dump.reset();
                 int CCW = (coremod&4)>>2;
-#ifndef _JTFRAME_OSD_FLIP
                 CCW ^= game.dip_flip&1;
-#endif
                 if( dump.diff() ) {
                     // converts image to jpg in a different fork
                     // I suppose a thread would be faster...
@@ -1000,24 +1098,24 @@ void WaveWritter::Constructor( const char *filename, int sample_rate, bool hex )
     char zero=0;
     for( int k=0; k<45; k++ ) fsnd.write( &zero, 1 );
     fsnd.seekp(0);
-    fsnd.write( "RIFF", 4 );
+    fsnd.write( "RIFF", 4 ); // @ 0
     fsnd.seekp(8);
-    fsnd.write( "WAVEfmt ", 8 );
+    fsnd.write( "WAVEfmt ", 8 );  // @ 8
     int32_t number32 = 16;
-    fsnd.write( (char*)&number32, 4 );
+    fsnd.write( (char*)&number32, 4 ); // @ 16
     int16_t number16 = 1;
-    fsnd.write( (char*) &number16, 2);
+    fsnd.write( (char*) &number16, 2); // @ 20
     number16=2;
-    fsnd.write( (char*) &number16, 2);
+    fsnd.write( (char*) &number16, 2); // @ 22
     number32 = sample_rate;
-    fsnd.write( (char*)&number32, 4 );
+    fsnd.write( (char*)&number32, 4 ); // @ 26
     number32 = sample_rate*2*2;
-    fsnd.write( (char*)&number32, 4 );
+    fsnd.write( (char*)&number32, 4 ); // @ 30
     number16=2*2;   // Block align
-    fsnd.write( (char*) &number16, 2);
+    fsnd.write( (char*) &number16, 2); // @ 32
     number16=16;
-    fsnd.write( (char*) &number16, 2);
-    fsnd.write( "data", 4 );
+    fsnd.write( (char*) &number16, 2); // @ 34
+    fsnd.write( "data", 4 ); // @ 36
     fsnd.seekp(44);
 }
 
@@ -1032,6 +1130,13 @@ WaveWritter::~WaveWritter() {
     fsnd.write( (char*)&number32, 4);
 }
 
+void report_vrate( float vrate ) {
+    printf("\nFrame rate: %.2f Hz\n",vrate);
+    ofstream framerate("framerate");
+    framerate << vrate;
+    framerate.close();
+}
+
 ////////////////////////////////////////////////////
 // Main
 
@@ -1044,10 +1149,11 @@ int main(int argc, char *argv[]) {
     try {
         UUT game{&context};
         JTSim sim(game, argc, argv);
+        int ticks_48kHz = sim.time2ticks(20'833'333);
         while( !sim.done() ) {
-            sim.clock(1'000); // this will dump at 48kHz sampling rate
+            sim.clock(ticks_48kHz); // this will dump at 48kHz sampling rate
             sim.update_wav(); // Other clock rates will not have exact wav dumps
-            if( sim.get_frame()==2 ) {
+            if( sim.get_frame()==3 ) {
                 if( sim.activeh != _JTFRAME_HEIGHT || sim.activew != _JTFRAME_WIDTH ) {
                     fprintf(stderr, "\nERROR: (test.cpp)  video size mismatch. Macros define it as %dx%d but the core outputs %dx%d\n",
                         _JTFRAME_WIDTH, _JTFRAME_HEIGHT, sim.activew, sim.activeh );
@@ -1058,7 +1164,11 @@ int main(int argc, char *argv[]) {
         // wait until all child processes created with fork() are completed
         // before exiting.
         while(wait(NULL) != -1);
-
+#ifdef _COVERAGE
+        mkdir("logs",0755)==0;
+        Verilated::threadContextp()->coveragep()->write("logs/coverage.dat");
+#endif
+        report_vrate( sim.vrate );
         if( sim.get_frame()>1 ) fputc('\n',stderr);
     } catch( const char *error ) {
         fputs(error,stderr);

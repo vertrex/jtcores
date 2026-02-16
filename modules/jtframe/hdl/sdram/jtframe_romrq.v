@@ -26,13 +26,13 @@
 //    1     2    easy
 
 `timescale 1ns/1ps
-
+/* verilator coverage_off */
 module jtframe_romrq #(parameter
     SDRAMW  = 22,  // SDRAM width
     AW      = 18,
     DW      =  8,
     CACHE_SIZE=0,  // Set to !=0 to use jtframe_romrq_xscache, where only served data is cached
-                   // Set to ==0 to use jtframe_romrq_bcache, where all data coming from SDRAM is ached
+                   // Set to ==0 to use jtframe_romrq_bcache, where all data coming from SDRAM is cached
 
     // parameters only for jtframe_romrq_bcache:
     OKLATCH =  1,  // Set to 1 to latch the data_ok signal. This implies that

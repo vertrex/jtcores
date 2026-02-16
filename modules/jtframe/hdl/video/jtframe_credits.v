@@ -35,6 +35,8 @@ module jtframe_credits #(
     input               pxl_cen,
     input               HB,
     input               VB,
+    input               HS,
+    input               VS,
     input [COLW*3-1:0]  rgb_in,
 
     // Optional VRAM control
@@ -53,6 +55,8 @@ module jtframe_credits #(
     // output image
     output reg              HB_out,
     output reg              VB_out,
+    output reg              HS_out,
+    output reg              VS_out,
     output reg [COLW*3-1:0] rgb_out
 );
 
@@ -81,8 +85,7 @@ reg  [8:0]        vrender;
 wire [8:0]        scan_data;
 wire [7:0]        font_data;
 reg  [MSGW-1:0]   scan_addr;
-wire [9:0]        font_addr = {scan_data[6:0],
-                        rotate==2'b11 ? (~vdump[2:0]+3'd1) : vdump[2:0] };
+wire [2:0]        font_row = rotate==2'b11 ? (~vdump[2:0]+3'd1) : vdump[2:0];
 wire              visible = vrender < MAXVISIBLE;
 reg               last_toggle, last_enable;
 reg               show, hide;
@@ -106,13 +109,11 @@ jtframe_dual_ram #(.DW(9), .AW(MSGW),.SYNFILE("msg.bin"),.ASCII_BIN(1)) u_msg(
     .q1     ( scan_data )
 );
 
-jtframe_ram #(.AW(10),.SYNFILE("font0.hex")) u_font(
-    .clk    ( clk       ),
-    .cen    ( 1'b1      ),
-    .data   ( 8'd0      ),
-    .addr   ( font_addr ),
-    .we     ( 1'b0      ),
-    .q      ( font_data )
+jtframe_font u_font(
+    .clk    ( clk               ),
+    .ascii  ( scan_data[6:0]    ),
+    .v      ( font_row          ),
+    .pxl    ( font_data         )
 );
 
 reg  [1:0]      pal;
@@ -393,7 +394,7 @@ function [COLW*3-1:0] extend;
     end
 endfunction
 
-always @(posedge clk, posedge rst) begin
+always @(posedge clk) begin
     if( rst ) begin
         show        <= 0;
         hide        <= 0;
@@ -417,7 +418,7 @@ always @(posedge clk, posedge rst) begin
 end
 
 always @(posedge clk) if(pxl_cen) begin
-    { HB_out, VB_out } <= { HB, VB };
+    { HB_out, VB_out, HS_out, VS_out } <= { HB, VB, HS, VS };
     // if HOFFSET != 0 and the game is vertical, the full horizontal length
     // of the screen is used. Otherwise, the credits will start at HOFFSET
     // and last for 256 pixels

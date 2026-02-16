@@ -1,8 +1,8 @@
 params:
   - { name: RAM_OFFSET, value: "22'h10_0000" }
   - { name: PCM_OFFSET, value: "(`PCM_START-`JTFRAME_BA1_START)>>1" }
-  - { name: SCR_OFFSET, value: "(`SCR_START-`JTFRAME_BA2_START) >>1" }
-game: wwfss
+  - { name: SCR_OFFSET, value: "(`SCR_START-`JTFRAME_BA2_START)>>1" }
+cores: wwfss
 clocks:
   # main and mcu do not share the gate because they are in different clock domains
   # MC6809 module is problematic at 48MHz, hence using clk24
@@ -16,6 +16,7 @@ clocks:
       outputs:
         - cen_oki
 audio:
+  rsum: 6k
   channels:
     # temporary values
     - { name: pcm, module: jt6295, rsum: 10k, fir: fir_192k_4k.csv }

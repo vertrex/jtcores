@@ -17,9 +17,9 @@
     Date: 20-11-2022 */
 /* verilator lint_off MODDUP */
 module jtframe_lfbuf_ddr_ctrl #(parameter
-    CLK96   =   0,   // assume 48-ish MHz operation by default
-    VW      =   8,
-    HW      =   9
+    CLK96   = 0,   // assume 48-ish MHz operation by default
+    VW      = 8,
+    HW      = 9
 )(
     input               rst,    // hold in reset for >150 us
     input               clk,
@@ -32,6 +32,7 @@ module jtframe_lfbuf_ddr_ctrl #(parameter
     input               vs,
     // data written to external memory
     input               frame,
+    input               fb_blank,
     output reg [HW-1:0] fb_addr,
     input      [  15:0] fb_din,
     output reg          fb_clr,
@@ -63,7 +64,7 @@ module jtframe_lfbuf_ddr_ctrl #(parameter
 localparam AW=HW+VW+1;
 localparam [1:0] IDLE=0, READ=1, WRITE=2;
 
-reg           vsl, lhbl_l, ln_done_l, do_wr;
+reg           lhbl_l, ln_done_l, do_wr;
 reg  [   1:0] st;
 reg  [AW-1:0] act_addr;
 wire [HW-1:0] nx_rd_addr;
@@ -95,16 +96,14 @@ always @(posedge clk) begin
     endcase
 end
 
-always @( posedge clk, posedge rst ) begin
+always @( posedge clk ) begin
     if( rst ) begin
         hblen  <= 0;
         hlim   <= 0;
         hcnt   <= 0;
         lhbl_l <= 0;
-        vsl    <= 0;
     end else if(pxl_cen) begin
         lhbl_l  <= lhbl;
-        vsl     <= vs;
         hcnt    <= hcnt+1'd1;
         if( ~lhbl & lhbl_l ) begin // enters blanking
             hcnt   <= 0;
@@ -116,7 +115,9 @@ always @( posedge clk, posedge rst ) begin
     end
 end
 
-always @( posedge clk, posedge rst ) begin
+wire skip_blank_lines = do_wr && fb_blank;
+
+always @( posedge clk ) begin
     if( rst ) begin
         ddram_we <= 0;
         ddram_rd <= 0;
@@ -133,7 +134,7 @@ always @( posedge clk, posedge rst ) begin
     end else begin
         fb_done <= 0;
         ln_done_l <= ln_done;
-        if (ln_done && !ln_done_l ) do_wr <= 1;
+        if (ln_done && !ln_done_l) do_wr <= 1;
         if( fb_clr ) begin
             // the line is cleared outside the state machine so a
             // read operation can happen independently
@@ -153,6 +154,9 @@ always @( posedge clk, posedge rst ) begin
                     rd_addr  <= 0;
                     scr_we   <= 1;
                     st       <= READ;
+                end else if( skip_blank_lines ) begin
+                    fb_done  <= 1;
+                    do_wr    <= 0;
                 end else if( do_wr && !fb_clr &&
                     hcnt<hlim && lhbl ) begin // do not start too late so it doesn't run over H blanking
                     fb_addr  <= 0;

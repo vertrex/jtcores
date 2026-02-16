@@ -1,16 +1,16 @@
-/*  This file is part of JTCORES1.
-    JTCORES1 program is free software: you can redistribute it and/or modify
+/*  This file is part of JTCORES.
+    JTCORES program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
     the Free Software Foundation, either version 3 of the License, or
     (at your option) any later version.
 
-    JTCORES1 program is distributed in the hope that it will be useful,
+    JTCORES program is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
 
     You should have received a copy of the GNU General Public License
-    along with JTCORES1.  If not, see <http://www.gnu.org/licenses/>.
+    along with JTCORES.  If not, see <http://www.gnu.org/licenses/>.
 
     Author: Jose Tejada Gomez. Twitter: @topapate
     Version: 1.0
@@ -316,8 +316,10 @@ always @(posedge clk) begin
 `ifdef CPS15
     if( joy_cs ) begin
         sys_data     <= { joystick2[7:0], joystick1[7:0] };
-        sys_data[7]  <= joystick3[6]; // button 3
-        sys_data[15] <= joystick4[6]; // button 3
+        if(!charger) begin
+            sys_data[7]  <= joystick3[6]; // button 3
+            sys_data[15] <= joystick4[6]; // button 3
+        end
     end else if( joy3_cs )
         sys_data <= { 2{cab_1p[2], coin[2], joystick3[5:0] }};
     else if( joy4_cs )
@@ -426,6 +428,7 @@ jtframe_68kdtack_cen #(.MFREQ(48000),.WAIT1(1)) u_dtack(
     .bus_cs     ( bus_cs    ),
     .bus_busy   ( bus_busy  ),
     .bus_legit  ( 1'b0      ),
+    .bus_ack    ( 1'b0      ),
     .ASn        ( ASn | dtack_clr ),
     .DSn        ( {UDSn, LDSn} ),
     .num        ( cen_num  ),

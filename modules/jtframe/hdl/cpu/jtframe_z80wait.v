@@ -1,4 +1,4 @@
-/*  This file is part of JT_FRAME.
+/*  This file is part of JTFRAME.
     JTFRAME program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
     the Free Software Foundation, either version 3 of the License, or
@@ -27,6 +27,7 @@ module jtframe_rom_wait(
     input       rom_cs,
     input       rom_ok
 );
+    /* verilator coverage_off */
     jtframe_z80wait #(1) u_wait(
         .rst_n      ( rst_n     ),
         .clk        ( clk       ),
@@ -73,7 +74,7 @@ reg       locked, latched;
 assign gate = !( rom_bad || dev_busy || locked || latched);
 wire bus_ok = (rom_ok||!rom_cs) && !dev_busy;
 
-always @(posedge clk, negedge rst_n) begin
+always @(posedge clk) begin
     if( !rst_n ) begin
         gated_at <= 1'b0;
         latched  <= 1'b0;
@@ -96,7 +97,7 @@ always @(posedge clk)
     cen_out <= cen_in & {2{gate}};
 
 
-always @(posedge clk or negedge rst_n) begin
+always @(posedge clk) begin
     if( !rst_n ) begin
         last_rom_cs <= 1'b1;
         locked      <= 1'b0;
@@ -168,7 +169,7 @@ end
 
 always @(posedge clk) cen_l <= cen_out;
 
-always @(posedge clk, negedge rst_n) begin
+always @(posedge clk) begin
     if( !rst_n ) begin
         miss_cnt <= 4'd0;
     end else begin
@@ -187,7 +188,7 @@ end
 always @(*)
     cen_out = (cen_in & gate) | rec;
 
-always @(posedge clk or negedge rst_n) begin
+always @(posedge clk) begin
     if( !rst_n ) begin
         last_rom_cs <= 1'b1;
         locked      <= 1'b0;

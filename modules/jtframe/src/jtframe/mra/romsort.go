@@ -1,3 +1,20 @@
+/*  This file is part of JTFRAME.
+    JTFRAME program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    JTFRAME program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with JTFRAME.  If not, see <http://www.gnu.org/licenses/>.
+
+    Author: Jose Tejada Gomez. Twitter: @topapate
+    Date: 4-1-2025 */
+
 package mra
 
 import (
@@ -8,17 +25,9 @@ import (
 	"strings"
 )
 
-func apply_sort(reg_cfg *RegCfg, roms []MameROM, setname string, verbose bool) []MameROM {
+func apply_sort(reg_cfg *RegCfg, roms []MameROM, setname string) []MameROM {
 	if len(reg_cfg.Sequence) > 0 {
 		return apply_sequence(reg_cfg, roms)
-	}
-	if len(reg_cfg.Ext_sort) > 0 {
-		sort_ext_list(reg_cfg, roms)
-		return roms
-	}
-	if len(reg_cfg.Name_sort) > 0 {
-		sort_name_list(reg_cfg, roms)
-		return roms
 	}
 	if reg_cfg.Sort_even {
 		sort_even_odd(reg_cfg, roms, true)
@@ -41,37 +50,6 @@ func sort_even_odd(reg_cfg *RegCfg, roms []MameROM, even_first bool) {
 	// Copy the odd ones
 	for i := 1; i < len(roms); i += 2 {
 		roms[(i>>1)+half] = base[i]
-	}
-}
-
-func sort_ext_list(reg_cfg *RegCfg, roms []MameROM) {
-	base := make([]MameROM, len(roms))
-	copy(base, roms)
-	k := 0
-	for _, ext := range reg_cfg.Ext_sort {
-		for i, _ := range base {
-			if strings.HasSuffix(base[i].Name, ext) {
-				roms[k] = base[i]
-				k++
-				break
-			}
-		}
-	}
-}
-
-func sort_name_list(reg_cfg *RegCfg, roms []MameROM) {
-	// fmt.Println("Applying name sorting ", reg_cfg.Name_sort)
-	base := make([]MameROM, len(roms))
-	copy(base, roms)
-	k := 0
-	for _, each := range reg_cfg.Name_sort {
-		for i, _ := range base {
-			if base[i].Name == each {
-				roms[k] = base[i]
-				k++
-				break
-			}
-		}
 	}
 }
 

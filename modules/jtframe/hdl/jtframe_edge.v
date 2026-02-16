@@ -15,9 +15,10 @@
     Author: Jose Tejada Gomez. Twitter: @topapate
     Version: 1.0
     Date: 17-12-2022 */
-
+/* verilator tracing_off */
 module jtframe_edge #(parameter
-    QSET=1    // q value when set
+    QSET=1,         // q value when set
+    ATRST=~QSET[0]  // q value at rst event
 )(
     input       rst,
     input       clk,
@@ -32,9 +33,9 @@ module jtframe_edge #(parameter
         edge_l <= edgeof;
     end
 
-    always @(posedge clk,posedge rst) begin
+    always @(posedge clk) begin
         if( rst ) begin
-            q <= ~QSET[0];
+            q <= ATRST;
         end else begin
             if( clr )
                 q <= ~QSET[0];
@@ -59,7 +60,7 @@ module jtframe_edge_pulse #(parameter
 
     reg sigin_l;
 
-    always @(posedge clk,posedge rst) begin
+    always @(posedge clk) begin
         if( rst ) begin
             pulse <= INVERT[0];
             sigin_l <= 0;

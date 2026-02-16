@@ -15,7 +15,7 @@
     Author: Jose Tejada Gomez. Twitter: @topapate
     Version: 1.0
     Date: 22-11-2023 */
-
+/* verilator coverage_off */
 module jt680x(
     input             rst,
     input             clk,
@@ -96,7 +96,7 @@ jt680x_ctrl u_ctrl(
     .ld_sel     ( ld_sel    ),
     .rmux_sel   ( rmux_sel  ),
     .cc_sel     ( cc_sel    ),
-    .stack_bsy  (           )
+    .stack_busy (           )
 );
 
 jt680x_alu u_alu(

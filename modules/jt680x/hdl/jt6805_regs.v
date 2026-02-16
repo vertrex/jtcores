@@ -15,7 +15,7 @@
     Author: Jose Tejada Gomez. Twitter: @topapate
     Version: 1.0
     Date: 4-12-2023 */
-
+/* verilator coverage_off */
 module jt6805_regs(
     input             rst,
     input             clk,
@@ -87,7 +87,7 @@ always @( posedge clk, posedge rst ) begin
     if( rst ) begin
         a   <= 0;
         x   <= 0;
-        s   <= 0;
+        s   <= 6'h3f;
         op0 <= 0;
         op1 <= 0;
         md  <= 0;

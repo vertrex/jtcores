@@ -21,11 +21,12 @@
 package main
 
 import (
+    "runtime/debug"
     "fmt"
     "os"
     "log"
-    "github.com/jotego/jtframe/cmd"
-    "github.com/jotego/jtframe/betas"
+    "jotego/jtframe/cmd"
+    "jotego/jtframe/betas"
 )
 
 func RequireEnv( v string ) {
@@ -36,6 +37,14 @@ func RequireEnv( v string ) {
 }
 
 func main() {
+    defer func(){
+        if r:= recover(); r!=nil {
+            fmt.Println(r)
+            fmt.Printf("\n\n")
+            debug.PrintStack()
+            os.Exit(1)
+        }
+    }()
     log.SetOutput(os.Stderr)
     for _, each := range []string{"JTROOT","CORES","JTBIN","JTFRAME"} {
         RequireEnv(each)

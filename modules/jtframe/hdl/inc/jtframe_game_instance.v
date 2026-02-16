@@ -18,7 +18,13 @@
 
 // Game instantiation. Shared by all target top-level modules
 
+
 localparam STARTW=4;
+
+wire [16:0]  sram_addr;
+wire [15:0]  sram_din, sram_dout;
+wire [ 1:0]  sram_dsn;
+wire         sram_wen, sram_ok;
 
 `ifdef SIMULATION
 assign sim_hb         = ~LHBL;
@@ -50,16 +56,6 @@ assign sim_dwnld_busy = dwnld_busy;
 `endif
 `endif
 
-// `ifndef JTFRAME_LF_BUFFER
-//     assign game_vrender = 0,
-//            game_hdump   = 0,
-//            ln_addr      = 0,
-//            ln_data      = 0,
-//            ln_done      = 0,
-//            ln_we        = 0;
-// `endif
-
-
 `GAMETOP
 u_game(
     .rst         ( game_rst       ),
@@ -89,16 +85,15 @@ u_game(
     .joystick3    ( game_joy3[`JTFRAME_BUTTONS+3:0] ), .joystick4  ( game_joy4[`JTFRAME_BUTTONS+3:0] ), `ifdef JTFRAME_PADDLE
     .paddle_1     ( paddle_1         ), .paddle_2     ( paddle_2         ),
     .paddle_3     ( paddle_3         ), .paddle_4     ( paddle_4         ), `endif `ifdef JTFRAME_MOUSE
-    .mouse_1p     ( mouse_1p         ), .mouse_2p     ( mouse_2p         ), .mouse_strobe ( mouse_strobe ), `endif `ifdef JTFRAME_SPINNER
-    .spinner_1p   ( spinner_1p       ), .spinner_2p   ( spinner_2p       ), `endif `ifdef JTFRAME_ANALOG
+    .mouse_1p     ( mouse_1p         ), .mouse_2p     ( mouse_2p         ), .mouse_strobe ( mouse_strobe ), `endif `ifdef JTFRAME_LIGHTGUN
+    .gun_1p_x     ( gun_1p_x         ), .gun_1p_y     ( gun_1p_y         ),
+    .gun_2p_x     ( gun_2p_x         ), .gun_2p_y     ( gun_2p_y         ), `endif `ifdef JTFRAME_SPINNER
+    .spinner_1p   ( spinner_1p       ), .spinner_2p   ( spinner_2p       ), `endif
     .joyana_l1    ( joyana_l1        ), .joyana_l2    ( joyana_l2        ),
-    .joyana_l3    ( joyana_l3        ), .joyana_l4    ( joyana_l4        ), `ifdef JTFRAME_ANALOG_DUAL
+    .joyana_l3    ( joyana_l3        ), .joyana_l4    ( joyana_l4        ),
     .joyana_r1    ( joyana_r1        ), .joyana_r2    ( joyana_r2        ),
-    .joyana_r3    ( joyana_r3        ), .joyana_r4    ( joyana_r4        ), `endif `endif `ifdef JTFRAME_DIAL
-    .dial_x       ( dial_x           ), .dial_y       ( dial_y           ), `endif
-    // Sound control
-    .enable_fm   ( enable_fm      ),
-    .enable_psg  ( enable_psg     ),
+    .joyana_r3    ( joyana_r3        ), .joyana_r4    ( joyana_r4        ),
+    .dial_x       ( dial_x           ), .dial_y       ( dial_y           ),
     // PROM programming
     .ioctl_addr  ( ioctl_addr     ),
     .ioctl_dout  ( ioctl_dout     ),
@@ -121,6 +116,8 @@ u_game(
     .ln_hs        ( ln_hs            ),
     .ln_pxl       ( ln_pxl           ),
     .ln_v         ( ln_v             ),
+    .ln_vs        ( ln_vs            ),
+    .ln_lvbl      ( ln_lvbl          ),
     .ln_we        ( ln_we            ), `endif
 
     // Bank 0: allows R/W
@@ -149,6 +146,16 @@ u_game(
     .prog_dok   ( prog_dok      ),
     .prog_dst   ( prog_dst      ),
     .prog_data  ( prog_data     ),
+
+`ifdef JTFRAME_SRAM
+    // SRAM
+    .sram_addr  ( sram_addr     ),
+    .sram_din   ( sram_din      ),
+    .sram_dout  ( sram_dout     ),
+    .sram_wen   ( sram_wen      ),
+    .sram_dsn   ( sram_dsn      ),
+    .sram_ok    ( sram_ok       ),
+`endif
 
     // common ROM-load interface
     .prog_addr  ( prog_addr     ),

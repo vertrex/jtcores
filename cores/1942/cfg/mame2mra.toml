@@ -4,6 +4,7 @@ author=["jotego"]
 [parse]
 sourcefile=[ "1942.cpp", "vulgus.cpp", "higemaru.cpp" ]
 skip.setnames=[
+    "1942iti",
     "1942abl",
     "1942p",
     "1942fpa",
@@ -31,9 +32,9 @@ info = """ Header to identify the PCB type
 """
 data = [
     { machine="vulgus",   offset=0, data="01" },
-    { machine="higemaru", offset=0, data="02" },
+    { machine="higemaru", offset=0, data="02 01" },
     # vulgusa is flipped relative to the others
-    # { setname = "vulgusa", offset=1, data="01" },
+    { setname = "vulgusa", offset=1, data="01" },
 ]
 
 [buttons]

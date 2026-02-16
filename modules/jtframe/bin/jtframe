@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -e
 POCKET=
 
 if [ -z "$JTFRAME" ]; then
@@ -15,13 +15,23 @@ else
     # Find out whether the jtframe file is older
     # than the JTFRAME's commit
     cd $JTFRAME > /dev/null
-    COMMIT_DATE=`date -d "$(git show -s --format=%ci)" +"%s"`
-    COMPILED_DATE=`stat -c %Y $BIN`
-    if [ $COMPILED_DATE -lt $COMMIT_DATE ]; then
+    COMMIT_DATE=$(git show -s --format=%ct)
+    COMPILED_DATE=$(stat -c %Y $BIN)
+    if (( $COMPILED_DATE < $COMMIT_DATE )) ; then
         RECOMPILE=TRUE
     fi
     cd - > /dev/null
 fi
+
+function run_tests {
+    LOG=`mktemp`
+    if ! go test ./... > $LOG; then
+        cat $LOG
+        rm -f $LOG
+        exit 1
+    fi
+    rm -f $LOG
+}
 
 if [ $RECOMPILE = TRUE ]; then
     if [ -e $JTFRAME/target/pocket/pocket.go ]; then
@@ -30,6 +40,7 @@ if [ $RECOMPILE = TRUE ]; then
         echo "Compiling jtframe with Pocket support" > /dev/stderr
     fi
     cd $JTFRAME/src/jtframe > /dev/null
+    run_tests
     go build $POCKET . || exit $?
     cd - > /dev/null
 fi

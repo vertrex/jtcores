@@ -57,10 +57,10 @@ module jts16_main(
     output             sound_en,
     input              snd_ack,
     // cabinet I/O
-    input       [ 7:0] joystick1,
-    input       [ 7:0] joystick2,
-    input       [ 7:0] joystick3,
-    input       [ 7:0] joystick4,
+    input       [ 8:0] joystick1,
+    input       [ 8:0] joystick2,
+    input       [ 8:0] joystick3,
+    input       [ 8:0] joystick4,
     input       [15:0] joyana1,
     input       [15:0] joyana1b,
     input       [15:0] joyana2,
@@ -92,6 +92,7 @@ module jts16_main(
     input              dip_test,
     input    [7:0]     dipsw_a,
     input    [7:0]     dipsw_b,
+    input    [7:0]     dipsw_c, // used by timescan1
 
     // MCU enable and ROM programming
     input              mcu_en,
@@ -112,6 +113,7 @@ localparam [7:0] GAME_HWCHAMP =`GAME_HWCHAMP ,
                  GAME_EXCTLEAG=`GAME_EXCTLEAG,
                  GAME_BULLET  =`GAME_BULLET  ,
                  GAME_PASSSHT3=`GAME_PASSSHT3,
+                 GAME_TIMESCAN=`GAME_TIMESCAN,
                  GAME_AFIGHTAN=`GAME_AFIGHTAN,  // Action Fighter, analogue controls
                  GAME_SDI     =`GAME_SDI     ;
 wire [23:1] A, cpu_A;
@@ -244,8 +246,8 @@ assign { flip, sound_en, video_en } = { ppib_dout[7], ~ppib_dout[5], ppib_dout[4
 //assign video_en = 1;
 
 always @(*) begin
-    sort1 = sort_joy( joystick1 );
-    sort2 = sort_joy( joystick2 );
+    sort1 = sort_joy( joystick1[7:0] );
+    sort2 = sort_joy( joystick2[7:0] );
 end
 
 reg  game_sdi, game_afightan; // game_passsht
@@ -264,10 +266,6 @@ jts16_trackball u_trackball(
 
     .right_en   ( game_sdi      ),
 
-    .joystick1  ( joystick1     ),
-    .joystick2  ( joystick2     ),
-    .joystick3  ( joystick3     ),
-    .joystick4  ( joystick4     ),
     .joyana1    ( joyana1       ),
     .joyana1b   ( joyana1b      ), // used by Heavy Champ
     .joyana2    ( joyana2       ),
@@ -324,10 +322,10 @@ always @(posedge clk, posedge rst) begin
                             GAME_PASSSHT: begin
                                 if( !last_iocs ) port_cnt <= port_cnt + 2'd1;
                                 case( port_cnt )
-                                    1: cab_dout <= pass_joy( joystick1 );
-                                    2: cab_dout <= pass_joy( joystick2 );
-                                    3: cab_dout <= pass_joy( joystick3 );
-                                    0: cab_dout <= pass_joy( joystick4 );
+                                    1: cab_dout <= pass_joy( joystick1[7:0] );
+                                    2: cab_dout <= pass_joy( joystick2[7:0] );
+                                    3: cab_dout <= pass_joy( joystick3[7:0] );
+                                    0: cab_dout <= pass_joy( joystick4[7:0] );
                                 endcase
                             end
                             GAME_AFIGHTAN: cab_dout <=
@@ -356,6 +354,8 @@ always @(posedge clk, posedge rst) begin
                                     joyana1[0] ? 8'h02 : 8'h01);
                             GAME_QUARTET:
                                 cab_dout <= {1'b1, coin[2], joystick3[4], joystick3[5], joystick3[1], joystick3[0], joystick3[3], joystick3[2] };
+                            GAME_TIMESCAN:
+                                cab_dout <= dipsw_c;
                              default: ;
                          endcase
                     end
@@ -401,24 +401,6 @@ end
             mcu_din <= LDSn ? cpu_din[15:8] : cpu_din[7:0];
         end
     end
-
-    // `ifdef SIMULATION
-    // reg  mcu_busl;
-    // wire nothing_cs = mcu_top == NOTHING_CS;
-
-    // always @(posedge clk) mcu_busl <= mcu_bus;
-
-    // always @(posedge mcu_busl ) begin
-    //     $display("MCU access to %X (%s) %s ",A_full,mcu_wr ? "WR" : "RD",
-    //         ram_cs ? "RAM" : io_cs ? "IO" : pal_cs ? "PAL" :
-    //         char_cs ? "Char" : rom_cs ? "ROM" :
-    //         nothing_cs ? "Nothing" : "N/A");
-    //     //if(mcu_top==0) begin
-    //     //    $display("Unexpected MCU access");
-    //     //    $finish;
-    //     //end
-    // end
-    // `endif
 
     wire mcu_gated;
     reg  mcu_ok, BGACKnl;
@@ -581,6 +563,7 @@ jtframe_68kdtack_cen #(.W(8),.MFREQ(50_347)) u_dtack(
     .bus_cs     ( bus_cs    ),
     .bus_busy   ( bus_busy  ),
     .bus_legit  ( bus_legit ),
+    .bus_ack    ( 1'b0      ),
     .ASn        ( ASn       ),
     .DSn        ({UDSn,LDSn}),
     .num        ( 7'd29     ),  // numerator

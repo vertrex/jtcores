@@ -43,7 +43,7 @@ module jtrastan_snd(
     output signed [15:0] fm_l, fm_r,
     output signed [11:0] pcm
 );
-
+`ifndef NOSOUND
 wire               cen4, cen2, pcm_cen, nc;
 wire signed [15:0] pre_snd, left_opm, right_opm;
 wire signed [11:0] pcm_snd;
@@ -53,7 +53,7 @@ wire        [ 7:0] dout, opm_dout, ram_dout;
 wire        [ 3:0] pc6_dout;
 reg                opm_cs, opl_cs, ram_cs, pc6_cs;
 reg                pcm_rst, pcm_stop, pcm_start, pcm_addr_cs;
-wire               rd_n, wr_n, mreq_n, nmi_n;
+wire               rd_n, wr_n, mreq_n, rfsh_n, nmi_n;
 wire               ct1, ct2, vclk, pc6_rst;
 reg                nibble_sel, vclk_l, snd_rstn;
 reg         [15:0] pcm_cnt;
@@ -102,7 +102,7 @@ always @* begin
     pcm_addr_cs = 0;
     pcm_start   = 0;
     pcm_stop    = 0;
-    if( !mreq_n && A[15]) begin
+    if( !mreq_n && rfsh_n && A[15]) begin
         case( A[14:12] )
             0: ram_cs = 1;
             1: opm_cs = 1;
@@ -172,7 +172,7 @@ jtframe_sysz80 #(.RECOVERY(0)) u_cpu(
     .iorq_n     (           ),
     .rd_n       ( rd_n      ),
     .wr_n       ( wr_n      ),
-    .rfsh_n     (           ),
+    .rfsh_n     ( rfsh_n    ),
     .halt_n     (           ),
     .busak_n    (           ),
     .A          ( A         ),
@@ -234,5 +234,12 @@ jt5205 u_5205( // 8kHz, 4 bits/sample
     .irq    (           ),
     .vclk_o ( vclk      )
 );
-
+`else
+assign main_din=0, rom_addr=0, fm_l=0, fm_r=0, pcm=0;
+initial begin
+    rom_cs=0;
+    pcm_addr=0;
+    pcm_cs=0;
+end
+`endif
 endmodule

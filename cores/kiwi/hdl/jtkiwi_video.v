@@ -23,6 +23,7 @@ module jtkiwi_video(
     input               pxl2_cen,
     input               pxl_cen,
     input               hb_dly,
+    input               drtoppel,
 
     output              LHBL,
     output              LVBL,
@@ -119,6 +120,7 @@ jtkiwi_gfx u_gfx(
     // .prom_we    ( prom_we        ),
     // Screen
     .flip       ( flip           ),
+    .drtoppel   ( drtoppel       ),
     .LHBL       ( LHBL           ),
     .LVBL       ( LVBL           ),
     .vs         ( VS             ),
@@ -134,6 +136,8 @@ jtkiwi_gfx u_gfx(
     .cpu_addr   ( cpu_addr       ),
     .cpu_rnw    ( cpu_rnw        ),
     .cpu_dout   ( cpu_dout       ),
+    // 16-bit interface -unused-
+    .cpu_dsn    ( 2'b00          ),
     // SDRAM
     .scr_addr   ( scr_addr       ),
     .scr_data   ( scr_data       ),

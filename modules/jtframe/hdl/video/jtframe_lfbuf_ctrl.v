@@ -32,6 +32,7 @@ module jtframe_lfbuf_ctrl #(parameter
     input      [VW-1:0] ln_v,
     // data written to external memory
     input               frame,
+    input               fb_blank,
     output reg [HW-1:0] fb_addr,
     input      [  15:0] fb_din,
     output reg          fb_clr,
@@ -73,7 +74,7 @@ localparam [21:0] BUS_CFG = {
     1'b0, // synchronous burst access
     1'b0, // variable latency
     3'd3, // default latency counter
-    1'b0, // wait is active high
+    1'b0, // wait is active low
     1'b0, // reserved
     1'b0, // 1=wait set 1 clock ahead of data
     2'd0, // reserved
@@ -99,7 +100,7 @@ reg    [ 4:0] cntup; // use a larger count to capture data using Signal Tap
 wire   [ 7:0] vram; // current row (v) being processed through the external RAM
 reg    [15:0] adq_reg;
 reg  [HW-1:0] hblen, hlim, hcnt, wr_addr;
-reg           lhbl_l, do_wr, wait1,
+reg           lhbl_l, do_wr, wait1, adq_en,
               csn, ln_done_l, vsl, startup;
 wire          fb_over;
 wire          wring;
@@ -109,14 +110,14 @@ wire   rding   = st[3]; `endif
 assign wring   = st[2];
 assign cr_cen  = { 1'b1, csn }; // I call it csn to avoid the confusion with the common cen (clock enable) signal
 assign cr_dsn  = 0;
-assign fb_dout =  cr_oen ? 16'd0 : cr_adq;
-assign cr_adq  = !cr_advn ? adq_reg : !cr_oen ? 16'hzzzz : fb_din;
+assign fb_dout = cr_oen ? 16'd0 : cr_adq;
+assign cr_adq  =!cr_oen ? 16'hzzzz : adq_en ? adq_reg : fb_din;
 assign cr_clk  = clk;
-assign fb_over = &fb_addr;
+assign fb_over =&fb_addr;
 assign vram    = lhbl ? ln_v : vrender;
 assign scr_we  = cr_wait & ~cr_oen;
 
-always @( posedge clk, posedge rst ) begin
+always @( posedge clk ) begin
     if( rst ) begin
         hblen  <= 0;
         hlim   <= 0;
@@ -124,12 +125,14 @@ always @( posedge clk, posedge rst ) begin
         lhbl_l <= 0;
         vsl    <= 0;
         cntup  <= 0;
-        startup<= 0;
+        startup<= `ifdef NOMAIN 1 `else 0 `endif ;
     end else if(pxl_cen) begin
         lhbl_l  <= lhbl;
         vsl     <= vs;
         hcnt    <= hcnt+1'd1;
+`ifndef NOMAIN
         startup <= &cntup;
+`endif
         if( ~lhbl & lhbl_l ) begin // enters blanking
             hcnt   <= 0;
             hlim   <= hcnt - hblen; // H limit below which we allow do_wr events
@@ -141,13 +144,14 @@ always @( posedge clk, posedge rst ) begin
     end
 end
 
-always @( posedge clk, posedge rst ) begin
+always @( posedge clk ) begin
     if( rst ) begin
         do_wr <= 0;
     end else begin
         ln_done_l <= ln_done;
         if( ln_done & ~ln_done_l    ) do_wr <= 1;
         if( st==WRITEOUT && fb_over ) do_wr <= 0;
+        if( st==IDLE && skip_blank_lines ) do_wr <= 0;
     end
 end
 
@@ -176,7 +180,9 @@ initial begin
     init_seq[15] =  { 1'b1, 1'b0, 1'b1, 1'b1, 1'b1 };
 end
 
-always @( posedge clk, posedge rst ) begin
+wire skip_blank_lines = do_wr && fb_blank;
+
+always @( posedge clk ) begin
     if( rst ) begin
         st       <= INIT;
         cr_advn  <= 0;
@@ -190,10 +196,12 @@ always @( posedge clk, posedge rst ) begin
         line     <= 0;
         wait1    <= 0;
         init_cnt <= 0;
+        adq_en   <= 0;
     end else begin
         fb_done <= 0;
         wait1   <= 0;
         cr_advn <= 1;
+        if(!wait1) adq_en <= 0;
         if( fb_clr ) begin
             // the line is cleared outside the state machine so a
             // read operation can happen independently
@@ -206,6 +214,10 @@ always @( posedge clk, posedge rst ) begin
             csn <= 1;
         end else case( st )
             INIT: begin
+                case(init_cnt)
+                    1,2,7,8: adq_en <= 1;
+                    default: adq_en <= 0;
+                endcase
                 if( init_cnt==0  ) { cr_addr, adq_reg } <= REF_CFG;
                 if( init_cnt==15 ) { cr_addr, adq_reg } <= BUS_CFG;
                 init_cnt <= init_cnt + 1'd1;
@@ -226,8 +238,9 @@ always @( posedge clk, posedge rst ) begin
                     rd_addr <= 0;
                     cr_oen  <= 1;
                     st      <= READ_ADDR;
-                end
-                if( do_wr && !fb_clr &&
+                end else if( skip_blank_lines ) begin
+                    fb_done  <= 1;
+                end else if( do_wr && !fb_clr &&
                     hcnt<hlim && lhbl ) begin // do not start too late so it doesn't run over H blanking
                     csn     <= 0;
                     fb_addr <= 0;
@@ -240,6 +253,7 @@ always @( posedge clk, posedge rst ) begin
                 adq_reg[HW-1:0] <= wring ? wr_addr : rd_addr;
                 csn             <= 0;
                 cr_advn         <= 0;
+                adq_en          <= 1;
                 cr_oen          <= 1;
                 cr_wen          <= ~wring;
                 st              <= wring ? WRITEOUT : READIN;

@@ -1,7 +1,20 @@
-/*
-Copyright © 2023 Jose Tejada <jose.tejada@jotego.es>
+/*  This file is part of JTFRAME.
+    JTFRAME program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
 
-*/
+    JTFRAME program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with JTFRAME.  If not, see <http://www.gnu.org/licenses/>.
+
+    Author: Jose Tejada Gomez. Twitter: @topapate
+    Date: 4-1-2025 */
+
 package cmd
 
 import (
@@ -37,7 +50,10 @@ Not providing a signal name will compare all signals in the VCD
 		if len(args)==3 {
 			vcd.Compare( args[0:2], args[2], cmpArgs )
 		} else {
-			vcd.CompareAll( args[0:2], cmpArgs )
+			e := vcd.CompareAll( args[0:2], cmpArgs )
+			if e!=nil {
+				fmt.Println(e)
+			}
 		}
 	},
 	Args: cobra.MinimumNArgs(2),
@@ -74,9 +90,10 @@ func init() {
 
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
-	compareCmd.Flags().BoolVarP(&cmpArgs.Ignore_rst, "rst", "r", false, "ignore while any signal called rst is high")
-	compareCmd.Flags().IntVarP(&cmpArgs.Mismatch_n,"mismatch", "m", 1, "stop at the given mismatch occurence")
-	compareCmd.Flags().StringVarP(&t0,"time", "t", "0", "time at which comparison starts (scientific suffixes accepted)")
-	compareCmd.Flags().StringVarP(&t0b,"time_b", "b", "0", "time at which comparison starts for the B (right) VCD. Same as --time if --time_b is ommitted")
+	compareCmd.Flags().BoolVarP  (&cmpArgs.Ignore_rst, "rst",      "r", false, "ignore while any signal called rst is high")
+	compareCmd.Flags().BoolVarP  (&vcd.Verbose,        "verbose",  "v", false, "verbose")
+	compareCmd.Flags().IntVarP   (&cmpArgs.Mismatch_n, "mismatch", "m",     1, "stop at the given mismatch occurence")
+	compareCmd.Flags().StringVarP(&t0,                 "time",     "t",   "0", "time at which comparison starts (scientific suffixes accepted)")
+	compareCmd.Flags().StringVarP(&t0b,                "time_b",   "b",   "0", "time at which comparison starts for the B (right) VCD. Same as --time if --time_b is ommitted")
 }
 

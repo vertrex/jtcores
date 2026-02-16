@@ -1,16 +1,16 @@
-/*  This file is part of JTCORES1.
-    JTCORES1 program is free software: you can redistribute it and/or modify
+/*  This file is part of JTCORES.
+    JTCORES program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
     the Free Software Foundation, either version 3 of the License, or
     (at your option) any later version.
 
-    JTCORES1 program is distributed in the hope that it will be useful,
+    JTCORES program is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
 
     You should have received a copy of the GNU General Public License
-    along with JTCORES1.  If not, see <http://www.gnu.org/licenses/>.
+    along with JTCORES.  If not, see <http://www.gnu.org/licenses/>.
 
     Author: Jose Tejada Gomez. Twitter: @topapate
     Version: 1.0
@@ -90,10 +90,9 @@ always @(posedge clk) if(cen8) begin
         vdump   <= vrender;
         { VB, shVB[1] } <= shVB;
         // What's the right value for the frame start (FI) signal
-        // 261 fails miserably in Cammy's stage
-        // 255 works for Cammy, but is it right?
-        //frame_start <= vrender1==(9'd255 + { debug_bus[7], debug_bus });
-        frame_start <= vrender1==9'd255;
+        // 260 works well in Cammy's stage and xmvsf (see issue 610)
+        // frame_start <= vrender1==(9'd260 + { debug_bus[7], debug_bus });
+        frame_start <= vrender1==9'd260;
     end else begin
         frame_start <= 0;
     end

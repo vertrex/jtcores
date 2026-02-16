@@ -271,11 +271,14 @@ jtframe_68kdtack_cen  u_dtack(
     .num        (cen_num),  //INPUT 
     .den        (cen_den),  //INPUT 
     .DTACKn     (dtack_n),  //OUTPUT 
+    //.bus_ack    ( 1'b0      ), //XXX NEW IN JTCORES UPDATE i've ovewriten
+    //the file with old version temporarly 
     .wait2      (1'b0),
     .wait3      (1'b0),
     // unused
     .fave       (),
-    .fworst     ()
+    .fworst     (),
+    .frst(1'b0)
 );
 
 ///////// 68k bus mapping  ////////////////////

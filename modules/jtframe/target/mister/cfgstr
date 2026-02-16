@@ -20,6 +20,9 @@ H0P1OGH,Aspect ratio,Original,Full screen,[ARC1],[ARC2];
                                     H1P1O2,Rotate screen,Yes,No;
     {{ end }}
 {{ end }}
+{{ if .JTFRAME_LIGHTGUN }} H6O8,Sinden Lightgun,Off,On;
+                           H6O9,Sinden Crosshair,Off,On;
+                           H6o03,Lightgun Sensitivity,high,highest,lowest,low;{{ end }}
 P1oEF,Scale,Normal,V-Integer,Narrower HV-Integer,Wider HV-Integer;
 {{- /* crop options are only valid when the monitor is full HD 216*5=1080 */ -}}
 d5P1o9,Vertical Crop,Disabled,216p(5x);
@@ -28,10 +31,9 @@ d5P1oAD,Crop Offset,0,2,4,8,10,12,-12,-10,-8,-6,-4,-2;
 {{ if .CORE_OSD }}
     {{ .CORE_OSD }}
 {{ end }}
+{{ if .JTFRAME_JOY1_POS }}          OIJ,Player 1 character,First,Second,Third,Fourth; {{ end }}
 {{ if .JTFRAME_OSD_VOL }}           O67,FX volume,high,highest,lowest,low; {{ end }}
-{{ if .JTFRAME_OSD_SND_EN }}        O8,FX,On,Off; O9,FM,On,Off; {{ end }}
 {{ if .JTFRAME_OSD_TEST }}          OA,Service mode,Off,On; {{ end }}
-{{ if .JTFRAME_AUTOFIRE0}}          OI,Autofire button 0,Off,On; {{ end }}
 {{ if .JTFRAME_DIAL }}              o03,Sensitivity,high,highest,lowest,low;{{end}}
 {{ if .JTFRAME_UART }}
     {{ if .JTFRAME_NO_DB15 }}       o6,User port,Off,UART; {{ else }}
@@ -40,4 +42,4 @@ d5P1oAD,Crop Offset,0,2,4,8,10,12,-12,-10,-8,-6,-4,-2;
 {{ if .JTFRAME_CREDITS }} OC,Show credits in pause,On,Off; {{ end }}
 R0,Reset;
 {{ with .MISTER_EXTRA }} {{ . }} {{ end }}
-V,v{{ .COMMIT }};
+V,v{{ .JTFRAME_COMMIT }};

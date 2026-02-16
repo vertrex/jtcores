@@ -52,7 +52,8 @@ files=[
 rename=[ {name="Bonus Life", to="Bonus", values=[ "value1", "value2"...] }, ... ]
 delete=[ { machine="..." names=[ "Name*", "match??" ] }, ... ] # use */? for matching
 # applies an offset to the bit position of MAME's DIP sw tag given by "name"
-# JTTMNT uses this for PunkShot
+# The bit count for the given DIP tag will start at the given value
+# Used in TMNT and RIDER cores
 offset=[
 	{ machine="", setname="", name="", value=0 },...
 ]
@@ -73,10 +74,25 @@ defaults=[
 # verilog: if( prog_addr==0 && prog_we && header ) mycfg <= prog_data;
 info="Describe the header"
 fill=0xff
+# this can be used in mem.yaml for audio gain selection
+PCBs = [
+    { machine=  "aliens"   },
+    { machines=["crimfght","gbusters"] },
+    { machine=  "thunderx" },
+    { machine=  "scontra"  },
+]
+# explicit data assignment in the TOML
 data = [
+	{ pcb_id = true, offset=0 } # filled with the PCB array innformation
 	{ machine="...", setname="...", dev="...", offset=3, data="12 32 43 ..." },
 	...
 ]
+# automatic header module generation
+registers = [
+	{ name="scr2bpp",   pos="1[0]", values=[{machine="hopmappy", value=1}], desc="Scroll uses only 2 color planes" },
+	{ name="sndext_en", pos="2[0]", values=[{machines=["genpeitd","rthunder","wndrmomo"], value=1}], desc="Additional board for PCM sound" },
+]
+
 
 # region offset table at "start" byte in the header. This will also enable
 # the LUT parameters in jtframe_dwnld automatically
@@ -109,6 +125,11 @@ regions = [
 		reverse=true, no_offset=true, overrules=[ { names="...", reverse=false }, ... ] },
 	{ name==soundcpu, sequence=[2,1,0,0], no_offset=true } # inverts the order and repeats the first ROM
 	{ name=plds, skip=true },
+	# Set mirror=true to duplicate the parts until the region is filled, instead of filling with FF
+	{ name=gfx3, rename="obj", mirror=true },
+	# Set rom_len when the PCB socket is for a larger ROM than the one used on some games.
+	# duplicate files to match it. You may also need to set no_offset=true to avoid warnings
+	{ name=gfx2, rom_len=0x20000 },
 	{ name=gfx1, skip=true, remove=[ "notwanted"... ] }, # remove specific files from the dump
 	{ name=proms, files=[ {name="myname", crc="12345678", size=0x200 }... ] }	# Replace mame.xml information with specific files
 	# regions called "nvram" are automatically skipped

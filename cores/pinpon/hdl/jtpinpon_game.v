@@ -36,7 +36,7 @@ wire        vram_cs, oram_cs, flip;
 wire [ 7:0] vram_dout, obj_dout, cpu_dout;
 wire        vsync60;
 
-assign { dipsw_c, dipsw_b, dipsw_a } = dipsw[18:0];
+assign { dipsw_c, dipsw_b, dipsw_a } = { dipsw[13], 6'h3f, dipsw[11:0] };
 assign dip_flip = flip;
 assign debug_view= 0;
 
@@ -70,8 +70,8 @@ jtpinpon_main u_main(
     // cabinet I/O
     .cab_1p         ( cab_1p[1:0]   ),
     .coin           ( coin[1:0]     ),
-    .joystick1      ( joystick1     ),
-    .joystick2      ( joystick2     ),
+    .joystick1      ( joystick1[5:0]),
+    .joystick2      ( joystick2[5:0]),
     .service        ( service       ),
     // GFX
     .cpu_dout       ( cpu_dout      ),

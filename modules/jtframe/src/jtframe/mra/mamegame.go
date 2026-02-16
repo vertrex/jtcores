@@ -1,3 +1,20 @@
+/*  This file is part of JTFRAME.
+    JTFRAME program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    JTFRAME program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with JTFRAME.  If not, see <http://www.gnu.org/licenses/>.
+
+    Author: Jose Tejada Gomez. Twitter: @topapate
+    Date: 4-1-2025 */
+
 package mra
 
 import (
@@ -10,6 +27,43 @@ import (
 	"strings"
 	"strconv"
 )
+
+type MachineXML struct {
+	Name         string       `xml:"name,attr"`
+	Cloneof      string       `xml:"cloneof,attr"`
+	Sourcefile   string       `xml:"sourcefile,attr"`
+	Description  string       `xml:"description"`
+	Year         string       `xml:"year"`
+	Manufacturer string       `xml:"manufacturer"`
+	Rom          []MameROM    `xml:"rom"`
+	Devices      []MameDevice `xml:"device_ref"`
+	Chip         []struct {
+		Type  string `xml:"type,attr"`
+		Tag   string `xml:"tag,attr"`
+		Name  string `xml:"name,attr"`
+		Clock int    `xml:"clock,attr"`
+	} `xml:"chip"`
+	Display MameDisplay `xml:"display"`
+	Sound struct {
+		Channels int `xml:"channels"`
+	} `xml:"sound"`
+	Input struct {
+		Players int `xml:"players,attr"`
+		Control []struct {
+			Type    string `xml:"type,attr"`
+			Buttons int    `xml:"buttons,attr"`
+			Ways    string `xml:"ways,attr"`
+		} `xml:"control"`
+	} `xml:"input"`
+	Dipswitch []MachineDIP `xml:"dipswitch"`
+	// exclude pinballs
+	Ismechanical bool `xml:"ismechanical,attr"`
+}
+
+// implements Matcher interface
+func (machine *MachineXML)IsMatch(m Matchable) bool {
+	return m.Match(machine)>0
+}
 
 type MameROM struct {
 	Name       string `xml:"name,attr"`
@@ -34,13 +88,35 @@ type MameDevice struct {
 	Name string `xml:"name,attr"`
 }
 
+type MameDisplay struct {
+	Rotate int `xml:"rotate,attr"`
+	Width  int `xml:"width,attr"`
+	Height int `xml:"height,attr"`
+}
+
+type MachineDIP struct {
+	Name      string   `xml:"name,attr"`
+	Tag       string   `xml:"tag,attr"`
+	Mask      int      `xml:"mask,attr"`
+	Condition struct { // The meaning of some DIP switches may change upon other switches' value
+		Tag      string `xml:"tag,attr"`
+		Mask     int    `xml:"mask,attr"`
+		Relation string `xml:"relation,attr"`
+		Value    int    `xml:"value,attr"`
+	} `xml:"condition"`
+	Diplocation []Diplocation `xml:"diplocation"`
+	Dipvalue MAMEDIPValues `xml:"dipvalue"`
+	// calculated by JTFRAME after reading XML
+	lsb, msb, full_mask, offset int
+}
+
+type MAMEDIPValues []MAMEDIPValue
+
 type MAMEDIPValue struct {
 	Name    string `xml:"name,attr"`
 	Value   int    `xml:"value,attr"`
 	Default string `xml:"default,attr"`
 }
-
-type MAMEDIPValues []MAMEDIPValue
 
 func (this MAMEDIPValues) Len() int {
 	return len(this)
@@ -61,56 +137,13 @@ type Diplocation struct {
 	Number int    `xml:"number,attr"`
 }
 
-type MachineDIP struct {
-	Name      string   `xml:"name,attr"`
-	Tag       string   `xml:"tag,attr"`
-	Mask      int      `xml:"mask,attr"`
-	Condition struct { // The meaning of some DIP switches may change upon other switches' value
-		Tag      string `xml:"tag,attr"`
-		Mask     int    `xml:"mask,attr"`
-		Relation string `xml:"relation,attr"`
-		Value    int    `xml:"value,attr"`
-	} `xml:"condition"`
-	Diplocation []Diplocation `xml:"diplocation"`
-	Dipvalue MAMEDIPValues `xml:"dipvalue"`
-	// calculated by JTFRAME after reading XML
-	lsb, msb, full_mask, offset int
-}
-
-type MachineXML struct {
-	Name         string       `xml:"name,attr"`
-	Cloneof      string       `xml:"cloneof,attr"`
-	Sourcefile   string       `xml:"sourcefile,attr"`
-	Description  string       `xml:"description"`
-	Year         string       `xml:"year"`
-	Manufacturer string       `xml:"manufacturer"`
-	Rom          []MameROM    `xml:"rom"`
-	Devices      []MameDevice `xml:"device_ref"`
-	Chip         []struct {
-		Type  string `xml:"type,attr"`
-		Tag   string `xml:"tag,attr"`
-		Name  string `xml:"name,attr"`
-		Clock int    `xml:"clock,attr"`
-	} `xml:"chip"`
-	Display struct {
-		Rotate int `xml:"rotate,attr"`
-		Width  int `xml:"width,attr"`
-		Height int `xml:"height,attr"`
-	} `xml:"display"`
-	Sound struct {
-		Channels int `xml:"channels"`
-	} `xml:"sound"`
-	Input struct {
-		Players int `xml:"players,attr"`
-		Control []struct {
-			Type    string `xml:"type,attr"`
-			Buttons int    `xml:"buttons,attr"`
-			Ways    string `xml:"ways,attr"`
-		} `xml:"control"`
-	} `xml:"input"`
-	Dipswitch []MachineDIP `xml:"dipswitch"`
-	// exclude pinballs
-	Ismechanical bool `xml:"ismechanical,attr"`
+func (machine *MachineXML) Find(machine_options []Selectable) int {
+    for k, option := range machine_options {
+        if option.Match(machine)>0 {
+            return k
+        }
+    }
+    return -1
 }
 
 type MameXML struct {
@@ -136,6 +169,16 @@ func (this *MachineXML)Dial() bool {
 	}
 	return false
 }
+
+func (this *MachineXML)HasPaddle() bool {
+	for _, each := range this.Input.Control {
+		switch strings.ToLower(each.Type) {
+			case "paddle": return true
+		}
+	}
+	return false
+}
+
 
 func FamilyName(machine *MachineXML) string {
 	if machine.Cloneof != "" {

@@ -1,3 +1,20 @@
+/*  This file is part of JTFRAME.
+    JTFRAME program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    JTFRAME program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with JTFRAME.  If not, see <http://www.gnu.org/licenses/>.
+
+    Author: Jose Tejada Gomez. Twitter: @topapate
+    Date: 4-1-2025 */
+
 package update
 
 import (
@@ -160,8 +177,9 @@ func dump_output(cfg Config) {
 	}
 	appendif(cfg.Defs!="", strings.Split(cfg.Defs, ",")...)
 	appendif(cfg.Private, "JTFRAME_OSDCOLOR=(6'h20)")
-	appendif(cfg.Nohdmi, "MISTER_DEBUG_NOHDMI")
+	appendif(cfg.Nohdmi, "MISTER_DEBUG_NOHDMI", "JTFRAME_NOHQ2X", "MISTER_DISABLE_YC" )
 	appendif(cfg.Nosnd, "NOSOUND")
+	appendif( cfg.Nohdmi || cfg.Nosnd, "JTFRAME_OSD_NOLOGO", "JTFRAME_NOSTA" )
 	nokey := func( s string ) bool { // systems that do not work with jtbeta.zip
 		return s=="mist" || s=="sidi"
 	}

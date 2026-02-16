@@ -26,7 +26,7 @@
     output reg [ 6:0] attr,     // OC pins
     output            hflip,
     output reg        vflip,
-    output reg [ 8:0] hpos,
+    output reg [ 9:0] hpos,
     output     [ 3:0] ysub,
     output reg [11:0] hzoom,
     output reg        hz_keep,
@@ -36,7 +36,6 @@
     input      [ 8:0] vdump,    // generated internally.
                                 // Hdump goes from 20 to 19F, 384 pixels
                                 // Vdump goes from F8 to 1FF, 264 lines
-    // input             vs,
     input             hs,
 
     input      [15:0] scan_even,
@@ -57,9 +56,11 @@
     input      [ 7:0] debug_bus
 );
 
+parameter HFLIP_OFFSET = 0;
+
 reg  [18:0] yz_add;
 reg  [11:0] vzoom;
-reg  [ 9:0] y, y2, x, ydiff, ydiff_b, xadj, yadj, ywrap, yw0;
+reg  [ 9:0] y, y2, x, ydiff, ydiff_b, xadj, yadj;
 reg  [ 8:0] vlatch, ymove, full_h, vscl, hscl, full_w;
 reg  [ 7:0] scan_obj; // max 256 objects
 reg  [ 3:0] size;
@@ -68,34 +69,33 @@ reg  [ 1:0] scan_sub, reserved;
 reg         inzone, hs_l, done, hdone,
             vmir, hmir, sq, pre_vf, pre_hf, indr,
             hmir_eff, vmir_eff, vs_l, hhalf;
+wire [ 9:0] hflip_off;
 wire [ 1:0] nx_mir, hsz, vsz;
 wire        last_obj;
 reg  [ 8:0] zoffset [0:255];
 reg  [ 3:0] pzoffset[0:15 ];
 reg  [ 6:0] pri;
 
-assign hflip     = ghf ^ pre_hf ^ hmir_eff;
+assign hflip     = (ghf ^ pre_hf)&!hmir | hmir_eff;
 assign scan_addr = { scan_obj, scan_sub };
 assign ysub      = ydiff[3:0];
 assign last_obj  = &scan_obj[6:0];
 assign nx_mir    = scan_even[9:8];
 assign {vsz,hsz} = size;
+assign hflip_off = ghf ? HFLIP_OFFSET[9:0] : 0;
 
 (* direct_enable *) reg cen2=0;
 always @(negedge clk) cen2 <= ~cen2;
 
 always @(posedge clk) begin
-    xadj <= xoffset + 10'h66 ;
-    yadj <= yoffset + 10'h10f;
-    vscl <= rd_pzoffset(vzoom);
+    xadj <= xoffset + 10'h66 + hflip_off;
+    yadj <= yoffset + 10'h107;
     hscl <= rd_pzoffset(hzoom);
     /* verilator lint_off WIDTH */
     yz_add  <= vzoom[9:0]*ydiff_b; // vzoom < 10'h40 enlarge, >10'h40 reduce
                                    // opposite to the one in Aliens, which always
                                    // shrunk for non-zero zoom values
     /* verilator lint_on WIDTH */
-    yw0   = y + yadj;
-    ywrap = yw0 > 10'h200 ? yw0 + 10'h1A0 : yw0;
 end
 
 function [8:0] zmove( input [1:0] sz, input[8:0] scl );
@@ -121,14 +121,14 @@ endfunction
 always @* begin
     ymove  = zmove( vsz, vscl );
     y2     = y + {1'b0,ymove};
-    ydiff_b= y2 + { vlatch[8], vlatch } - 10'd8;
+    ydiff_b= y2 + { vlatch[8], vlatch };
     ydiff  = yz_add[6+:10];
     // test ver/parodius/scene/9 -> "bomb", scan_obj 5
     case( vsz )
-        0: vmir_eff = nx_mir[1] && ydiff[3];
-        1: vmir_eff = nx_mir[1] && ydiff[4];
-        2: vmir_eff = nx_mir[1] && ydiff[5];
-        3: vmir_eff = nx_mir[1] && ydiff[6];
+        0: vmir_eff = nx_mir[1] && ydiff[3] && ydiff[9:4]==0;
+        1: vmir_eff = nx_mir[1] && ydiff[4] && ydiff[9:5]==0;
+        2: vmir_eff = nx_mir[1] && ydiff[5] && ydiff[9:6]==0;
+        3: vmir_eff = nx_mir[1] && ydiff[6] && ydiff[9:7]==0;
     endcase
     hmir_eff = hmir & hhalf;
     case( vsz )
@@ -137,14 +137,13 @@ always @* begin
         2: inzone = ydiff_b[9]==ydiff[9] && ydiff[9:6]==0; // 64
         3: inzone = ydiff_b[9]==ydiff[9] && ydiff[9:7]==0; // 128
     endcase
-    if( y2[9] || yz_add[16] ) inzone=0;
+    if( yz_add[16] ) inzone=0;
     case( hsz )
         0: hdone = 1;
         1: hdone = hstep==1;
         2: hdone = hstep==3;
         3: hdone = hstep==7;
     endcase
-    if( y[9] ) inzone=0;
     case( hsz )
         0: hsum = 0;
         1: hsum = hmir ? 3'd0                           : {2'd0,hstep[0]^hflip};
@@ -158,8 +157,17 @@ always @* begin
         3: vsum = ydiff[6:4]^{3{vflip}};
     endcase
 end
+`ifndef JTFRAME_RELEASE
+wire flicker;
 
+jtframe_toggle #(.W(1))u_toggle(
+    .rst    ( rst       ),
+    .clk    ( clk       ),
 
+    .toggle ( hs        ),
+    .q      ( flicker   )
+);
+`endif
 // Table scan
 always @(posedge clk, posedge rst) begin
     if( rst ) begin
@@ -180,7 +188,6 @@ always @(posedge clk, posedge rst) begin
         shd      <= 0;
     end else if( cen2 ) begin
         hs_l <= hs;
-        // vs_l <= vs;
         dr_start <= 0;
         if( hs && !hs_l && vdump>9'h10D && vdump<9'h1f1) begin
             done     <= 0;
@@ -193,12 +200,12 @@ always @(posedge clk, posedge rst) begin
                 0: begin
                     hhalf <= 0;
                     { sq, pre_vf, pre_hf, size } <= scan_even[14:8];
-                    code    <= {2'b0, scan_odd[13:0]};
+                    code    <= {1'b0, scan_odd[14:0]}; // bit 14 needed for tmnt2
                     pri <= scan_even[6:0];
                     hstep   <= 0;
                     hz_keep <= 0;
-                    // if( !scan_even[15]  || scan_obj[6:0]!=5  ) begin
-                    if( !scan_even[15] /*`ifndef JTFRAME_RELEASE || (scan_obj[6:0]==debug_bus[6:0] && flicker) `endif*/ ) begin
+                    // if( !scan_even[15]  || scan_obj[6:0]!=2  ) begin
+                    if( !scan_even[15] `ifndef JTFRAME_RELEASE || (scan_obj[6:0]==debug_bus[6:0] && flicker) `endif ) begin
                         scan_sub <= 0;
                         scan_obj <= scan_obj + 1'd1;
                         if( last_obj ) done <= 1;
@@ -212,9 +219,10 @@ always @(posedge clk, posedge rst) begin
                 end
                 2: begin
                     x <=  x+xadj;
-                    y <=  ywrap;
+                    y <=  y+yadj;
                     vzoom <= scan_even[11:0];
                     hzoom <= sq ? scan_even[11:0] : scan_odd[11:0];
+                    vscl <= rd_pzoffset(scan_even[11:0]);
                 end
                 3: begin
                     { vmir, hmir } <= nx_mir;
@@ -244,13 +252,13 @@ always @(posedge clk, posedge rst) begin
                     if( (!dr_start && !dr_busy) || !inzone ) begin
                         {code[4],code[2],code[0]} <= hcode + hsum;
                         if( hstep==0 ) begin
-                            hpos <= x[8:0] - zmove( hsz, hscl );
+                            hpos <= x - zmove( hsz, hscl );
                         end else begin
-                            hpos <= hpos + 9'h10;
+                            hpos <= hpos + 10'h10;
                             hz_keep <= 1;
                         end
                         hstep <= hstep + 1'd1;
-                        dr_start <= inzone; //ELIMINAR
+                        dr_start <= inzone;
                         if( hdone || !inzone ) begin
                             { indr, scan_sub } <= 0;
                             scan_obj <= scan_obj + 1'd1;

@@ -1,3 +1,20 @@
+/*  This file is part of JTCORES.
+    JTFRAME program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    JTFRAME program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with JTFRAME.  If not, see <http://www.gnu.org/licenses/>.
+
+    Author: Jose Tejada Gomez. Twitter: @topapate
+    Date: 4-1-2025 */
+
 package vcd
 
 import(
@@ -21,14 +38,58 @@ type VCDSignal struct{
 	}
 }
 
-type vcdData map[string]*VCDSignal
-type boolSet map[string]bool
-type mameAlias map[string]*VCDSignal
-type NameValue map[string]uint64
+type VCDData map[string]*VCDSignal
+type boolSet struct {
+	v validator
+	set map[string]bool
+}
 
 type Hierarchy struct{
 	Nested map[string]*Hierarchy
 	Signals map[string]*VCDSignal
+}
+
+func (bset boolSet) Dump() {
+    for k, each := range bset.set {
+        if each { fmt.Printf("%s\n",k) }
+    }
+}
+
+type validator interface {
+	validate (name string) bool
+}
+
+func newBoolSet(v validator) (*boolSet) {
+	return &boolSet{
+		v: v,
+		set: make(map[string]bool),
+	}
+}
+
+func (b *boolSet) Update(all_names...string) {
+    for _, name := range all_names {
+        turnon:= true
+        if name[0]=='-' {
+            turnon = false
+            name=name[1:]
+        }
+        if !b.v.validate(name) {
+            fmt.Printf("Couldn't find %s\n", name)
+            continue
+        }
+        b.set[name]=turnon
+    }
+}
+
+func (b *boolSet)Remove(all_names... string) {
+    for _, name := range all_names {
+        b.set[name]=false
+    }
+}
+
+func (b boolSet)IsSet(name string) bool {
+	valid, _ := b.set[name]
+	return valid
 }
 
 func (this *VCDSignal) Dump() {
@@ -74,7 +135,7 @@ func (this *VCDSignal)FullName() string {
 	}
 }
 
-func (this vcdData)Get(name string) *VCDSignal {
+func (this VCDData)Get(name string) *VCDSignal {
 	if name=="" { return nil }
 	for _,each := range this {
 		if each.FullName()==name { return each }
@@ -91,7 +152,9 @@ func GetScope( name string ) (string, string) {
 	return strings.Join(tokens[0:len(tokens)-1],"."), tokens[len(tokens)-1]
 }
 
-func (this vcdData)GetAll(name string, matchScope bool) []*VCDSignal {
+// GetAll returns all signals with the same name. The scope is ignored if
+// matchScope is set to false
+func (this VCDData)GetAll(name string, matchScope bool) []*VCDSignal {
 	if name=="" { return nil }
 	r := make([]*VCDSignal,0,1)
 	scope,name := GetScope(name)
@@ -107,7 +170,7 @@ func (this vcdData)GetAll(name string, matchScope bool) []*VCDSignal {
 	}
 }
 
-func RenameRegs( ss vcdData ) {
+func RenameRegs( ss VCDData ) {
 	// Rename signals for some CPUs
 	// fx68k
 	for _,each := range ss {
@@ -195,7 +258,7 @@ func formatTime( t uint64 ) string {
 	return s
 }
 
-func GenerateHierarchy( ss vcdData ) *Hierarchy {
+func GenerateHierarchy( ss VCDData ) *Hierarchy {
 	// Convert ss to a slice
 	signals := make([]*VCDSignal,len(ss))
 	k := 0
@@ -350,7 +413,7 @@ func ( this *NameValue ) showDiff( o NameValue ) bool {
 	return diff
 }
 
-func (file *LnFile) NextVCD( ss vcdData ) bool {
+func (file *LnFile) NextVCD( ss VCDData ) bool {
 	// fmt.Printf("%s (#%d @%d):\n",file.fname,file.time, file.line)
     for file.Scan() {
         txt := file.Text()
@@ -366,7 +429,7 @@ func (file *LnFile) NextVCD( ss vcdData ) bool {
 }
 
 // advance the VCD scan upto the next change in any of the provided signals
-func (file *LnFile) NextChangeIn( ss vcdData, names []string ) bool {
+func (file *LnFile) NextChangeIn( ss VCDData, names []string ) bool {
 	// fmt.Printf("%s (#%d @%d):\n",file.fname,file.time, file.line)
 	found := false
     for file.Scan() {
@@ -388,14 +451,14 @@ func (file *LnFile) NextChangeIn( ss vcdData, names []string ) bool {
 }
 
 // advance until given time
-func (file *LnFile) MoveTo( ss vcdData, t0 uint64 ) bool {
+func (file *LnFile) MoveTo( ss VCDData, t0 uint64 ) bool {
 	good := true
 	for file.time<t0 && good { good = file.NextVCD(ss) }
 	return good
 }
 
-func GetSignals( file *LnFile ) vcdData {
-    ss := make(vcdData)
+func GetSignals( file *LnFile ) VCDData {
+    ss := make(VCDData)
     scope := ""
     type Mode int
     const(
@@ -477,18 +540,19 @@ func GetSignals( file *LnFile ) vcdData {
             }
         }
     }
+    file.SetResetLine()
     return ss
 }
 
 
-func assign( alias string, v uint64, ss vcdData) {
+func assign( alias string, v uint64, ss VCDData) {
     p, _ := ss[alias]
     if p==nil {
     	if alias=="" || alias==" " {
     		fmt.Println("vcd_parser: called assign with no signal alias")
         	os.Exit(1)
     	}
-        fmt.Printf("Warning: signal vcdData aliased as -> %s <- not found\n",alias)
+        fmt.Printf("Warning: signal VCDData aliased as -> %s <- not found\n",alias)
         return
     }
     p.Value = v
