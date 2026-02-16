@@ -1,0 +1,34 @@
+[global]
+author=["Solal Jacob"]
+webpage="https://ko-fi.com/solalretrogaming"
+twitter="@s_on_vg"
+
+[parse]
+sourcefile=["cabal.cpp"]
+main_setnames=["cabalus"]
+skip.Bootlegs=true
+
+[buttons]
+names = [
+    { names="Shoot,Jump" }
+]
+
+[dipsw]
+# too long for MiST OSD:
+delete=[
+    { Names=["coinage"] }
+]
+
+[ROM]
+regions=[
+    { name="maincpu", no_offset=true, width=16, reverse=true },
+    { name="audiocpu", no_offset=true },
+    { name="chars", no_offset=true  },
+    { name="tiles", no_offset=true  },
+    { name="sprites", no_offset=true  },
+    { name="adpcm1", no_offset=true },
+    { name="adpcm2", no_offset=true },
+    { name="proms", no_offset=true },
+]
+
+order=[ "maincpu", "audiocpu", "chars", "tiles", "sprites", "adpcm1", "adpcm2", "proms" ]

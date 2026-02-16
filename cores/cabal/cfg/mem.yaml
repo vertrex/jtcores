@@ -1,0 +1,92 @@
+params:
+  # MAINCPU :
+  #<rom name="13.7h" size="65536" offset="0"/>  cpu rom
+  #<rom name="11.6h" size="65536" offset="1"/>  cpu rom
+  #<rom name="12.7j" size="65536" offset="20000"/> cpu rom
+  #<rom name="10.6j" size="65536" offset="20001"/> cpu rom  (65536*4)/2 0x20_000
+  - { name: Z80_OFFSET,  value: "22'h20000"}
+  #<rom name="4-3n" size="8192" offset="0"/> z80 audio rom  0x1_000
+  - { name: BANK_OFFSET, value: "22'h21000"}
+  #<rom name="3-3p" size="32768" offset="8000"/> z80 bank
+  # BA1 (65536*4)+8192+32768 => 0x4a_000
+  #
+  #- { name: CHARS_OFFSET,     value: "22'h40000"}
+  #<rom name="5-6s" size="16384" offset="0"/>  char rom
+  - { name: TILES_OFFSET,  value: "22'h2000" } #
+  #<rom name="bg_rom1.bin" size="65536" offset="0"/>
+  #<rom name="bg_rom2.bin" size="65536" offset="1"/>
+  #<rom name="bg_rom3.bin" size="65536" offset="20000"/>
+  #<rom name="bg_rom4.bin" size="65536" offset="20001"/>
+  #<rom name="bg_rom5.bin" size="65536" offset="40000"/>
+  #<rom name="bg_rom6.bin" size="65536" offset="40001"/>
+  #<rom name="bg_rom7.bin" size="65536" offset="60000"/>
+  #<rom name="bg_rom8.bin" size="65536" offset="60001"/>
+  # BA1 + 540672 => 0x4a_000 + 0x84_000 => 0xce_000
+  #- { name: SPRITE_OFFSET, value:  "22'hc0000" }
+  #<rom name="sp_rom1.bin" size="65536" region="sprites" offset="0"/>
+  #<rom name="sp_rom2.bin" size="65536" region="sprites" offset="1"/>
+  #<rom name="sp_rom3.bin" size="65536" region="sprites" offset="20000"/>
+  #<rom name="sp_rom4.bin" size="65536" region="sprites" offset="20001"/>
+  #<rom name="sp_rom5.bin" size="65536" region="sprites" offset="40000"/>
+  #<rom name="sp_rom6.bin" size="65536" region="sprites" offset="40001"/>
+  #<rom name="sp_rom7.bin" size="65536" region="sprites" offset="60000"/>
+  #<rom name="sp_rom8.bin" size="65536" region="sprites" offset="60001"/>
+  # BA2 + 0x80_000 => 0x14_e000
+  #audio bank 1
+  #- { name: ADPCM1_OFFSET, value: "22'h40000" }
+  #<rom name="2-1s" size="65536" offset="0"/>
+  - { name: ADPCM2_OFFSET, value: "22'h8000" }
+  #<rom name="1-1u" size="65536"  offset="0"/>
+  - { name: PROM05_OFFSET, value: "22'h10000" }
+  #<rom name="prom05.8e" size="256" offset="0"/>
+  - { name: PROM10_OFFSET, value: "22'h10080" }
+  #<rom name="prom10.4j" size="256" offset="100"/>
+
+clocks:
+  clk:
+    - freq:  1000000
+      outputs:
+        - oki
+
+sdram:
+  banks:
+    - buses:
+        - name: cpu_rom
+          addr_width: 18
+          data_width: 16
+        - name: audiocpu_rom
+          addr_width: 13
+          data_width: 8
+          offset: Z80_OFFSET
+        - name: bank_rom
+          addr_width: 15
+          data_width: 8
+          offset: BANK_OFFSET
+    - buses:
+        - name: chars_rom
+          addr_width: 14
+          data_width: 16
+        - name: tiles_rom
+          addr_width: 19
+          data_width: 16
+          offset: TILES_OFFSET
+    - buses:
+        - name: sprite_rom
+          addr_width: 19
+          data_width: 16
+    - buses:
+        - name: adpcm1_rom
+          addr_width: 16
+          data_width: 8
+        - name: adpcm2_rom
+          addr_width: 16
+          data_width: 8
+          offset : ADPCM2_OFFSET
+        - name: prom_05
+          addr_width: 8
+          data_width: 8
+          offset: PROM05_OFFSET
+        - name: prom_10
+          addr_width: 8
+          data_width: 8
+          offset: PROM10_OFFSET

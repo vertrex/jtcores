@@ -1,0 +1,25 @@
+cabal:
+  - get:
+    - jtcabal_game.v
+    - sei0050bu.v
+    - video.v
+jtframe:
+  - from: ram
+    get:
+      - jtframe_ram.v
+      - jtframe_ram16.v
+  - from: cpu
+    get:
+      - jtframe_virq.v
+      - jtframe_m68k.yaml
+      - jtframe_z80.yaml
+  - from: clocking
+    get:
+      - jtframe_cen48.v
+  - from: video
+    get:
+      - jtframe_credits.v
+jt6295:
+jtopl:
+  - get:
+    - jtopl2.yaml
