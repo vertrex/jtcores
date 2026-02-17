@@ -1,8 +1,10 @@
 cabal:
   - get:
     - jtcabal_game.v
+    - main.v
     - sei0050bu.v
     - video.v
+    - 74LS74.v
 jtframe:
   - from: ram
     get:

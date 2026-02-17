@@ -39,8 +39,31 @@ jtframe_cen48 u_cen(
 );
 
 // main cpu 
-assign cpu_rom_cs = 1'b1; 
-assign cpu_rom_addr = 17'b0;
+wire INT_T, HBLB;
+
+cabal_main u_main(
+  .clk(clk),
+  .rst(rst),
+  .P6M(P6M),
+  .N6M(N6M),
+
+  .LVBL(LVBL),
+  .HBLB(HBLB),
+  .INT_T(INT_T),
+ 
+  //.start_button(start_button),
+  .joystick1(joystick1),
+  .joystick2(joystick2),
+  //.dispw(dispw),
+  .dip_pause(dip_pause),
+  .service(service),
+
+  .cpu_rom_data(cpu_rom_data),
+  .cpu_rom_addr(cpu_rom_addr),
+  .cpu_rom_ok(cpu_rom_ok),
+  .cpu_rom_cs(cpu_rom_cs)
+);
+
 
 // video 
 wire [8:0] vpos;
@@ -57,6 +80,8 @@ cabal_video u_video(
   .VS(VS),
   .LHBL(LHBL),
   .LVBL(LVBL),
+  .HBLB(HBLB),
+  .INT_T(INT_T),
   .hpos(hpos),
   .vpos(vpos),
 
