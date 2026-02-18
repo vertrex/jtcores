@@ -146,7 +146,7 @@ always @(posedge clk)
 
 
 assign OBJT1 =   prom_26_data[0];
-//assign OBJT2 =   prom_27_data[1]; //need to be latched
+//assign OBJT2 =   prom_26_data[1]; //need to be latched
 assign STARTV =  prom_26_data[2];
 assign VORIGIN = prom_26_data[3];
 assign INT_T =   prom_26_data[4];

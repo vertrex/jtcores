@@ -32,7 +32,7 @@ module toki_main(
 
   input      [15:0] cpu_rom_data,
   input             cpu_rom_ok,
-  output reg [18:1] cpu_rom_addr,
+  output     [18:1] cpu_rom_addr,
   output reg        cpu_rom_cs,
 
   output            MUSIC, //active low
@@ -272,13 +272,14 @@ jtframe_68kdtack_cen  u_dtack(
     .den        (cen_den),  //INPUT 
     .DTACKn     (dtack_n),  //OUTPUT 
     //.bus_ack    ( 1'b0      ), //XXX NEW IN JTCORES UPDATE i've ovewriten
+    //otherwise it stop working 
     //the file with old version temporarly 
     .wait2      (1'b0),
     .wait3      (1'b0),
     // unused
     .fave       (),
-    .fworst     (),
-    .frst(1'b0)
+    .fworst     ()
+    //.frst(1'b0) //XXX added in jtcores at some point, sound doesn't work 
 );
 
 ///////// 68k bus mapping  ////////////////////
@@ -304,9 +305,9 @@ jtframe_68kdtack_cen  u_dtack(
 reg dsw_cs, inputs_cs, system_cs;
 
 //XXX  if <300000 or z ?
-//assign cpu_rom_addr[18:1] = cpu_a[18:1];
-always @(posedge clk)
-    cpu_rom_addr[18:1] <= cpu_a[18:1];
+assign cpu_rom_addr[18:1] = cpu_a[18:1];
+//always @(posedge clk)
+    //cpu_rom_addr[18:1] <= cpu_a[18:1];
 //assign cpu_rom_cs = ~ROM0 | ~ROM1; //1'b1 ? doesnt work
 
 // XXX page3 rev_y & rev_x etc 

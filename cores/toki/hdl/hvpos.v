@@ -128,11 +128,11 @@ wire [3:0] OFST;
 reg  [3:0] offset_x; 
 reg  [3:0] offset_y; 
 reg        rdclk_d;
-wire       rdclk_fall = (rdclk_d == 1'b1) && (RDCLK == 1'b0);
+wire       rdclk_rise = (rdclk_d == 1'b0) && (RDCLK == 1'b1);
 
 always @(posedge clk) begin
     rdclk_d <= RDCLK;
-    if (rdclk_fall && ~CTRL_LT) begin
+    if (rdclk_rise && ~CTRL_LT) begin
         // 9H [3:0] (Offset Y)
         offset_y <= OBJ_DB[3:0];
         // 10H [7:4] (Offset X)
@@ -159,7 +159,7 @@ reg   [9:0] u137_latch;
 wire  [9:0] u137;
 
 always @(posedge clk) begin
-    if (rdclk_fall && LT_HPOS)
+    if (rdclk_rise && LT_HPOS)
       u137_latch <= {1'b0, OBJ_DB[8:0]};
     end
 
@@ -171,7 +171,7 @@ reg   [9:0] u138_latch;
 wire  [9:0] u138;
 
 always @(posedge clk) begin
-    if (rdclk_fall && LT_VPOS)
+    if (rdclk_rise && LT_VPOS)
       u138_latch <= {1'b0, OBJ_DB[8:0]};
     end
 
