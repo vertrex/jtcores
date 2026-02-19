@@ -94,19 +94,14 @@ module SEI0060BU(
    wire [8:0] odd_wr_cnt   = odd_base  + {5'b0, odd_pix_adj};
 
    always @(*) begin
-       // Trace-backed mapping from real SEI0060BU captures:
-       // - V1B=0: OA behaves as beam/read counter, EA carries write address.
-       // - V1B=1: EA behaves as beam/read counter, OA carries write address.
-       //
-       // Write-side address source follows the matching load domain:
-       // - EA <= even_wr_cnt (EVN_LD/even_pix path)
-       // - OA <= odd_wr_cnt  (ODD_LD/odd_pix path)
+       // When V1B=0 (even line): even buffer writes, odd buffer reads.
+       // When V1B=1 (odd line):  odd buffer writes, even buffer reads.
        if (V1B) begin
-           OA = odd_wr_cnt;
-           EA = HREV ? ~beam_cnt : beam_cnt;
+           OA = HREV ? ~beam_cnt   : beam_cnt;
+           EA = odd_wr_cnt;
        end else begin
-           OA = HREV ? ~beam_cnt : beam_cnt;
-           EA = even_wr_cnt;
+           OA = even_wr_cnt;
+           EA = HREV ? ~beam_cnt   : beam_cnt;
        end
    end
 

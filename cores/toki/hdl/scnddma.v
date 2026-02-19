@@ -37,6 +37,8 @@ module SCNDDMA(
 wire [8:1] CTA;
 wire [15:0] q_even;
 wire [15:0] q_odd;
+wire        find_even;
+wire        find_odd;
 // XXX IT'S a 6091 B pin are different than 6091 
 // 64 obj EVEN 
 sis6091B u_151(
@@ -48,7 +50,7 @@ sis6091B u_151(
   .addr({4'b0, DMA2_EA[5:0]}),                                // 62-71
   .rd_cen(~XOBDIR), //73
   //.q({SPR2_3,SPR1_3, ODHREV, NOOBJ,VA[3:0], CTA[8:1]}) //42-56
-  .find(),
+  .find(find_even),
   .q(q_even)//42-56
 );
 //XXX where goes XOBDIR ? DIY_2 ? check on other sis6901 if it's sometime used
@@ -71,12 +73,50 @@ sis6091B u_152(
   .addr({4'b0, DMA2_OA[5:0]}),
   .rd_cen(~XOBDIR),
 //  .q1({SPR2_3,SPR1_3, ODHREV, NOOBJ,VA[3:0], CTA[8:1]}) //42-56
-  .find(),
+  .find(find_odd),
   .q(q_odd)
 );
 
-                                                        //D1V oR XOBDIR ?
-assign {SPR2_3,SPR1_3, ODHREV, NOOBJ,VA[3:0], CTA[8:1]} =  D1V_2 ? q_even : q_odd; //D1V_2 == V1B == VPOS[0]!
+// D1V_2 == V1B == VPOS[0]
+wire [15:0] q_sel = D1V_2 ? q_even : q_odd;
+wire q_noobj_unused;
+assign {SPR2_3,SPR1_3, ODHREV, q_noobj_unused, VA[3:0], CTA[8:1]} = q_sel;
+
+// Keep per-line valid slot bitmaps for each ping-pong bank.
+// This avoids stale "object present" on unwritten slots while preserving
+// the hardware address mapping used on DMA2_EA/DMA2_OA.
+reg d1v2_d   = 1'b0;
+reg evnwr2_d = 1'b1;
+reg oddwr2_d = 1'b1;
+reg [63:0] even_valid = 64'b0;
+reg [63:0] odd_valid  = 64'b0;
+
+wire d1v2_rise  = (d1v2_d == 1'b0) && (D1V_2  == 1'b1);
+wire d1v2_fall  = (d1v2_d == 1'b1) && (D1V_2  == 1'b0);
+wire evnwr2_fall = (evnwr2_d == 1'b1) && (EVNWR2 == 1'b0);
+wire oddwr2_fall = (oddwr2_d == 1'b1) && (ODDWR2 == 1'b0);
+
+always @(posedge clk) begin
+    d1v2_d   <= D1V_2;
+    evnwr2_d <= EVNWR2;
+    oddwr2_d <= ODDWR2;
+
+    // sort48 phase:
+    // - V1B=1 writes ODD slots (DMA2_OA=wr_ptr), reads EVEN slots
+    // - V1B=0 writes EVEN slots (DMA2_EA=wr_ptr), reads ODD slots
+    if (d1v2_rise)
+        odd_valid <= 64'b0;
+    else if (oddwr2_fall)
+        odd_valid[DMA2_OA] <= 1'b1;
+
+    if (d1v2_fall)
+        even_valid <= 64'b0;
+    else if (evnwr2_fall)
+        even_valid[DMA2_EA] <= 1'b1;
+end
+
+wire slot_valid = D1V_2 ? even_valid[DMA2_EA] : odd_valid[DMA2_OA];
+assign NOOBJ = ~slot_valid;
 
 // 256addr for obj ? 
 // store at FDA => nd2, obj (graphical data?)
