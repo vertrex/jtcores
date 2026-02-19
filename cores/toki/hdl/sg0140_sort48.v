@@ -46,10 +46,11 @@ module sg0140_sort48(
     wire ild2_rise  = (ild2_d  == 1'b0) && (ILD2  == 1'b1);
     wire rdclk_fall = (rdclk_d == 1'b1) && (RDCLK == 1'b0);
 
-    // H-based consume slot (0..63), limited to hardware list depth (48).
-    // Slot index from hardware H inputs: {H256,H128,H64,H32,H16,H2}.
-    wire [5:0] hslot = {H[8:4], H2};
-    wire [5:0] read_slot = (hslot < 6'd48) ? hslot : 6'd0;
+    // H-based consume slot (0..63).
+    // Trace-derived order: {H256,H128,H2,H64,H32,H16}.
+    // Do not clamp >=48 to 0; out-of-range slots are naturally masked by
+    // per-slot valid bits in SCNDDMA, while clamping causes repeated slot-0.
+    wire [5:0] read_slot = {H[8:7], H2, H[6:4]};
 
     // Trace-backed: VFIND pulses are in XSDTS=1 phase.
     wire list_phase = (XSDTS == 1'b1);
