@@ -18,20 +18,33 @@ module cabal_video(
   output      [8:0] hpos,
   output      [8:0] vpos,
 
+  // Shared video RAM (XXX)
+  output reg [10:1] palette_ram_addr,
+  input      [15:0] palette_ram_out,
+
+  output     [10:1] char_ram_addr,
+  input      [15:0] char_ram_out,
+
+  output      [9:1] bk_ram_addr,
+  input      [15:0] bk_ram_out,
+
+  output     [10:1] sprite_ram_addr,
+  input      [15:0] sprite_ram_out,
+
   //chars rom
   input      [15:0] chars_rom_data,
   input             chars_rom_ok,
-  output reg [12:0] chars_rom_addr,
+  output reg [13:1] chars_rom_addr,
   output            chars_rom_cs,
   //chars rom
   input      [15:0] tiles_rom_data,
   input             tiles_rom_ok,
-  output reg [17:0] tiles_rom_addr,
+  output reg [18:1] tiles_rom_addr,
   output            tiles_rom_cs,
    //chars rom
   input      [15:0] sprite_rom_data,
   input             sprite_rom_ok,
-  output reg [17:0] sprite_rom_addr,
+  output reg [18:1] sprite_rom_addr,
   output            sprite_rom_cs, 
   //prom 05
   input      [7:0]  prom_05_data,
@@ -112,9 +125,8 @@ always @(posedge clk) begin
     HBLB <= HBL;
 end 
 
+
 // rom 
-assign chars_rom_addr = 13'b0; 
-assign chars_rom_cs = 1'b0;
 assign tiles_rom_addr = 18'b0;
 assign tiles_rom_cs = 1'b0;
 assign sprite_rom_addr = 18'b0;
@@ -122,10 +134,50 @@ assign sprite_rom_cs = 1'b0;
 assign prom_10_addr = 8'b0;
 assign prom_10_cs = 1'b0;
 
+wire [7:0] char_pixel;
+
+////// TEXT / CHAR ////////// 
+// 
+//
+assign chars_rom_cs = 1'b1;
+
+scrn_char u_scrn_char(
+  .clk(clk),
+  .rst(rst),
+  .pxl_cen(P6M),
+  .line_number(vpos[8:0]), //+8'd1 ?
+  //+ decallage a gauche 
+  .pos(hpos + 1),
+
+  .char_ram_addr(char_ram_addr),
+  .char_ram_out(char_ram_out),
+
+  .char_rom_data(chars_rom_data),
+  .char_rom_ok(chars_rom_ok),
+  .char_rom_addr(chars_rom_addr),
+
+  .pixel(char_pixel)
+);  
+
+assign sprite_ram_addr[10:1] = 10'b0;
+assign bk_ram_addr[9:1] = 9'b0;
+
 //DAC  output 
-assign r = 4'hf;
-assign g = 4'h0;
-assign b = 4'h0;
+//always @(posedge clk) begin 
+  /*//if (display_on) begin */
+
+		// m_text_layer->set_transparent_pen(3)
+			//if (char_pixel[1:0] != 2'b11)
+				//palette_ram_addr[10:1] <= {2'd0, char_pixel[7:0]};
+			//else
+				//palette_ram_addr[10:1] <= 'h1ff;
+  //end 
+//end 
+assign palette_ram_addr[10:1] = (char_pixel[1:0] != 'h3) ?  {2'd0, char_pixel[7:0]}  : 'h1ff;
+
+assign r = palette_ram_out[3:0];
+assign g = palette_ram_out[7:4];
+assign b = palette_ram_out[11:8];
 
 /////// RAM DUMP ////////
 //
@@ -209,7 +261,7 @@ always @(posedge clk) begin
      `dump_ram16_split("cpu_ram.bin", 32768, $root.game_test.u_game.u_game.u_main.u_cpu_ram)
      `dump_dual_ram16_split("video_ram.bin", 2048, $root.game_test.u_game.u_game.u_main.u_bk_ram)
      `dump_dual_ram16_split("palette_ram.bin", 2048, $root.game_test.u_game.u_game.u_main.u_palette_ram)
-     `dump_dual_ram16_split("color_ram.bin", 2048, $root.game_test.u_game.u_game.u_main.u_text_ram)
+     `dump_dual_ram16_split("color_ram.bin", 2048, $root.game_test.u_game.u_game.u_main.u_char_ram)
      //`dump_dual_ram16_split("sprite_ram.bin", 1024, $root.game_test.u_game.u_game.u_main.u_sprite_ram)
 
      dump_done = 1;

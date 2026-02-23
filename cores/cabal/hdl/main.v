@@ -22,7 +22,22 @@ module cabal_main(
   input      [15:0] cpu_rom_data,
   input             cpu_rom_ok,
   output     [17:1] cpu_rom_addr,
-  output reg        cpu_rom_cs
+  output reg        cpu_rom_cs,
+
+  //Shared video RAM 
+  input      [10:1] palette_ram_addr,
+  output     [15:0] palette_ram_out,
+
+  input      [10:1] char_ram_addr,
+  output     [15:0] char_ram_out,
+
+  input       [9:1] bk_ram_addr,
+  output     [15:0] bk_ram_out,
+
+  input      [10:1] sprite_ram_addr,
+  output     [15:0] sprite_ram_out
+
+  //XXX scroll & sound latch 
 );
 
 wire p1_right    = joystick1[0];
@@ -200,7 +215,7 @@ assign cpu_rom_addr[17:1] = cpu_a[17:1];
 // XXX todo 
 //assign cpu_rom_cs = 1'b1;
 reg dsw_cs, in2_cs, inputs_cs, ram_cs;
-reg text_cs, bg_cs, palette_cs, sprite_cs;
+reg char_cs, bg_cs, palette_cs, sprite_cs;
 //reg 
 
 //mame based 
@@ -212,9 +227,9 @@ always @(*) begin
       in2_cs  = ~cpu_as_n & (cpu_a[23:1] == 23'h50004); // && cpu_a[23:1] < 24'hc0005); //2 
       inputs_cs  = ~cpu_as_n & (cpu_a[23:1] == 23'h50008); // && cpu_a[23:1] < 24'hc0003); //2 
       // gfx bus according to MAME 
-      //0x60000 - 0x607ff   VRAM (Tiles) aka colorram 
-      //sprite_cs = ~cpu_as_n & (cpu_a[23:1] >= 23'h21c00 && cpu_a[23:1] < 23'h22000);
-      text_cs = ~cpu_as_n & (cpu_a[23:1] >= 23'h30000 && cpu_a[23:1] < 23'h30400);
+      //0x60000 - 0x607ff   VRAM (Tiles) aka colorram //XXX certainly DMA not shared ! 
+      sprite_cs = ~cpu_as_n & (cpu_a[23:1] >= 23'h21c00 && cpu_a[23:1] < 23'h22000);
+      char_cs = ~cpu_as_n & (cpu_a[23:1] >= 23'h30000 && cpu_a[23:1] < 23'h30400);
       //0x80000 - 0x803ff   VRAM (Background) aka videoram
       bg_cs = ~cpu_as_n & (cpu_a[23:1] >= 23'h40000 && cpu_a[23:1] < 23'h40200);
       //0xe0000 - 0xe07ff   COLORRAM (----BBBBGGGGRRRR)
@@ -234,7 +249,7 @@ assign cpu_din = cpu_rom_cs ? cpu_rom_data[15:0] :
                  //needed ?
                  palette_cs ? palette_do[15:0] : 
                  //sprite_cs ? sprite_do[15:0] : 
-                 text_cs ? text_do[15:0] :
+                 char_cs ? char_do[15:0] :
                  bg_cs ? bg_do[15:0] : 
                  16'd0;
 
@@ -256,31 +271,23 @@ jtframe_ram16 #(.AW(15)) u_cpu_ram(
 
 // XXX PLUG GFX RAM ACCORDING TO MAME 
 // video ram (2048) 
-wire [15:0] text_do; 
+wire [15:0] char_do; 
 
-wire [10:1] vram_addr;
-assign vram_addr = 10'b0;
-wire [15:0] vram_out;
-
-jtframe_dual_ram16 #(.AW(10)) u_text_ram(
+jtframe_dual_ram16 #(.AW(10)) u_char_ram(
   .clk0(clk),
   .data0(cpu_dout[15:0]),
   .addr0(cpu_a[10:1]),
-  .we0({text_cs && !cpu_wr_n && !cpu_uds_n, text_cs && !cpu_wr_n && !cpu_lds_n}),
-  .q0(text_do), 
+  .we0({char_cs && !cpu_wr_n && !cpu_uds_n, char_cs && !cpu_wr_n && !cpu_lds_n}),
+  .q0(char_do), 
 
   .clk1(clk),
   .data1(),
-  .addr1(vram_addr),
+  .addr1(char_ram_addr),
   .we1(2'b0),
-  .q1(vram_out)
+  .q1(char_ram_out)
 );
 
 wire [15:0] bg_do;
-wire [9:1] bk_addr;
-assign bk_addr = 9'b0;
-wire [15:0] bk_out;
-
 
 // xxx background ram 
 // 1024 (strange that's the only 1024)  
@@ -293,18 +300,15 @@ jtframe_dual_ram16 #(.AW(9)) u_bk_ram(
 
   .clk1(clk),
   .data1(),
-  .addr1(bk_addr),
+  .addr1(bk_ram_addr),
   .we1(2'b0),
-  .q1(bk_out)
+  .q1(bk_ram_out)
 
 );
 
 // palette ram 
 // 2048 
 wire [15:0] palette_do; 
-wire [10:1] palette_addr;
-assign palette_addr = 10'b0;
-wire [15:0] palette_out;
 
 jtframe_dual_ram16 #(.AW(10)) u_palette_ram(
   .clk0(clk), 
@@ -316,9 +320,9 @@ jtframe_dual_ram16 #(.AW(10)) u_palette_ram(
 
   .clk1(clk),
   .data1(),
-  .addr1(palette_addr),
+  .addr1(palette_ram_addr),
   .we1(2'b0),
-  .q1(palette_out)
+  .q1(palette_ram_out)
 );
 
 
@@ -326,11 +330,7 @@ jtframe_dual_ram16 #(.AW(10)) u_palette_ram(
 // XXX sprite ram 
 // 2048 (sometimes mame say less ?)
 // 
-/* 
-wire [15:0] sprite_do; 
-wire [10:1] sprite_addr;
-assign sprite_addr = 10'b0;
-wire [15:0] sprite_out;
+wire [15:0] sprite_do;
 
 jtframe_dual_ram16 #(.AW(10)) u_sprite_ram(
   .clk0(clk), 
@@ -342,11 +342,11 @@ jtframe_dual_ram16 #(.AW(10)) u_sprite_ram(
 
   .clk1(clk),
   .data1(),
-  .addr1(sprite_addr),
+  .addr1(sprite_ram_addr),
   .we1(2'b0),
-  .q1(sprite_out)
+  .q1(sprite_ram_out)
 );
-*/
+
 /* 
 [of which: 0x43800 - 0x43fff   VRAM (Sprites)]
 0x60000 - 0x607ff   VRAM (Tiles)

@@ -5,6 +5,7 @@ cabal:
     - sei0050bu.v
     - video.v
     - 74LS74.v
+    - char.v
 jtframe:
   - from: ram
     get:

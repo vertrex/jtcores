@@ -41,6 +41,10 @@ jtframe_cen48 u_cen(
 // main cpu 
 wire INT_T, HBLB;
 
+wire [10:1] palette_ram_addr, char_ram_addr, sprite_ram_addr;
+wire  [9:1] bk_ram_addr;
+wire [15:0] palette_ram_out, char_ram_out, bk_ram_out, sprite_ram_out; 
+
 cabal_main u_main(
   .clk(clk),
   .rst(rst),
@@ -61,7 +65,19 @@ cabal_main u_main(
   .cpu_rom_data(cpu_rom_data),
   .cpu_rom_addr(cpu_rom_addr),
   .cpu_rom_ok(cpu_rom_ok),
-  .cpu_rom_cs(cpu_rom_cs)
+  .cpu_rom_cs(cpu_rom_cs),
+  //share video ram 
+  .palette_ram_addr(palette_ram_addr),
+  .palette_ram_out(palette_ram_out), 
+
+  .char_ram_addr(char_ram_addr),
+  .char_ram_out(char_ram_out),
+
+  .bk_ram_addr(bk_ram_addr),
+  .bk_ram_out(bk_ram_out),
+
+  .sprite_ram_addr(sprite_ram_addr),
+  .sprite_ram_out(sprite_ram_out)
 );
 
 
@@ -84,6 +100,18 @@ cabal_video u_video(
   .INT_T(INT_T),
   .hpos(hpos),
   .vpos(vpos),
+  // Shared video RAM (XXX) 
+  .palette_ram_addr(palette_ram_addr),
+  .palette_ram_out(palette_ram_out),
+
+  .char_ram_addr(char_ram_addr),
+  .char_ram_out(char_ram_out),
+
+  .bk_ram_addr(bk_ram_addr),
+  .bk_ram_out(bk_ram_out),
+
+  .sprite_ram_addr(sprite_ram_addr),
+  .sprite_ram_out(sprite_ram_out),
 
   //chars rom 
   .chars_rom_data(chars_rom_data),
