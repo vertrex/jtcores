@@ -51,10 +51,10 @@ cabal_main u_main(
   .HBLB(HBLB),
   .INT_T(INT_T),
  
-  //.start_button(start_button),
+  .start_button(cab_1p[1:0]),
   .joystick1(joystick1),
   .joystick2(joystick2),
-  //.dispw(dispw),
+  .dipsw(dipsw),
   .dip_pause(dip_pause),
   .service(service),
 

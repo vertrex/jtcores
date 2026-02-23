@@ -11,12 +11,12 @@ module cabal_main(
   input             INT_T, 
 
   // Input
-  //input      [1:0]  start_button,
+  input      [1:0]  start_button,
   input      [6:0]  joystick1,
   input      [6:0]  joystick2,
 
-  //input      [31:0] dipsw,
-  input             dip_pause,     
+  input      [31:0] dipsw,
+  input     dip_pause,     
   input             service,
 
   input      [15:0] cpu_rom_data,
@@ -31,7 +31,7 @@ wire p1_down     = joystick1[2];
 wire p1_up       = joystick1[3];
 wire p1_button1  = joystick1[4];
 wire p1_button2  = joystick1[5];
-//wire p1_start    = start_button[0];
+wire p1_start    = start_button[0];
 
 wire p2_right    = joystick2[0];
 wire p2_left     = joystick2[1];
@@ -39,7 +39,7 @@ wire p2_down     = joystick2[2];
 wire p2_up       = joystick2[3];
 wire p2_button1  = joystick2[4];
 wire p2_button2  = joystick2[5];
-//wire p2_start    = start_button[1];
+wire p2_start    = start_button[1];
 
 ///////// Motorola 68K CPU ///////////////////////////
 //
@@ -170,7 +170,7 @@ localparam [3:0] cen_num =  4'd5;
 localparam [4:0] cen_den = 5'd24;
 
 wire bus_cs  = cpu_rom_cs;
-wire bus_busy = (cpu_rom_cs & ~cpu_rom_ok)  | ~br_n; //| BUSOPN;
+wire bus_busy = (cpu_rom_cs & ~cpu_rom_ok);//  | ~br_n; //| BUSOPN;
 
 jtframe_68kdtack_cen  u_dtack(
     .rst        (rst),     //INPUT 
@@ -180,12 +180,12 @@ jtframe_68kdtack_cen  u_dtack(
     .bus_cs     (bus_cs),  //INPUT 
     .bus_busy   (bus_busy), //INPUT 
     .bus_legit  (1'b0),    //INPUT 
+    .bus_ack    (1'b0), //XXX new ?
     .ASn        (cpu_as_n),//INPUT 
     .DSn        ({cpu_uds_n, cpu_lds_n}), //INPUT 
     .num        (cen_num),  //INPUT 
     .den        (cen_den),  //INPUT 
     .DTACKn     (dtack_n),  //OUTPUT 
-    .bus_ack    ( 1'b1      ), //XXX NEW IN JTCORES UPDATE i've ovewriten ????
     //otherwise it stop working 
     //the file with old version temporarly 
     .wait2      (1'b0),
@@ -200,23 +200,43 @@ assign cpu_rom_addr[17:1] = cpu_a[17:1];
 // XXX todo 
 //assign cpu_rom_cs = 1'b1;
 reg dsw_cs, in2_cs, inputs_cs, ram_cs;
+reg text_cs, bg_cs, palette_cs, sprite_cs;
+//reg 
 
+//mame based 
 always @(*) begin
       cpu_rom_cs = ~cpu_as_n & (cpu_a[23:1] < 23'h20000); //<= h40000 /2
-      ram_cs = ~cpu_as_n & (cpu_a[23:1] >= 23'h20000 && cpu_a[23:1] <= 23'h28000);
+      ram_cs = ~cpu_as_n & (cpu_a[23:1] >= 23'h20000 && cpu_a[23:1] < 23'h28000);
       //IO
       dsw_cs     = ~cpu_as_n & (cpu_a[23:1] == 23'h50000); // && cpu_a[23:1] < 24'ha0001); //2 
       in2_cs  = ~cpu_as_n & (cpu_a[23:1] == 23'h50004); // && cpu_a[23:1] < 24'hc0005); //2 
       inputs_cs  = ~cpu_as_n & (cpu_a[23:1] == 23'h50008); // && cpu_a[23:1] < 24'hc0003); //2 
+      // gfx bus according to MAME 
+      //0x60000 - 0x607ff   VRAM (Tiles) aka colorram 
+      //sprite_cs = ~cpu_as_n & (cpu_a[23:1] >= 23'h21c00 && cpu_a[23:1] < 23'h22000);
+      text_cs = ~cpu_as_n & (cpu_a[23:1] >= 23'h30000 && cpu_a[23:1] < 23'h30400);
+      //0x80000 - 0x803ff   VRAM (Background) aka videoram
+      bg_cs = ~cpu_as_n & (cpu_a[23:1] >= 23'h40000 && cpu_a[23:1] < 23'h40200);
+      //0xe0000 - 0xe07ff   COLORRAM (----BBBBGGGGRRRR)
+      palette_cs = ~cpu_as_n & (cpu_a[23:1] >= 23'h70000 && cpu_a[23:1] < 23'h70400);
+      //0xe8000 - 0xe800f   Communication with sound CPU (also coins)
+      //XXX 
+      //sprite_cs mame sometimes say 0x43bff or 0x43fff for the end ?? 
 end
 
 // XXX TODO BUS CS 
 assign cpu_din = cpu_rom_cs ? cpu_rom_data[15:0] :
                  ram_cs ? ram_do[15:0] : 
-                 //dsw_cs ? dipsw[15:0] :
+                 dsw_cs ? dipsw[15:0] : //XXX if not set we go to a 99 lies screen directly 
                  inputs_cs  ? {1'b1,1'b1,p2_button2,p2_button1,p2_right,p2_left,p2_down,p2_up,
                                1'b1,1'b1,p1_button2,p1_button1,p1_right,p1_left,p1_down,p1_up} :
-                  16'd0;
+
+                 //needed ?
+                 palette_cs ? palette_do[15:0] : 
+                 //sprite_cs ? sprite_do[15:0] : 
+                 text_cs ? text_do[15:0] :
+                 bg_cs ? bg_do[15:0] : 
+                 16'd0;
 
 wire [15:0] ram_do;
 
@@ -229,8 +249,124 @@ jtframe_ram16 #(.AW(15)) u_cpu_ram(
     .addr(cpu_a[15:1]),  //ENABLE VIA DMARD ? 
     .data(cpu_dout[15:0]), //MDB_OUT  // 
     //.we({~RAM & ~MWRMB, ~RAM & ~ MWRLB}),
-    .we({ram_cs & ~MWRMB, ram_cs & ~ MWRLB}),
+    .we({ram_cs && !cpu_wr_n && !cpu_uds_n, ram_cs && !cpu_wr_n && !cpu_lds_n}),
+    //.we({ram_cs & ~MWRMB, ram_cs & ~ MWRLB}),
     .q(ram_do[15:0])  //MDB_in ? //remove from data bus input if set here 
 );
+
+// XXX PLUG GFX RAM ACCORDING TO MAME 
+// video ram (2048) 
+wire [15:0] text_do; 
+
+wire [10:1] vram_addr;
+assign vram_addr = 10'b0;
+wire [15:0] vram_out;
+
+jtframe_dual_ram16 #(.AW(10)) u_text_ram(
+  .clk0(clk),
+  .data0(cpu_dout[15:0]),
+  .addr0(cpu_a[10:1]),
+  .we0({text_cs && !cpu_wr_n && !cpu_uds_n, text_cs && !cpu_wr_n && !cpu_lds_n}),
+  .q0(text_do), 
+
+  .clk1(clk),
+  .data1(),
+  .addr1(vram_addr),
+  .we1(2'b0),
+  .q1(vram_out)
+);
+
+wire [15:0] bg_do;
+wire [9:1] bk_addr;
+assign bk_addr = 9'b0;
+wire [15:0] bk_out;
+
+
+// xxx background ram 
+// 1024 (strange that's the only 1024)  
+jtframe_dual_ram16 #(.AW(9)) u_bk_ram(
+  .clk0(clk), 
+  .data0(cpu_dout[15:0]),
+  .addr0(cpu_a[9:1]),
+  .we0({bg_cs && !cpu_wr_n && !cpu_uds_n, bg_cs && !cpu_wr_n && !cpu_lds_n}),
+  .q0(bg_do), 
+
+  .clk1(clk),
+  .data1(),
+  .addr1(bk_addr),
+  .we1(2'b0),
+  .q1(bk_out)
+
+);
+
+// palette ram 
+// 2048 
+wire [15:0] palette_do; 
+wire [10:1] palette_addr;
+assign palette_addr = 10'b0;
+wire [15:0] palette_out;
+
+jtframe_dual_ram16 #(.AW(10)) u_palette_ram(
+  .clk0(clk), 
+  .data0(cpu_dout[15:0]),
+  .addr0(cpu_a[10:1]),
+  .we0({palette_cs && !cpu_wr_n && !cpu_uds_n, palette_cs && !cpu_wr_n && !cpu_lds_n}),
+  //.we0(palette_cs && !cpu_wr_n),
+  .q0(palette_do), 
+
+  .clk1(clk),
+  .data1(),
+  .addr1(palette_addr),
+  .we1(2'b0),
+  .q1(palette_out)
+);
+
+
+
+// XXX sprite ram 
+// 2048 (sometimes mame say less ?)
+// 
+/* 
+wire [15:0] sprite_do; 
+wire [10:1] sprite_addr;
+assign sprite_addr = 10'b0;
+wire [15:0] sprite_out;
+
+jtframe_dual_ram16 #(.AW(10)) u_sprite_ram(
+  .clk0(clk), 
+  .data0(cpu_dout[15:0]),
+  .addr0(cpu_a[10:1]),
+  .we0({sprite_cs && !cpu_wr_n && !cpu_uds_n, sprite_cs && !cpu_wr_n && !cpu_lds_n}),
+  //.we0(sprite_cs && !cpu_wr_n),
+  .q0(sprite_do), 
+
+  .clk1(clk),
+  .data1(),
+  .addr1(sprite_addr),
+  .we1(2'b0),
+  .q1(sprite_out)
+);
+*/
+/* 
+[of which: 0x43800 - 0x43fff   VRAM (Sprites)]
+0x60000 - 0x607ff   VRAM (Tiles)
+0x80000 - 0x803ff   VRAM (Background)
+0xa0000 - 0xa000f   Input Ports
+0xc0040 - 0xc0040   Watchdog??
+0xc0080 - 0xc0080   Screen Flip (+ others?)
+0xe0000 - 0xe07ff   COLORRAM (----BBBBGGGGRRRR)
+0xe8000 - 0xe800f   Communication with sound CPU (also coins)
+
+VRAM (Background)
+0x80000 - 0x801ff  (16x16 of 16x16 tiles, 2 bytes per tile)
+0x80200 - 0x803ff  unused foreground layer??
+
+VRAM (Text)
+0x60000 - 0x607ff  (32x32 of 8x8 tiles, 2 bytes per tile)
+
+VRAM (Sprites)
+0x43800 - 0x43bff  (128 sprites, 8 bytes every sprite)
+*/
+
 
 endmodule

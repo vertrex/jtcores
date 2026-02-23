@@ -140,12 +140,24 @@ begin \
     integer i; \
     $display("Snapshot: Dumping %s (Size: %0d)", FILE_NAME, SIZE); \
     fd = $fopen(FILE_NAME, "wb"); \
-    for (i = 0; i < SIZE; i = i + 1) begin \
+    for (i = 0; i < SIZE/2; i = i + 1) begin \
        $fwrite(fd, "%c%c", MEM_PATH.u_hi.mem[i], MEM_PATH.u_lo.mem[i]); \
     end \
     $fclose(fd); \
 end
-  
+
+`define dump_dual_ram16_split(FILE_NAME, SIZE, MEM_PATH) \
+begin \
+    integer fd; \
+    integer i; \
+    $display("Snapshot: Dumping %s (Size: %0d)", FILE_NAME, SIZE); \
+    fd = $fopen(FILE_NAME, "wb"); \
+    for (i = 0; i < SIZE/2; i = i + 1) begin \
+       $fwrite(fd, "%c%c", MEM_PATH.u_hi.u_ram.mem[i], MEM_PATH.u_lo.u_ram.mem[i]); \
+    end \
+    $fclose(fd); \
+end
+
 `define dump_ram16(FILE_NAME, SIZE, MEM_PATH) \
 begin \
     integer fd; \
@@ -171,7 +183,7 @@ begin \
     $fclose(fd); \
 end
 
-parameter DUMP_START_FRAME = 38;
+parameter DUMP_START_FRAME = 3;
 
 integer  frame_counter = 0;
 always @(posedge VS) begin
@@ -192,10 +204,15 @@ always @(posedge clk) begin
      //`dump_ram16("linebuf_u182.bin", 1024, obj_u.linebuf_u.u_182.mem)
      //`dump_ram16("linebuf_u183.bin", 1024, obj_u.linebuf_u.u_183.mem)
      //`dump_ram16("linebuf_u184.bin", 1024, obj_u.linebuf_u.u_184.mem)
+  
+     //dump video/sprite/ram and make a python script to decode like for toki ?
+     `dump_ram16_split("cpu_ram.bin", 32768, $root.game_test.u_game.u_game.u_main.u_cpu_ram)
+     `dump_dual_ram16_split("video_ram.bin", 2048, $root.game_test.u_game.u_game.u_main.u_bk_ram)
+     `dump_dual_ram16_split("palette_ram.bin", 2048, $root.game_test.u_game.u_game.u_main.u_palette_ram)
+     `dump_dual_ram16_split("color_ram.bin", 2048, $root.game_test.u_game.u_game.u_main.u_text_ram)
+     //`dump_dual_ram16_split("sprite_ram.bin", 1024, $root.game_test.u_game.u_game.u_main.u_sprite_ram)
 
-     //`dump_ram16_split("cpu_ram.bin", 32768, $root.game_test.u_game.u_game.u_main.u_cpu_ram)
-
-     dump_done <= 1;
+     dump_done = 1;
      end 
 end
 
