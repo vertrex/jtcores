@@ -187,7 +187,7 @@ assign sprite_ram_addr[10:1] = 10'b0;
 //DAC  output 
 assign palette_ram_addr[10:1] = (char_pixel[1:0] != 'h3) ?  {2'd0, char_pixel[7:0]} : 
                                 (  bk_pixel[3:0] != 'hf) ?  {2'b10,  bk_pixel[7:0]}
-                                : 'h1ff;
+                                : 'h3ff;
 
 assign r = palette_ram_out[3:0];
 assign g = palette_ram_out[7:4];
