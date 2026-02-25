@@ -120,34 +120,32 @@ assign VBL_ROM = VSYNC;
 assign LVBL = VBL_ROM;
 assign LHBL = HBL; // ?
 
-always @(posedge clk) begin 
+always @(posedge clk) begin
   if (T8H)
     HBLB <= HBL;
 end 
 
 
 // rom 
-assign tiles_rom_addr = 18'b0;
-assign tiles_rom_cs = 1'b0;
 assign sprite_rom_addr = 18'b0;
 assign sprite_rom_cs = 1'b0;
 assign prom_10_addr = 8'b0;
 assign prom_10_cs = 1'b0;
 
-wire [7:0] char_pixel;
 
 ////// TEXT / CHAR ////////// 
 // 
 //
+wire [7:0] char_pixel;
 assign chars_rom_cs = 1'b1;
 
 scrn_char u_scrn_char(
   .clk(clk),
   .rst(rst),
   .pxl_cen(P6M),
-  .line_number(vpos[8:0]), //+8'd1 ?
   //+ decallage a gauche 
-  .pos(hpos + 1),
+  .vpos(vpos[8:0]), //+8'd1 ?
+  .hpos(hpos + 9'd1),
 
   .char_ram_addr(char_ram_addr),
   .char_ram_out(char_ram_out),
@@ -159,21 +157,37 @@ scrn_char u_scrn_char(
   .pixel(char_pixel)
 );  
 
+
+////// BK / TILES ////////// 
+// 
+//
+wire [7:0] bk_pixel;
+assign tiles_rom_cs = 1'b1;
+
+scrn_bk u_scrn_bk(
+  .clk(clk),
+  .rst(rst),
+  .pxl_cen(P6M),
+  .vpos(vpos[8:0]), //+8'd1 ?
+  .hpos(hpos[8:0]),
+
+  .bk_ram_addr(bk_ram_addr),
+  .bk_ram_out(bk_ram_out),
+
+  .bk_rom_data(tiles_rom_data),
+  .bk_rom_ok(tiles_rom_ok),
+  .bk_rom_addr(tiles_rom_addr),
+
+  .pixel(bk_pixel)
+);  
+
+
 assign sprite_ram_addr[10:1] = 10'b0;
-assign bk_ram_addr[9:1] = 9'b0;
 
 //DAC  output 
-//always @(posedge clk) begin 
-  /*//if (display_on) begin */
-
-		// m_text_layer->set_transparent_pen(3)
-			//if (char_pixel[1:0] != 2'b11)
-				//palette_ram_addr[10:1] <= {2'd0, char_pixel[7:0]};
-			//else
-				//palette_ram_addr[10:1] <= 'h1ff;
-  //end 
-//end 
-assign palette_ram_addr[10:1] = (char_pixel[1:0] != 'h3) ?  {2'd0, char_pixel[7:0]}  : 'h1ff;
+assign palette_ram_addr[10:1] = (char_pixel[1:0] != 'h3) ?  {2'd0, char_pixel[7:0]} : 
+                                (  bk_pixel[3:0] != 'hf) ?  {2'b10,  bk_pixel[7:0]}
+                                : 'h1ff;
 
 assign r = palette_ram_out[3:0];
 assign g = palette_ram_out[7:4];
@@ -184,6 +198,7 @@ assign b = palette_ram_out[11:8];
 //
 //
 
+/* 
 `ifdef SIMULATION
 
 `define dump_ram16_split(FILE_NAME, SIZE, MEM_PATH) \
@@ -269,5 +284,5 @@ always @(posedge clk) begin
 end
 
 `endif
-
+*/
 endmodule

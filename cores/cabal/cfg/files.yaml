@@ -6,6 +6,7 @@ cabal:
     - video.v
     - 74LS74.v
     - char.v
+    - tile.v
 jtframe:
   - from: ram
     get:

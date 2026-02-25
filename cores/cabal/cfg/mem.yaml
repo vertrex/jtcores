@@ -12,7 +12,7 @@ params:
   #
   #- { name: CHARS_OFFSET,     value: "22'h40000"}
   #<rom name="5-6s" size="16384" offset="0"/>  char rom
-  - { name: TILES_OFFSET,  value: "22'h2000" } #
+  - { name: TILES_OFFSET,  value: "22'h4000" } #
   #<rom name="bg_rom1.bin" size="65536" offset="0"/>
   #<rom name="bg_rom2.bin" size="65536" offset="1"/>
   #<rom name="bg_rom3.bin" size="65536" offset="20000"/>

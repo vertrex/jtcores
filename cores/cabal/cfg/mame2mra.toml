@@ -24,7 +24,7 @@ regions=[
     { name="maincpu", no_offset=true, width=16, reverse=true },
     { name="audiocpu", no_offset=true },
     { name="chars", no_offset=true  },
-    { name="tiles", no_offset=true  },
+    { name="tiles", no_offset=true , width=16, reverse=true},
     { name="sprites", no_offset=true  },
     { name="adpcm1", no_offset=true },
     { name="adpcm2", no_offset=true },
