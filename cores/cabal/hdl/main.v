@@ -31,8 +31,8 @@ module cabal_main(
   input      [10:1] char_ram_addr,
   output     [15:0] char_ram_out,
 
-  input       [9:1] bk_ram_addr,
-  output     [15:0] bk_ram_out,
+  input       [8:1] tile_ram_addr,
+  output     [15:0] tile_ram_out,
 
   input      [10:1] sprite_ram_addr,
   output     [15:0] sprite_ram_out
@@ -231,7 +231,7 @@ always @(*) begin
       sprite_cs = ~cpu_as_n & (cpu_a[23:1] >= 23'h21c00 && cpu_a[23:1] < 23'h22000);
       char_cs = ~cpu_as_n & (cpu_a[23:1] >= 23'h30000 && cpu_a[23:1] < 23'h30400);
       //0x80000 - 0x803ff   VRAM (Background) aka videoram
-      bg_cs = ~cpu_as_n & (cpu_a[23:1] >= 23'h40000 && cpu_a[23:1] < 23'h40200);
+      bg_cs = ~cpu_as_n & (cpu_a[23:1] >= 23'h40000 && cpu_a[23:1] < 23'h40100);
       //0xe0000 - 0xe07ff   COLORRAM (----BBBBGGGGRRRR)
       palette_cs = ~cpu_as_n & (cpu_a[23:1] >= 23'h70000 && cpu_a[23:1] < 23'h70400);
       //0xe8000 - 0xe800f   Communication with sound CPU (also coins)
@@ -290,19 +290,19 @@ jtframe_dual_ram16 #(.AW(10)) u_char_ram(
 wire [15:0] bg_do;
 
 // xxx background ram 
-// 1024 (strange that's the only 1024)  
-jtframe_dual_ram16 #(.AW(9)) u_bk_ram(
+// 512   
+jtframe_dual_ram16 #(.AW(8)) u_tile_ram(
   .clk0(clk), 
   .data0(cpu_dout[15:0]),
-  .addr0(cpu_a[9:1]),
+  .addr0(cpu_a[8:1]),
   .we0({bg_cs && !cpu_wr_n && !cpu_uds_n, bg_cs && !cpu_wr_n && !cpu_lds_n}),
   .q0(bg_do), 
 
   .clk1(clk),
-  .data1(),
-  .addr1(bk_ram_addr),
+  .data1(16'h0),
+  .addr1(tile_ram_addr),
   .we1(2'b0),
-  .q1(bk_ram_out)
+  .q1(tile_ram_out[15:0])
 
 );
 

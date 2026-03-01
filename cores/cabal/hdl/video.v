@@ -19,14 +19,14 @@ module cabal_video(
   output      [8:0] vpos,
 
   // Shared video RAM (XXX)
-  output reg [10:1] palette_ram_addr,
+  output     [10:1] palette_ram_addr,
   input      [15:0] palette_ram_out,
 
   output     [10:1] char_ram_addr,
   input      [15:0] char_ram_out,
 
-  output      [9:1] bk_ram_addr,
-  input      [15:0] bk_ram_out,
+  output      [8:1] tile_ram_addr,
+  input      [15:0] tile_ram_out,
 
   output     [10:1] sprite_ram_addr,
   input      [15:0] sprite_ram_out,
@@ -34,17 +34,17 @@ module cabal_video(
   //chars rom
   input      [15:0] chars_rom_data,
   input             chars_rom_ok,
-  output reg [13:1] chars_rom_addr,
+  output     [13:1] chars_rom_addr,
   output            chars_rom_cs,
   //chars rom
   input      [15:0] tiles_rom_data,
   input             tiles_rom_ok,
-  output reg [18:1] tiles_rom_addr,
+  output     [18:1] tiles_rom_addr,
   output            tiles_rom_cs,
    //chars rom
   input      [15:0] sprite_rom_data,
   input             sprite_rom_ok,
-  output reg [18:1] sprite_rom_addr,
+  output     [18:1] sprite_rom_addr,
   output            sprite_rom_cs, 
   //prom 05
   input      [7:0]  prom_05_data,
@@ -54,7 +54,7 @@ module cabal_video(
   //prom 10
   input      [7:0]  prom_10_data,
   input             prom_10_ok,
-  output reg [7:0]  prom_10_addr,
+  output     [7:0]  prom_10_addr,
   output            prom_10_cs,
 
   // RGB out
@@ -115,7 +115,6 @@ always @(posedge clk)
 assign INT_T =   prom_05_data[4];
 assign VBL_ROM = prom_05_data[7];
 //assign OBJT2 =   prom_26_data[1]; //need to be latched
-assign VBL_ROM = VSYNC; 
 
 assign LVBL = VBL_ROM;
 assign LHBL = HBL; // ?
@@ -127,8 +126,6 @@ end
 
 
 // rom 
-assign sprite_rom_addr = 18'b0;
-assign sprite_rom_cs = 1'b0;
 assign prom_10_addr = 8'b0;
 assign prom_10_cs = 1'b0;
 
@@ -136,16 +133,17 @@ assign prom_10_cs = 1'b0;
 ////// TEXT / CHAR ////////// 
 // 
 //
-wire [7:0] char_pixel;
+wire [1:0] char_code;
+wire [5:0] char_color;
 assign chars_rom_cs = 1'b1;
 
 scrn_char u_scrn_char(
   .clk(clk),
   .rst(rst),
-  .pxl_cen(P6M),
+  .pxl_cen(N6M),
   //+ decallage a gauche 
   .vpos(vpos[8:0]), //+8'd1 ?
-  .hpos(hpos + 9'd1),
+  .hpos(hpos[8:0] + 9'd1),
 
   .char_ram_addr(char_ram_addr),
   .char_ram_out(char_ram_out),
@@ -154,39 +152,43 @@ scrn_char u_scrn_char(
   .char_rom_ok(chars_rom_ok),
   .char_rom_addr(chars_rom_addr),
 
-  .pixel(char_pixel)
+  .code(char_code),
+  .color(char_color)
 );  
 
 
 ////// BK / TILES ////////// 
 // 
 //
-wire [7:0] bk_pixel;
+wire [3:0] bk_code, bk_color;
 assign tiles_rom_cs = 1'b1;
 
 scrn_bk u_scrn_bk(
   .clk(clk),
   .rst(rst),
-  .pxl_cen(P6M),
+  .pxl_cen(N6M),
   .vpos(vpos[8:0]), //+8'd1 ?
   .hpos(hpos[8:0]),
 
-  .bk_ram_addr(bk_ram_addr),
-  .bk_ram_out(bk_ram_out),
+  .tile_ram_addr(tile_ram_addr),
+  .tile_ram_out(tile_ram_out),
 
   .bk_rom_data(tiles_rom_data),
   .bk_rom_ok(tiles_rom_ok),
   .bk_rom_addr(tiles_rom_addr),
 
-  .pixel(bk_pixel)
+  .code(bk_code),
+  .color(bk_color)
 );  
 
-
+assign sprite_rom_addr = 18'b0;
+assign sprite_rom_cs = 1'b0;
 assign sprite_ram_addr[10:1] = 10'b0;
 
 //DAC  output 
-assign palette_ram_addr[10:1] = (char_pixel[1:0] != 'h3) ?  {2'd0, char_pixel[7:0]} : 
-                                (  bk_pixel[3:0] != 'hf) ?  {2'b10,  bk_pixel[7:0]}
+assign palette_ram_addr[10:1] = 
+                                (char_code[1:0] != 'h3) ?  {2'd0, char_color[5:0], char_code[1:0]} : 
+                                (  bk_code[3:0] != 'hf) ?  {2'b10,  bk_color[3:0], bk_code[3:0]}
                                 : 'h3ff;
 
 assign r = palette_ram_out[3:0];
@@ -198,7 +200,7 @@ assign b = palette_ram_out[11:8];
 //
 //
 
-/* 
+
 `ifdef SIMULATION
 
 `define dump_ram16_split(FILE_NAME, SIZE, MEM_PATH) \
@@ -250,7 +252,7 @@ begin \
     $fclose(fd); \
 end
 
-parameter DUMP_START_FRAME = 3;
+parameter DUMP_START_FRAME = 4;
 
 integer  frame_counter = 0;
 always @(posedge VS) begin
@@ -263,18 +265,8 @@ always @(posedge clk) begin
   if (frame_counter == DUMP_START_FRAME && !dump_done) begin
      $display("DUMPING");
 
-     //`dump_ram16("scnddma_u151.bin", 1024, obj_u.scnddma_u.u_151.mem)
-     //`dump_ram16("scnddma_u152.bin", 1024, obj_u.scnddma_u.u_152.mem)
-     //`dump_ram16_split("scnddma_u153.bin", 1024, obj_u.scnddma_u.u_153)
-     //`dump_ram16_split("objdma_u141.bin", 1024, obj_u.objdma_u.u_141);
-     //`dump_ram16("linebuf_u181.bin", 1024, obj_u.linebuf_u.u_181.mem)
-     //`dump_ram16("linebuf_u182.bin", 1024, obj_u.linebuf_u.u_182.mem)
-     //`dump_ram16("linebuf_u183.bin", 1024, obj_u.linebuf_u.u_183.mem)
-     //`dump_ram16("linebuf_u184.bin", 1024, obj_u.linebuf_u.u_184.mem)
-  
-     //dump video/sprite/ram and make a python script to decode like for toki ?
      `dump_ram16_split("cpu_ram.bin", 32768, $root.game_test.u_game.u_game.u_main.u_cpu_ram)
-     `dump_dual_ram16_split("video_ram.bin", 2048, $root.game_test.u_game.u_game.u_main.u_bk_ram)
+     `dump_dual_ram16_split("video_ram.bin", 512, $root.game_test.u_game.u_game.u_main.u_tile_ram)
      `dump_dual_ram16_split("palette_ram.bin", 2048, $root.game_test.u_game.u_game.u_main.u_palette_ram)
      `dump_dual_ram16_split("color_ram.bin", 2048, $root.game_test.u_game.u_game.u_main.u_char_ram)
      //`dump_dual_ram16_split("sprite_ram.bin", 1024, $root.game_test.u_game.u_game.u_main.u_sprite_ram)
@@ -284,5 +276,5 @@ always @(posedge clk) begin
 end
 
 `endif
-*/
+
 endmodule

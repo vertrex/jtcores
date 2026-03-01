@@ -42,8 +42,8 @@ jtframe_cen48 u_cen(
 wire INT_T, HBLB;
 
 wire [10:1] palette_ram_addr, char_ram_addr, sprite_ram_addr;
-wire  [9:1] bk_ram_addr;
-wire [15:0] palette_ram_out, char_ram_out, bk_ram_out, sprite_ram_out; 
+wire  [8:1] tile_ram_addr;
+wire [15:0] palette_ram_out, char_ram_out, tile_ram_out, sprite_ram_out; 
 
 cabal_main u_main(
   .clk(clk),
@@ -73,8 +73,8 @@ cabal_main u_main(
   .char_ram_addr(char_ram_addr),
   .char_ram_out(char_ram_out),
 
-  .bk_ram_addr(bk_ram_addr),
-  .bk_ram_out(bk_ram_out),
+  .tile_ram_addr(tile_ram_addr),
+  .tile_ram_out(tile_ram_out),
 
   .sprite_ram_addr(sprite_ram_addr),
   .sprite_ram_out(sprite_ram_out)
@@ -107,8 +107,8 @@ cabal_video u_video(
   .char_ram_addr(char_ram_addr),
   .char_ram_out(char_ram_out),
 
-  .bk_ram_addr(bk_ram_addr),
-  .bk_ram_out(bk_ram_out),
+  .tile_ram_addr(tile_ram_addr),
+  .tile_ram_out(tile_ram_out),
 
   .sprite_ram_addr(sprite_ram_addr),
   .sprite_ram_out(sprite_ram_out),

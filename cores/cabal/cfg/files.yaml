@@ -7,6 +7,8 @@ cabal:
     - 74LS74.v
     - char.v
     - tile.v
+    - hvsync.v
+    - sei0010bu.v
 jtframe:
   - from: ram
     get:

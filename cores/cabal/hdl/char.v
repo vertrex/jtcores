@@ -28,21 +28,21 @@ module scrn_char(
   input                 char_rom_ok,
   output reg     [13:1] char_rom_addr,
 
-  output reg      [7:0] pixel
+  output reg      [1:0] code,
+  output reg      [5:0] color
 );
 
-reg  [5:0] color;
-reg [15:0] row_bits;
+reg [15:0] rom_data;
 
 always @(posedge pxl_cen) begin
-    pixel <= {color, { row_bits[{hpos[2], 1'b1, hpos[1:0]}],
-                       row_bits[{hpos[2], 1'b0, hpos[1:0]}]} };
+    code <= {{ rom_data[{hpos[2], 1'b1, hpos[1:0]}],
+               rom_data[{hpos[2], 1'b0, hpos[1:0]}]}};
 end
 
 always @(posedge clk or posedge rst) begin
   if (rst) begin
       color         <= 6'd0;
-      row_bits      <= 16'd0;
+      rom_data      <= 16'd0;
       char_ram_addr <= 10'd0;
       char_rom_addr <= 13'd0;
   end else if (clk) begin
@@ -53,7 +53,7 @@ always @(posedge clk or posedge rst) begin
 
       if (hpos[2:0] == 3'd0 && char_rom_ok) begin
         color    <= char_ram_out[15:10];
-        row_bits <= char_rom_data[15:0];
+        rom_data <= char_rom_data[15:0];
       end
   end
 end
