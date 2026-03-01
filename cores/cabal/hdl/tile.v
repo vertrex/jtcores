@@ -17,7 +17,7 @@ module scrn_bk(
   output reg     [18:1] bk_rom_addr,
 
   output          [3:0] color,
-  output reg      [3:0] code
+  output          [3:0] code
 );
 
 
