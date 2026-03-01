@@ -188,8 +188,8 @@ assign sprite_ram_addr[10:1] = 10'b0;
 //DAC  output 
 assign palette_ram_addr[10:1] = 
                                 (char_code[1:0] != 'h3) ?  {2'd0, char_color[5:0], char_code[1:0]} : 
-                                (  bk_code[3:0] != 'hf) ?  {2'b10,  bk_color[3:0], bk_code[3:0]}
-                                : 'h3ff;
+                                (bk_code[3:0] != 'hf)  ?  {2'b10,  bk_color[3:0], bk_code[3:0]} : 
+                                'h3ff;
 
 assign r = palette_ram_out[3:0];
 assign g = palette_ram_out[7:4];
@@ -265,10 +265,10 @@ always @(posedge clk) begin
   if (frame_counter == DUMP_START_FRAME && !dump_done) begin
      $display("DUMPING");
 
-     `dump_ram16_split("cpu_ram.bin", 32768, $root.game_test.u_game.u_game.u_main.u_cpu_ram)
-     `dump_dual_ram16_split("video_ram.bin", 512, $root.game_test.u_game.u_game.u_main.u_tile_ram)
-     `dump_dual_ram16_split("palette_ram.bin", 2048, $root.game_test.u_game.u_game.u_main.u_palette_ram)
-     `dump_dual_ram16_split("color_ram.bin", 2048, $root.game_test.u_game.u_game.u_main.u_char_ram)
+     //`dump_ram16_split("cpu_ram.bin", 32768, $root.game_test.u_game.u_game.u_main.u_cpu_ram)
+     //`dump_dual_ram16_split("video_ram.bin", 512, $root.game_test.u_game.u_game.u_main.u_bk_ram)
+     //`dump_dual_ram16_split("palette_ram.bin", 2048, $root.game_test.u_game.u_game.u_main.u_palette_ram)
+     //`dump_dual_ram16_split("color_ram.bin", 2048, $root.game_test.u_game.u_game.u_main.u_char_ram)
      //`dump_dual_ram16_split("sprite_ram.bin", 1024, $root.game_test.u_game.u_game.u_main.u_sprite_ram)
 
      dump_done = 1;

@@ -12,7 +12,7 @@ params:
   #
   #- { name: CHARS_OFFSET,     value: "22'h40000"}
   #<rom name="5-6s" size="16384" offset="0"/>  char rom
-  - { name: TILES_OFFSET,  value: "22'h4000" } #
+  - { name: TILES_OFFSET,  value: "22'h2000" } #4000 >> 1 /2 -> 2000 ! working !
   #<rom name="bg_rom1.bin" size="65536" offset="0"/>
   #<rom name="bg_rom2.bin" size="65536" offset="1"/>
   #<rom name="bg_rom3.bin" size="65536" offset="20000"/>
@@ -47,7 +47,6 @@ clocks:
     - freq:  1000000
       outputs:
         - oki
-
 sdram:
   banks:
     - buses:

@@ -291,7 +291,7 @@ wire [15:0] bg_do;
 
 // xxx background ram 
 // 512   
-jtframe_dual_ram16 #(.AW(8)) u_tile_ram(
+jtframe_dual_ram16 #(.AW(8)) u_bk_ram(
   .clk0(clk), 
   .data0(cpu_dout[15:0]),
   .addr0(cpu_a[8:1]),
