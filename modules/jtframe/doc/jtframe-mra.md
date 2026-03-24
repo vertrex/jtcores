@@ -2,19 +2,21 @@ Parses the core's mame2mra.toml file to generate MRA files.
 
 If called with --reduce, the argument must be the path to mame.xml,
 otherwise the file mame.xml in $JTROOT/doc/mame.xml will be used. The tool
-should be used to update $JTROOT/doc/mame.xml with new data each tiem a new
-core is added. The core folder should contain both the .def and .toml files,
-defining at least the MAME source file and the core name.
+should be used to update $JTROOT/doc/mame.xml with new data each time a new
+core is added. The core folder should contain both cfg/macros.def and
+cfg/mame2mra.toml.
 
-Each repository is meant to have a reduced mame.xml file in $ROM as
-part of the source file commited in git.
+If `$JTROOT/doc/custom.xml` exists, it is parsed after `mame.xml` and merged
+into the machine list. Entries with the same machine name override the one
+coming from `mame.xml`.
+
+Each repository is meant to have a reduced mame.xml file in $JTROOT/doc as
+part of the source file committed in git.
 
 The output will either be created in $JTROOT/release or in $JTBIN
 depending on the --git argument.
 
-Macros in macros.def are parsed for the "mister" target. This is relevant when
-for some macros like JTFRAME_IOCTL_RD, which may have different values for
-debugging in MiST without affecting the MRA generation.
+Macros in macros.def are parsed by the MRA flow before conversion.
 
 TOML elements (see full reference in mame2mra.go)
 
@@ -41,7 +43,7 @@ display_modes=[ 0x61 ] # add extra display modes for Analogue Pocket
 
 [cheat]
 # Cheat file is read by default from cores/core/cheat/machine.s
-# It can disabled globally or skipped based on machine/setname
+# It can be disabled globally or skipped based on machine/setname
 disable=false
 files=[
 	{ filename="sameforall.s" }, # use the same file for all games
@@ -83,7 +85,7 @@ PCBs = [
 ]
 # explicit data assignment in the TOML
 data = [
-	{ pcb_id = true, offset=0 } # filled with the PCB array innformation
+	{ pcb_id = true, offset=0 } # filled with the PCB array information
 	{ machine="...", setname="...", dev="...", offset=3, data="12 32 43 ..." },
 	...
 ]
@@ -101,7 +103,7 @@ offset = { start=0, bits=8, reverse=true, regions=["maincpu","gfx1"...]}
 # if there are black bars on the side of the image
 # because of black tiles rendered by the software in some games, but not all
 # this can be removed by the framework. In some cases, the value will be taken
-# from MAME correctly, but in others with assymetrical bands, a compromise
+# from MAME correctly, but in others with asymmetrical bands, a compromise
 # value must be set here.
 # MAME may have wrong information too. The explicit definition here will
 # override the calculation derived from MAME.

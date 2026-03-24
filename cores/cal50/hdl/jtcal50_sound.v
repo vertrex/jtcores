@@ -19,7 +19,7 @@
 module jtcal50_sound(
     input              clk,
     input              rst,
-    input              cen2, cen244, cen_pcm,
+    input              cen8, cen244, cen_pcm,
 
     input       [ 7:0] snd_cmd,
     output      [ 7:0] snd_rply,
@@ -34,38 +34,44 @@ module jtcal50_sound(
     output      [17:0] rom_addr,
     input       [ 7:0] rom_data,
     // Sound
-    output signed [15:0] snd,
-    output             mute,
+    // left channel is used for music and goes to a 8kHz antialising filter
+    // right channel is used for bass and sound effects, 4kHz antialising
+    output signed [15:0] snd_left, snd_right,
+    output reg         mute,
     // Debug
     input       [ 7:0] debug_bus,
     output      [ 7:0] st_dout
 );
 `ifndef NOSOUND
 wire [15:0] A;
-wire [ 4:0] rom_upper;
+wire [ 3:0] rom_upper;
 reg  [ 7:0] cpu_din;
 wire [ 7:0] nc, cfg, cpu_dout, pcm_dout;
 wire [ 3:0] bank;
 reg         cfg_cs, bank_cs, st_cs, cmd_cs, x1pcm_cs;
 wire        nmi, nmi_clrn, irq, irq_clrn, rnw,
-            cpu_wr, cpu_rd, cpu_acc;
+            cpu_wr, cpu_rd, cpu_acc, mute_n;
 
 // $4'0000 (256kB), 16 pages of 8kB each (128kB) plus $4000 (16kB) Fixed
-assign rom_addr  = { rom_upper, A[12:0] };
-assign rom_upper = bank_cs ? {bank,A[13]} : {4'b00,A[13]};
-assign {bank,nmi_clrn,irq_clrn,mute} = cfg[7:1];
+assign rom_addr  = { rom_upper, A[13:0] };
+assign rom_upper = bank_cs ? bank : 4'b0;
+assign {bank,nmi_clrn,irq_clrn,mute_n} = cfg[7:1];
 
 assign st_dout     = {7'd0,mute};
 assign rnw         =~cpu_wr;
 assign cpu_acc     = cpu_wr | cpu_rd;
 
+always @(posedge clk) begin
+    mute <= ~mute_n;
+end
+
 always @* begin
-    x1pcm_cs = cpu_acc && A[15:12]<=1;
-    cmd_cs   = cpu_rd  && A[15:12]==4;
-    cfg_cs   = cpu_wr  && A[15:12]==4;
+    x1pcm_cs = cpu_acc && A[15:14]==0;
+    cmd_cs   = cpu_rd  && A[15:14]==1;
+    cfg_cs   = cpu_wr  && A[15:14]==1;
     rom_cs   = cpu_rd  && A[15];
     bank_cs  = cpu_rd  && A[15:14]==2;
-    st_cs    = cpu_wr  && A[15:12]==4'hc;
+    st_cs    = cpu_wr  && A[15:14]==3;
 end
 
 jtframe_edge u_244hz(
@@ -114,11 +120,11 @@ jtx1010 u_pcm(
     .cen        ( cen_pcm   ),
 
     // CPU interface
-    .cpu_addr   ( {~A[12],A[11:0]} ),
-    .cpu_dout   ( cpu_dout  ),
-    .cpu_din    ( pcm_dout  ),
-    .cpu_wr     ( cpu_wr    ),
-    .cpu_cs     ( x1pcm_cs  ),
+    .addr       ( {~A[12],A[11:0]} ),
+    .din        ( cpu_dout  ),
+    .dout       ( pcm_dout  ),
+    .we         ( cpu_wr    ),
+    .cs         ( x1pcm_cs  ),
 
     // ROM interface
     .rom_addr   ( pcm_addr  ),
@@ -126,33 +132,36 @@ jtx1010 u_pcm(
     .rom_cs     ( pcm_cs    ),
 
     // sound output
-    .snd_left   (           ),
-    .snd_right  ( snd       ),
+    .left       ( snd_left  ),
+    .right      ( snd_right ),
     .sample     (           )
 );
 
 jt65c02 u_cpu(
-    .rst    ( rst       ),
-    .clk    ( clk       ),
-    .cen    ( cen2      ),  // crystal clock freq. = 4x E pin freq.
-    .irq    ( irq       ),
-    .nmi    ( nmi       ),
-    .rd     ( cpu_rd    ),
-    .wr     ( cpu_wr    ),
-    .addr   ( A         ), // always valid
-    .din    ( cpu_din   ),
-    .dout   ( cpu_dout  )
+    .rst        ( rst       ),
+    .clk        ( clk       ),
+    .cen        ( cen8      ),  // crystal clock freq. = 4x E pin freq.
+    .irq        ( irq       ),
+    .nmi        ( nmi       ),
+    .rd         ( cpu_rd    ),
+    .wr         ( cpu_wr    ),
+    .addr       ( A         ), // always valid
+    .din        ( cpu_din   ),
+    .dout       ( cpu_dout  )
 );
 `else
-    initial rom_cs   = 0;
-    assign  pal_cs   = 0;
-    assign  ram_cs   = 0;
-    assign  snd_irq  = 0;
-    assign  snd_latch= 0;
-    assign  rom_addr = 0;
-    assign  mcu_addr = 0;
-    assign  A = 0;
-    assign  rnw  = 1;
-    assign  cpu_dout = 0;
+    initial begin
+        rom_cs = 0;
+        mute   = 0;
+    end
+    assign  rom_addr = 0,
+            snd_rply = 0,
+            pcm_addr = 0,
+            pcm_cs   = 0,
+            snd_left = 0,
+            snd_right= 0,
+            snd_right= 0,
+            st_dout  = 0;
+
 `endif
 endmodule
