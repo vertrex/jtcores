@@ -26,7 +26,7 @@ module sg0140_vcheck(
   input             OBUSAK,   // Bus Acknowledge from CPU. When asserted, OIBDIR becomes active (bus granted).
   input             SDTS,     // Serial Data Timing Strobe : "Scan DMA" start / sprite processing start(from STARTV) 59.61khz frequency 
   input             VORIGIN,  // Vertical Origin (Frame Reset) PROM‑derived visible vertical origin 
-  input             OVER256,  // DMA Window Limit (Active Low = In Window) or "DMA active/done" flag 
+  input             OVER256,  // Scan-active window from OBJDMA (high while FDA is walking, low after terminal count)
   input             OVER48,   // List overflow (from sort48), stop to writes and VFIND 
   input             VREVD_2,  // Sprite Vertical Flip Flag
   input             OBJEN_3,  // Sprite Slot Valid Flag (sprite enable after PLD24 gating (~INSCRN & OBJEN_2))
@@ -80,26 +80,34 @@ module sg0140_vcheck(
             OIBDIR <= 1'b1; 
         end
         else begin
-            // busrequest 
-            if (!ODMARQ) 
-                OBUSRQ <= 1'b0;
-            
-            if (!OBUSAK && !OBUSRQ) begin
-                OIBDIR <= 1'b0; // bus granted
-                OBUSRQ <= 1'b1; 
-            end
-
-            // Release bus when DMA window ends
-            if (!OVER256) 
+            // Keep the request line explicitly deasserted whenever object DMA
+            // is not asking for the bus. Without this, an early ODMARQ pulse
+            // can leave OBUSRQ stuck low forever if no grant happens in the
+            // same phase, which stalls the 68k.
+            if (!OVER256) begin
                 OIBDIR <= 1'b1;
+                OBUSRQ <= 1'b1;
+            end else if (!OBUSAK && !OBUSRQ) begin
+                OIBDIR <= 1'b0; // bus granted
+                OBUSRQ <= 1'b1;
+            end else if (!ODMARQ && OIBDIR) begin
+                OBUSRQ <= 1'b0;
+            end else if (ODMARQ && OIBDIR) begin
+                OBUSRQ <= 1'b1;
+            end
 
         // SDTS could also gate request/ownership
         end
     end
 
+    // Latch VPD on the consume edge for observability, but use the live bus
+    // value for the actual compare. Live MAD captures show the old RDCLK-rise
+    // latch model compared the previous object while SORT48/SCNDDMA kept the
+    // current object metadata, producing mixed Y/X pairs.
+    reg [7:0] vpd_latched;
+
     // Extended Y to 9 bits for calculation logic
     wire [8:0] sprite_y = {1'b0, VPD};
-    //wire [8:0] sprite_y = {VREVD_2, VPD};
 
     // Distance from current scanline
     // Unsigned subtraction handles wrapping correctly for this logic
@@ -120,10 +128,13 @@ module sg0140_vcheck(
     
     // RDCLK edge detector for single-cycle strobes
     reg rdclk_d;
+    wire rdclk_rise = (rdclk_d == 1'b0) && (RDCLK == 1'b1);
     wire rdclk_fall = (rdclk_d == 1'b1) && (RDCLK == 1'b0);
 
-    // List-build phase: during display (SDTS=0). Do not gate by OIBDIR.
-    wire list_phase = ~SDTS;
+    // List-build phase: during display-side scan while OBJDMA is still
+    // actively walking the cached sprite table. Once OVER256 drops low, the
+    // scan is finished and VCHECK must stop re-evaluating the wrapped entry 0.
+    wire list_phase = ~SDTS & OVER256;
 
     always @(posedge clk) begin
         rdclk_d <= RDCLK;
@@ -132,6 +143,7 @@ module sg0140_vcheck(
             EVNWR2 <= 1'b1;
             ODDWR2 <= 1'b1;
             VMT <= 4'h0;
+            vpd_latched <= 8'h00;
         end else begin
             // Defaults (inactive)
             VFIND  <= 1'b1;
@@ -139,6 +151,7 @@ module sg0140_vcheck(
             ODDWR2 <= 1'b1;
 
             if (list_phase && rdclk_fall) begin
+                vpd_latched <= VPD;
                 if (visible && OBJEN_3 && !OVER48) begin
                     VFIND <= 1'b0;
                     VMT   <= screen_flip ? ~diff_y[3:0] : diff_y[3:0];

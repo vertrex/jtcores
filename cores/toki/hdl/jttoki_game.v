@@ -238,13 +238,9 @@ toki_video u_video(
   .bk2_rom_cs(bk2_rom_cs),
   // PROM 26 
   .prom_26_data(prom_26_data),
-  .prom_26_ok(prom_26_ok),
-  .prom_26_cs(prom_26_cs),
   .prom_26_addr(prom_26_addr),
   // PROM 27 
   .prom_27_data(prom_27_data),
-  .prom_27_ok(prom_27_ok),
-  .prom_27_cs(prom_27_cs),
   .prom_27_addr(prom_27_addr),
 
   .HBLB(HBLB),

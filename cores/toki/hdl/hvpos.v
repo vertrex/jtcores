@@ -40,6 +40,7 @@ wire LT_HPOS; // Latch horizontal position
 wire RD_CHAR; // Read char 
 wire CARY_M;
 wire XC4;     // X clock, 4 bit counter
+wire [8:0] POS;
 
 /////// Address deconding ////////
 //
@@ -121,8 +122,6 @@ LS174 u134(
   .Q({OBJEN_1, ORIGIN, SPR2_1, SPR1_1, VREVD_1, HREVD_1})
 );
 
-wire [8:0] POS;
-
 //74LS173 u135 & 74LS173 u136
 wire [3:0] OFST;
 reg  [3:0] offset_x; 
@@ -132,7 +131,7 @@ wire       rdclk_rise = (rdclk_d == 1'b0) && (RDCLK == 1'b1);
 
 always @(posedge clk) begin
     rdclk_d <= RDCLK;
-    if (rdclk_rise && ~CTRL_LT) begin
+    if (~CTRL_LT) begin
         // 9H [3:0] (Offset Y)
         offset_y <= OBJ_DB[3:0];
         // 10H [7:4] (Offset X)
@@ -182,23 +181,28 @@ always @(posedge clk) begin
 
 //assign {CARY_M, POS[8:4] , ND2[3:0]} = ~RD_CHAR ? {1'b1, OBJ_DB[8:0]} : 10'bz;
 
+// The original 74F841 path behaves like the current position word is visible
+// in the same phase that strobes the latch. Modeling it as a pure edge-caught
+// register shifts HPOS/VPOS by one word and scrambles RAM2 packing.
+wire [9:0] hpos_word = LT_HPOS ? {1'b0, OBJ_DB[8:0]} : u137_latch;
+
 
 assign ND1[3:0] = ~RD_VPOS ? u138_latch[3:0] : 4'b0;  // Y pos low bits 
 
-assign ND2[3:0] = ~RD_HPOS ? u137_latch[3:0] : //X pos low bits 
+assign ND2[3:0] = ~RD_HPOS ? hpos_word[3:0] : //X pos low bits 
                   ~RD_CHAR ? OBJ_DB[3:0] : // tile code 
                   4'b0;
 
 // position use by the adder 
-assign POS[8:4] = ~RD_HPOS ? u137_latch[8:4] :
+assign POS[8:4] = ~RD_HPOS ? hpos_word[8:4] :
                   ~RD_VPOS ? u138_latch[8:4] :
                   ~RD_CHAR ? OBJ_DB[8:4] :
                    5'b0;
 
 // bit 9 for the adder 
-assign CARY_M = ~RD_HPOS ? u137_latch[9] : 
+assign CARY_M = ~RD_HPOS ? hpos_word[9] : 
                 ~RD_VPOS ? u138_latch[9] : 
-                ~RD_CHAR ? 1'b1 : 
+                ~RD_CHAR ? 1'b0 : 
                 1'b0;
       
 

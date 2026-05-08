@@ -36,10 +36,8 @@ module CLUT(
   input             MASK,
 
   input      [7:0]  prom_27_data, // XXX 4 bit wide ! 
-  input             prom_27_ok,
 
   output     [7:0]  prom_27_addr,
-  output            prom_27_cs,
 
   output      [3:0] R,
   output      [3:0] G,
@@ -73,7 +71,6 @@ sg0140_absel    sg0140_absel_u(
 ); 
 
 // PROM 27 3J
-assign prom_27_cs = 1'b1;
 // XXX PRIOR_A IS WRONG AT TLEAST ON THE POCKET THAT MAKE STRANGE THINGS 
 // IT's some time 0 when it should be 1 (it's active low) 
 // it seems because of  MDB_IN on main.v that switch ram/cpu 

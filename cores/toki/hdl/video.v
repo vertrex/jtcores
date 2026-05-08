@@ -70,14 +70,11 @@ module toki_video(
   output            bk2_rom_cs,
 
   input      [7:0]  prom_26_data,
-  input             prom_26_ok,
   output reg [7:0]  prom_26_addr,
-  output            prom_26_cs,
 
   input      [7:0]  prom_27_data, // XXX 4 bit wide !
-  input             prom_27_ok,
   output     [7:0]  prom_27_addr,
-  output            prom_27_cs,
+
 
   output            INT_T,
   output  reg       HBLB,
@@ -135,8 +132,6 @@ wire [7:0] EXV = {vpos[7] ^ VREV, vpos[6] ^ VREV, vpos[5] ^ VREV, vpos[4] ^ VREV
 
 //reg HBL;
 wire OBJT1, OBJT2, STARTV, VORIGIN, VBL_ROM;
-
-assign prom_26_cs = 1'b1;
 //assign prom_26_addr[7:0] = vpos[7:0]; // generate CPU VBLANK on O5 (pin 6)
 
 always @(posedge clk)
@@ -144,15 +139,13 @@ always @(posedge clk)
     prom_26_addr[7:0] <= vpos[7:0]; // generate CPU VBLANK on O5 (pin 6)
   end
 
-
 assign OBJT1 =   prom_26_data[0];
-//assign OBJT2 =   prom_26_data[1]; //need to be latched
 assign STARTV =  prom_26_data[2];
 assign VORIGIN = prom_26_data[3];
 assign INT_T =   prom_26_data[4];
-//nc
-//nc
 assign VBL_ROM = prom_26_data[7];
+
+
 // HV SYNC
 wire T8H, T3F, T4H, VCLK;
 
@@ -187,13 +180,24 @@ assign LHBL = HBL; // ?
 reg OBJT2_7;
 reg D1V_7;
 reg [2:0] EXV_7;
+reg HBL_7;
 
 //CHAR_CEN IS T3F
 always @(posedge clk) begin
-  if (T8H)
-    OBJT2_7 <= prom_26_data[1];
-    D1V_7 <= V1B;
-//     HBLB <= sei50bu p23 // XXX where we get that Y10???
+    if (T8H) begin
+        OBJT2_7 <= prom_26_data[1];
+    end
+
+    // V1B advances before the active row is fully consumed. Sampling it every
+    // T8H lets the display-side bank select flip inside one sprite row, which
+    // is exactly what fragments MAD/stock sprite data across O1/O2/E1/E2.
+    // Hold the display parity for the whole line and only refresh it at the
+    // start of the next active line.
+    if (HBL_7 && !HBL) begin
+        D1V_7 <= ~V1B;
+    end
+
+    HBL_7 <= HBL;
     HBLB <= HBL; //HBL sei50bu pin 23
     EXV_7[0] <= EXV[0];
     EXV_7[1] <= EXV[1];
@@ -423,7 +427,12 @@ obj obj_u(
   .OBJ_HREV(OBJ_HREV)
 );
 
-// XXX @ ... ?
+// Final color blanking must only suppress output during actual blanking.
+// Live MAD traces showed valid OBJON/OOD/palette_out in the visible window
+// while this old HBLB&L3 expression still forced MASK=1, turning the sprite
+// black.  HBLB is active during the visible horizontal region, and LVBL stays
+// low during visible lines, so blank only when outside HBLB or during LVBL.
+//wire MASK = ~HBLB | LVBL;
 wire MASK =  HBLB & L3;//XXX; L3 IS NOT GOOD in sei50bu.v !
 
 //74LS174 8H page 8
@@ -472,9 +481,7 @@ CLUT CLUT_u(
   .MASK(MASK),
 
   .prom_27_data(prom_27_data),
-  .prom_27_ok(prom_27_ok),
   .prom_27_addr(prom_27_addr),
-  .prom_27_cs(prom_27_cs),
 
   .R(r),
   .G(g),
@@ -515,6 +522,20 @@ begin \
     $fclose(fd); \
 end
 
+`define dump_linebuf_ram(FILE_NAME, MEM_PATH) \
+begin \
+    integer fd; \
+    integer i; \
+    reg [15:0] word16; \
+    $display("Snapshot: Dumping %s (Size: %0d)", FILE_NAME, 1024); \
+    fd = $fopen(FILE_NAME, "wb"); \
+    for (i = 0; i < 512; i = i + 1) begin \
+       word16 = {6'b0, MEM_PATH[i][9:0]}; \
+       $fwrite(fd, "%c%c", word16[15:8], word16[7:0]); \
+    end \
+    $fclose(fd); \
+end
+
 // Macro pour dumper une RAM 8 bits (si jamais tu en as besoin pour le SIS6091 standard)
 `define dump_ram8(FILE_NAME, SIZE, MEM_PATH) \
 begin \
@@ -524,6 +545,19 @@ begin \
     fd = $fopen(FILE_NAME, "wb"); \
     for (i = 0; i < SIZE; i = i + 1) begin \
       $fwrite(fd, "%c", MEM_PATH[i]); \
+    end \
+    $fclose(fd); \
+end
+
+// sis6091B packs the "used" flag as bit 16 of a 17-bit mem word
+`define dump_sis6091b_used(FILE_NAME, SIZE, MEM_PATH) \
+begin \
+    integer fd; \
+    integer i; \
+    $display("Snapshot: Dumping %s (Size: %0d)", FILE_NAME, SIZE); \
+    fd = $fopen(FILE_NAME, "wb"); \
+    for (i = 0; i < SIZE; i = i + 1) begin \
+       $fwrite(fd, "%c", MEM_PATH[i][16]); \
     end \
     $fclose(fd); \
 end
@@ -541,14 +575,20 @@ always @(posedge clk) begin
   if (frame_counter == DUMP_START_FRAME && !dump_done) begin
      $display("DUMPING");
 
-     `dump_ram16("scnddma_u151.bin", 1024, obj_u.scnddma_u.u_151.mem)
-     `dump_ram16("scnddma_u152.bin", 1024, obj_u.scnddma_u.u_152.mem)
+     `dump_ram16("scnddma_u151.bin", 64, obj_u.scnddma_u.u_151.mem)
+     `dump_ram16("scnddma_u152.bin", 64, obj_u.scnddma_u.u_152.mem)
+     `dump_sis6091b_used("scnddma_u151_used.bin", 64, obj_u.scnddma_u.u_151.mem)
+     `dump_sis6091b_used("scnddma_u152_used.bin", 64, obj_u.scnddma_u.u_152.mem)
      `dump_ram16_split("scnddma_u153.bin", 1024, obj_u.scnddma_u.u_153)
      `dump_ram16_split("objdma_u141.bin", 1024, obj_u.objdma_u.u_141);
-     `dump_ram16("linebuf_u181.bin", 1024, obj_u.linebuf_u.u_181.mem)
-     `dump_ram16("linebuf_u182.bin", 1024, obj_u.linebuf_u.u_182.mem)
-     `dump_ram16("linebuf_u183.bin", 1024, obj_u.linebuf_u.u_183.mem)
-     `dump_ram16("linebuf_u184.bin", 1024, obj_u.linebuf_u.u_184.mem)
+     `dump_linebuf_ram("linebuf_u181.bin", obj_u.linebuf_u.u_181.mem)
+     `dump_linebuf_ram("linebuf_u182.bin", obj_u.linebuf_u.u_182.mem)
+     `dump_linebuf_ram("linebuf_u183.bin", obj_u.linebuf_u.u_183.mem)
+     `dump_linebuf_ram("linebuf_u184.bin", obj_u.linebuf_u.u_184.mem)
+     `dump_sis6091b_used("linebuf_u181_used.bin", 512, obj_u.linebuf_u.u_181.mem)
+     `dump_sis6091b_used("linebuf_u182_used.bin", 512, obj_u.linebuf_u.u_182.mem)
+     `dump_sis6091b_used("linebuf_u183_used.bin", 512, obj_u.linebuf_u.u_183.mem)
+     `dump_sis6091b_used("linebuf_u184_used.bin", 512, obj_u.linebuf_u.u_184.mem)
 
      `dump_ram16_split("cpu_ram.bin", 32768, $root.game_test.u_game.u_game.u_main.u_cpu_ram)
 

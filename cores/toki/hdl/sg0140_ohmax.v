@@ -22,37 +22,95 @@ module sg0140_ohmax(
     input            CTLT2,    // Input: Control Latch 2 (Active Low). Timing signal for latching ADDR and NOOBJ_CT2.
    
     output reg [8:4] OH,       // Output: Object X Position (5 Higher bits). Latched during CTLT1. Used by SEI0060BU
-    output reg [4:0] ADDR,     // Output: ROM Address Offset. Latched during CTLT2. Combined with linecunt LS174/LS273 to build full index of obj_rom_addr 
-    output reg       NOOBJ_CT2 // Output: Synchronized NOOBJ flag (obj valid if low). Latched during CTLT2 for OBJPS (Object Pixel Serializer).
+   output reg [4:0] ADDR,     // Output: ROM Address Offset. Latched during CTLT2. Combined with linecunt LS174/LS273 to build full index of obj_rom_addr 
+   output reg       NOOBJ_CT2 // Output: Synchronized NOOBJ flag (obj valid if low). Latched during CTLT2 for OBJPS (Object Pixel Serializer).
    );
 
-//    XXX is it that or the inverse ? 
-//    | Phase | OVD[8:4] meaning |
-//    |-------|------------------|
-//    | CTLT1 (H1=0) | X position high bits (OH[8:4]) |
-//    | CTLT2 (H1=1) | ROM index bits for the sprite (tile address) |
+reg ctlt1_d;
+reg ctlt2_d;
+wire ctlt1_fall = (ctlt1_d == 1'b1) && (CTLT1 == 1'b0);
+wire ctlt2_fall = (ctlt2_d == 1'b1) && (CTLT2 == 1'b0);
+wire ctlt1_rise = (ctlt1_d == 1'b0) && (CTLT1 == 1'b1);
+wire ctlt2_rise = (ctlt2_d == 1'b0) && (CTLT2 == 1'b1);
+
+reg       ctlt1_active;
+reg       ctlt2_active;
+reg       ctlt1_ovd_seen;
+reg       ctlt2_ovd_seen;
+reg       ctlt2_noobj_seen;
+reg [4:0] ctlt1_ovd_start;
+reg [4:0] ctlt2_ovd_start;
+reg       ctlt2_noobj_start;
 
 always @(posedge clk) begin
-    if (rst) begin // Asynchronous or synchronous reset.
-        OH        <= 5'b0;      // Initialize Object Horizontal Position to 0.
-        ADDR      <= 5'b0;      // Initialize ROM Address Offset to 0.
-        NOOBJ_CT2 <= 1'b0;      // Initialize synchronized NOOBJ flag to inactive/false.
-        end
-   else begin
-       // Phase 1 (CTLT2 low): latch ROM index bits + NOOBJ sync
-       if (!CTLT2) begin
-            ADDR[4:0] <= OVD[8:4];
-            // PLD29 OE equations indicate the latched "NOOBJ/2" polarity is
-            // opposite to the raw SCNDDMA NOOBJ bit.
-            NOOBJ_CT2 <= ~NOOBJ;
-       end
+    if (rst) begin
+        OH        <= 5'b0;
+        ADDR      <= 5'b0;
+        NOOBJ_CT2 <= 1'b0;
+        ctlt1_d   <= 1'b1;
+        ctlt2_d   <= 1'b1;
+        ctlt1_active     <= 1'b0;
+        ctlt2_active     <= 1'b0;
+        ctlt1_ovd_seen   <= 1'b0;
+        ctlt2_ovd_seen   <= 1'b0;
+        ctlt2_noobj_seen <= 1'b0;
+        ctlt1_ovd_start  <= 5'b0;
+        ctlt2_ovd_start  <= 5'b0;
+        ctlt2_noobj_start <= 1'b1;
+    end else begin
+        ctlt1_d <= CTLT1;
+        ctlt2_d <= CTLT2;
 
-       // Phase 2 (CTLT1 low): latch X position
-       if (!CTLT1) begin
-            // Invert only X position on HREV, do NOT invert ROM index.
-            OH[8:4] <= HREV ? ~OVD[8:4] : OVD[8:4];
-       end
-       end
+        if (ctlt1_fall) begin
+            ctlt1_active    <= 1'b1;
+            ctlt1_ovd_seen  <= 1'b0;
+            ctlt1_ovd_start <= OVD[8:4];
+        end
+
+        if (ctlt2_fall) begin
+            NOOBJ_CT2         <= 1'b0;
+            ctlt2_active      <= 1'b1;
+            ctlt2_ovd_seen    <= 1'b0;
+            ctlt2_noobj_seen  <= 1'b0;
+            ctlt2_ovd_start   <= OVD[8:4];
+            ctlt2_noobj_start <= NOOBJ;
+        end
+
+        // Live MAD traces show the CTLT phase strobes go active before the
+        // multiplexed OVD/NOOBJ bus settles. Capture the first real change
+        // within the low phase, then ignore later bus collapse/noise.
+        if (ctlt1_active && (CTLT1 == 1'b0) && !ctlt1_ovd_seen && (OVD[8:4] != ctlt1_ovd_start)) begin
+            OH[8:4]        <= HREV ? ~OVD[8:4] : OVD[8:4];
+            ctlt1_ovd_seen <= 1'b1;
+        end
+
+        if (ctlt2_active && (CTLT2 == 1'b0) && !ctlt2_ovd_seen && (OVD[8:4] != ctlt2_ovd_start)) begin
+            ADDR[4:0]      <= OVD[8:4];
+            ctlt2_ovd_seen <= 1'b1;
+        end
+
+        if (ctlt2_active && (CTLT2 == 1'b0) && !ctlt2_noobj_seen && (NOOBJ != ctlt2_noobj_start)) begin
+            NOOBJ_CT2      <= ~NOOBJ;
+            ctlt2_noobj_seen <= 1'b1;
+        end
+
+        if (ctlt1_rise) begin
+            if (!ctlt1_ovd_seen)
+                OH[8:4] <= HREV ? ~ctlt1_ovd_start : ctlt1_ovd_start;
+            ctlt1_active   <= 1'b0;
+            ctlt1_ovd_seen <= 1'b0;
+        end
+
+        if (ctlt2_rise) begin
+            if (!ctlt2_ovd_seen)
+                ADDR[4:0] <= ctlt2_ovd_start;
+            if (!ctlt2_noobj_seen)
+                NOOBJ_CT2 <= ~ctlt2_noobj_start;
+            ctlt2_active      <= 1'b0;
+            ctlt2_ovd_seen    <= 1'b0;
+            ctlt2_noobj_seen  <= 1'b0;
+        end
     end
+end
    
 endmodule

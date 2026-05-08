@@ -32,80 +32,73 @@ module sg0140_sort48(
     output reg  [5:0] DMA2_OA
 );
 
-    // Write pointer for per-line visible-sprite list.
     reg [5:0] wr_ptr;
-    // Kept for debug visibility in VCD.
     reg [5:0] rd_ptr;
+    reg [5:0] write_slot;
 
-    // Edge detectors
     reg vfind_d;
     reg ild2_d;
+    reg v1b_d;
     reg rdclk_d;
 
     wire vfind_fall = (vfind_d == 1'b1) && (VFIND == 1'b0);
     wire ild2_rise  = (ild2_d  == 1'b0) && (ILD2  == 1'b1);
+    wire v1b_edge   = (v1b_d   != V1B);
     wire rdclk_fall = (rdclk_d == 1'b1) && (RDCLK == 1'b0);
 
-    // H-based consume slot (0..63).
-    // Trace-derived order: {H256,H128,H2,H64,H32,H16}.
-    // Do not clamp >=48 to 0; out-of-range slots are naturally masked by
-    // per-slot valid bits in SCNDDMA, while clamping causes repeated slot-0.
-    wire [5:0] read_slot = {H[8:7], H2, H[6:4]};
-
-    // Trace-backed: VFIND pulses are in XSDTS=1 phase.
+    // Display-side slot cadence must be 16 pixels wide. The previous model
+    // used H2 as an address bit, which made the active-bank address walk on an
+    // 8-pixel subphase and caused the same list entry to be revisited several
+    // times across the line. Use H[8:4] as the slot number and H2 only as the
+    // phase qualifier that selects one RDCLK subphase out of the two present
+    // inside each 16-pixel cell.
     wire list_phase = (XSDTS == 1'b1);
+    wire [5:0] build_slot = {1'b0, H[8:4]};
+    wire [5:0] read_slot  = {1'b0, H[8:4]};
+    wire [5:0] write_slot_eff = (list_phase && vfind_fall) ? build_slot : write_slot;
+    wire       read_slot_stb = rdclk_fall && (H2 == 1'b0);
 
-    // Pointer and overflow control
     always @(posedge clk) begin
         if (rst) begin
             wr_ptr   <= 6'd0;
             rd_ptr   <= 6'd0;
+            write_slot <= 6'd0;
             OVER48   <= 1'b0;
             vfind_d  <= 1'b1;
             ild2_d   <= 1'b0;
+            v1b_d    <= 1'b0;
             rdclk_d  <= 1'b0;
         end else begin
             vfind_d <= VFIND;
             ild2_d  <= ILD2;
+            v1b_d   <= V1B;
             rdclk_d <= RDCLK;
 
-            // New line: restart list build and clear overflow budget.
-            if (ild2_rise) begin
+            if (v1b_edge) begin
                 wr_ptr <= 6'd0;
                 OVER48 <= 1'b0;
             end
 
-            // List build: one slot consumed per VFIND pulse.
             if (list_phase && vfind_fall) begin
+                write_slot <= build_slot;
                 if (wr_ptr < 6'd48)
                     wr_ptr <= wr_ptr + 6'd1;
                 else
                     OVER48 <= 1'b1;
             end
 
-            if (rdclk_fall) begin
+            if (read_slot_stb)
                 rd_ptr <= read_slot;
-            end
         end
     end
 
-    // Ping-pong address mux:
-    // - one RAM port receives write slot (wr_ptr)
-    // - the other RAM port receives consume slot (read_slot from H timing)
-    always @(posedge clk) begin
-        if (rst) begin
-            DMA2_EA <= 6'd0;
-            DMA2_OA <= 6'd0;
-        end else if (rdclk_fall) begin
-            if (V1B) begin
-                // Odd line: write odd, read even
-                DMA2_OA <= wr_ptr;
-                DMA2_EA <= read_slot;
-            end else begin
-                // Even line: write even, read odd
-                DMA2_EA <= wr_ptr;
-                DMA2_OA <= read_slot;
-            end
-        end
+    always @(*) begin
+        // SCNDDMA samples the list address on the same clock edge that VCHECK
+        // asserts VFIND/EVNWR2/ODDWR2 and on the same edge that the display
+        // side consumes NOOBJ. Keep both bank address buses as direct functions
+        // of the current H bucket so neither the write side nor the read side
+        // sees a one-slot delayed registered address.
+        DMA2_EA = read_slot;
+        DMA2_OA = read_slot;
     end
 endmodule

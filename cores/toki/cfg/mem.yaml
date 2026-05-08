@@ -8,8 +8,6 @@ params:
   - { name: Z80_OFFSET,      value: "22'h40000" } # start after gfx4 523288 < 2
   - { name: BANK_OFFSET,      value: "22'h41000" } # start after 8.m3 (2nd bank start at + BA1_START )
   - { name: OKI_OFFSET,       value: "22'h49000" } # start at 8.m3 + 7.m7 / 2
-  - { name: PROM26_OFFSET,    value: "22'h59000" }     # 131072/2 0x10_000
-  - { name: PROM27_OFFSET,    value: "22'h59080" }     # 131072/2 0x10_000
 
   #- { name: BANK_OFFSET,      value: "22'h1000" } # start after 8.m3 (2nd bank start at + BA1_START )
   #- { name: OKI_OFFSET,       value: "22'h9000" } # start at 8.m3 + 7.m7 / 2
@@ -111,15 +109,12 @@ sdram:
           offset: OKI_OFFSET
 
 
-  #XXX put at least this two in bram try with z80 rom /bank at also ?
-  #use bram for audio rom too ? except pcm ?
-  # use bram as it's small so no acces problem ?
-        - name: prom_26
-          addr_width: 8
-          data_width: 8
-          offset: PROM26_OFFSET
-        - name: prom_27
-          addr_width: 8
-          data_width: 8
-          offset: PROM27_OFFSET
-        #prom 26, 27 ..
+bram:
+  - name: prom_26
+    addr_width: 8
+    data_width: 8
+    prom: true
+  - name: prom_27
+    addr_width: 8
+    data_width: 8
+    prom: true

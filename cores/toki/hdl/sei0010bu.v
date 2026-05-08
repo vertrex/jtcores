@@ -12,7 +12,7 @@ module sei0010bu(
   //others
   input  [23:0] rom_data, //p5-20  seems to be 24 bit on doc XXX
 
-  output reg [5:0]  color //p22-25 
+output reg [5:0]  color //p22-25 
 );
 
 reg [3:0] pixel_0; 
@@ -56,8 +56,11 @@ always @(posedge clk, posedge rst) begin
           pixel_4 <= {1'b0, pixel_4[3:1]};
           pixel_5 <= {1'b0, pixel_5[3:1]};
           end 
-      color <= { pixel_5[0], pixel_4[0],  pixel_3[0], pixel_2[0], pixel_1[0], pixel_0[0] };
       end
+end
+
+always @(*) begin
+    color = { pixel_5[0], pixel_4[0], pixel_3[0], pixel_2[0], pixel_1[0], pixel_0[0] };
 end
 
 endmodule
