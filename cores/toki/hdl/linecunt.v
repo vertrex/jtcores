@@ -128,10 +128,15 @@ LS273 u174_20E(
    .CLK(clk),
    .CLRn(1'b1),
    .CEN(~CTLT2),
-   // CTLT1 captures the X-position word into u171/u172. CTLT2 then carries
-   // the ROM/index word, so the ROM low nibble must come from the current
-   // CTLT2 OVD nibble rather than the CTLT1-captured X low nibble.
-   .D({u172_Q[1:0], u171_Q[5:4], OVD[3:0]}),
+   // Data flow analysis (deep trace, 2026-05-09):
+   //   u_153 writes: word 1 (CHAR) at FDA[2:1]=01 → LSB=0;
+   //                 word 2 (HPOS) at FDA[2:1]=10 → LSB=1
+   //   u_153 reads:  H1=0 (CTLT1 phase) → LSB=0 → OVD = CHAR
+   //                 H1=1 (CTLT2 phase) → LSB=1 → OVD = HPOS
+   // rom_index's low 4 bits need tile_lo[3:0] (= CHAR[3:0] at CTLT1).
+   // Use u171_Q[3:0] (latched at CTLT1) instead of live OVD[3:0] at CTLT2
+   // which would wrongly capture HPOS[3:0] and make X affect tile index.
+   .D({u172_Q[1:0], u171_Q[5:4], u171_Q[3:0]}),
    .Q({OBJCOL_live[0], u174_Q[6:0]})
 );
 

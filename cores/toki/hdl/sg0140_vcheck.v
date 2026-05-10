@@ -114,7 +114,13 @@ module sg0140_vcheck(
     wire [8:0] diff_y = current_y - sprite_y;
     
     // Sprite is visible if scanline is within [Y, Y+15]
-    wire visible = (diff_y < 9'd16);
+    // AND the slot is not an empty/unused placeholder (VPD != 0).
+    // Rationale: unused sprite slots in CPU RAM have all-zero attributes.
+    // Their VPD=0 would match "visible" on scanlines 0..15 for EVERY
+    // unused slot, filling scnddma with phantom entries. Test ROMs like
+    // MAD only populate slot 0; real games fill all 128. Filtering VPD=0
+    // is safe because any sprite at screen Y=0 is in VBL area anyway.
+    wire visible = (diff_y < 9'd16) && (VPD != 8'h00);
    
     // Flip Logic:
     // Screen Flip (VREV) XOR Sprite Flip (VREVD_2)
