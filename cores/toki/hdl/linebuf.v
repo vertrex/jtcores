@@ -114,9 +114,10 @@ sis6091B u_184(
   .q({nc3, Q_ODD2}) //42-56
 );
 
-//objon is active high 
-//PRIOR_C & D are active high 
-//FIND is active high 
+
+//objon is active high
+//PRIOR_C & D are active high
+//FIND is active high
 
 always @(posedge clk) begin 
   if (D1V_7P) begin

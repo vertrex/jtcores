@@ -180,24 +180,14 @@ assign LHBL = HBL; // ?
 reg OBJT2_7;
 reg D1V_7;
 reg [2:0] EXV_7;
-reg HBL_7;
 
 //CHAR_CEN IS T3F
 always @(posedge clk) begin
     if (T8H) begin
         OBJT2_7 <= prom_26_data[1];
+        D1V_7 <= V1B;
     end
 
-    // V1B advances before the active row is fully consumed. Sampling it every
-    // T8H lets the display-side bank select flip inside one sprite row, which
-    // is exactly what fragments MAD/stock sprite data across O1/O2/E1/E2.
-    // Hold the display parity for the whole line and only refresh it at the
-    // start of the next active line.
-    if (HBL_7 && !HBL) begin
-        D1V_7 <= ~V1B;
-    end
-
-    HBL_7 <= HBL;
     HBLB <= HBL; //HBL sei50bu pin 23
     EXV_7[0] <= EXV[0];
     EXV_7[1] <= EXV[1];

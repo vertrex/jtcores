@@ -153,24 +153,32 @@ assign OFST[3:0] = (RD_VPOS == 1'b0) ? offset_y[3:0] :
 /// DEMUX DATA 
 ///
 
-//74F841 u137 11H 
+//74F841 u137 11H
 reg   [9:0] u137_latch;
 wire  [9:0] u137;
 
+// Same fix as u138: level-sensitive on LT_HPOS to avoid the 1-sprite
+// lag from edge-sampling at rdclk_rise.
 always @(posedge clk) begin
-    if (rdclk_rise && LT_HPOS)
+    if (LT_HPOS)
       u137_latch <= {1'b0, OBJ_DB[8:0]};
     end
 
 //assign {CARY_M, POS[8:4], ND2[3:0]} = ~RD_HPOS  ? u137_latch : 10'bz;
 
-//74F841 u138 12H 
+//74F841 u138 12H
 
 reg   [9:0] u138_latch;
 wire  [9:0] u138;
 
+// Change: capture OBJ_DB while LT_VPOS is HIGH (level-sensitive) instead
+// of only on rdclk_rise. The rdclk_rise edge samples FDA[2:1] pre-advance
+// so LT_VPOS was still 0 → u138_latch skipped the CURRENT sprite and
+// held PREVIOUS sprite's data. During the whole FDA[2:1]=11 window,
+// LT_VPOS stays high, so refreshing on every clk keeps u138 aligned
+// with the CURRENT sprite when u_141 writes it (also during FDA[2:1]=11).
 always @(posedge clk) begin
-    if (rdclk_rise && LT_VPOS)
+    if (LT_VPOS)
       u138_latch <= {1'b0, OBJ_DB[8:0]};
     end
 

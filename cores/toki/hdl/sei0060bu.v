@@ -61,6 +61,8 @@ module SEI0060BU(
             wr_cnt <= wr_cnt + 9'd1;
     end
 
+
+
     // -----------------------------------------------------------
     // Beam counter (reset on HBLB rising edge, then increments)
     // -----------------------------------------------------------
