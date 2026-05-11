@@ -290,11 +290,19 @@ LS273 u176(
 
 //74LS273
 //14D
+// FH[7:0] = sprite X position for sei0060bu address loading.
+// FH[7:4] = OH[7:4] (latched by ohmax from HPOS at CTLT2 = X[7:4])
+// FH[3:0] = live OVD[3:0] at CTLT2 = X[3:0] from u_153 HPOS word
+//
+// Previous code used u171_Q[3:0] (CTLT1-latched = CHAR[3:0] = tile_lo[3:0]),
+// which stuck FH[3:0] at tile's low nibble — making X position snap to
+// 16-pixel boundaries on FPGA. Sprite X should step by 1 pixel per X+1
+// change, but appeared to jump by 16.
 LS273 u1716(
    .CLK(clk),
    .CLRn(1'b1),
    .CEN(~CTLT2),
-   .D({OH[7:4], u171_Q[3:0]}),
+   .D({OH[7:4], OVD[3:0]}),
    .Q(FH[7:0])
 );
 

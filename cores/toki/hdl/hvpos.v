@@ -111,27 +111,40 @@ PLD25 pld25_u(
 /// DECODE SPRITE WORDS 0 : CTRL data   (flip, prio, ...)
 //
 
-//74LS174 U134  
-LS174 u134(
-  .CLK(clk),
-  .CLRn(XOBDIR),  
-  .CEN(~CTRL_LT), // XXX XXX CHECK IT's better like that ~ we need to get same data than in next always @ anyway 
-  .D({OBJ_DB[15], OBJ_DB[13], OBJ_DB[11:8]}),
-   // MAME IS A BIT WRONG FOR THAT WE MAY WANT TO EXPLAIN AND CORRECT IT ?
-   //15        /13    /11      /10    /9 (flipy?) /8 (flipx)
-  .Q({OBJEN_1, ORIGIN, SPR2_1, SPR1_1, VREVD_1, HREVD_1})
-);
+//74LS174 U134
+// Word 0 (CTRL) attribute latch.
+// User FPGA report: X+1 in CPU RAM causes sprite flip/direction to oscillate,
+// which points to CTRL_LT's active window capturing bits from adjacent words
+// (word 1/2 OVD bus bits bleeding into HREVD/VREVD).
+// Capture only on CTRL_LT falling edge — samples OBJ_DB once per sprite
+// right when word 0 becomes stable, instead of tracking the whole low phase.
+reg ctrl_lt_d;
+always @(posedge clk) ctrl_lt_d <= CTRL_LT;
+wire ctrl_lt_fall = (ctrl_lt_d == 1'b1) && (CTRL_LT == 1'b0);
+
+reg [5:0] u134_Q;
+always @(posedge clk or negedge XOBDIR) begin
+    if (!XOBDIR)
+        u134_Q <= 6'b0;
+    else if (ctrl_lt_fall)
+        u134_Q <= {OBJ_DB[15], OBJ_DB[13], OBJ_DB[11:8]};
+end
+assign {OBJEN_1, ORIGIN, SPR2_1, SPR1_1, VREVD_1, HREVD_1} = u134_Q;
 
 //74LS173 u135 & 74LS173 u136
 wire [3:0] OFST;
-reg  [3:0] offset_x; 
-reg  [3:0] offset_y; 
+reg  [3:0] offset_x;
+reg  [3:0] offset_y;
 reg        rdclk_d;
 wire       rdclk_rise = (rdclk_d == 1'b0) && (RDCLK == 1'b1);
 
+// Offset X/Y latches — same race fix as u134. Level-sensitive capture on
+// ~CTRL_LT let adjacent-word OBJ_DB bits bleed into offsets when the user
+// changes X/Y in CPU RAM. Edge-triggered on CTRL_LT falling samples word 0
+// once, stably.
 always @(posedge clk) begin
     rdclk_d <= RDCLK;
-    if (~CTRL_LT) begin
+    if (ctrl_lt_fall) begin
         // 9H [3:0] (Offset Y)
         offset_y <= OBJ_DB[3:0];
         // 10H [7:4] (Offset X)
