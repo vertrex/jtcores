@@ -553,10 +553,16 @@ assign ODDWREN = ~(odd_wren_active  && hblank_active &&  V1B);
 
 //SEI0060BU
 //16CD
+// Use FH_eff (same as u1711) instead of OH_eff. OH_eff[3:0] is driven by
+// u176 which captures u171_Q[3:0] = CHAR tile_lo[3:0] — wrong X low bits.
+// FH_eff[3:0] is OVD[3:0] at CTLT2 = HPOS[3:0] = correct sprite X[3:0].
+// Both sei0060bu instances (obj1 and obj2 channels) must use the same X
+// base; otherwise u_182/u_184 get the "X by 16" bug while u_181/u_183
+// track per-pixel X.
 SEI0060BU sei60bu_u1712(
    .clk(clk),
    .cen(OBJ_N6M),
-   .ADDR(OH_eff[8:0]),
+   .ADDR(FH_eff[8:0]),
    .ODD_LD(odd_ld_scan),
    .EVN_LD(evn_ld_scan),
    .HBLB(HBLB),
