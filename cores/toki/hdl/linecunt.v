@@ -222,8 +222,16 @@ assign objcol_cap     = {u172_Q[4:1]};
 assign obj_hrev_cap   = ODHREV;
 assign osp1_cap       = SPR1_3;
 assign osp2_cap       = SPR2_3;
-assign oh_cap         = {OH[8:4], u171_Q[3:0]};
-assign fh_cap         = {OH[8:4], u171_Q[3:0]};
+// oh_cap / fh_cap feed meta_hold's *_shadow → *_hold. When meta_hold_valid,
+// OH_eff / FH_eff come from these held values — so they MUST carry the
+// correct sprite X, not a CHAR/HPOS hybrid.
+// Previous form used u171_Q[3:0] (= CHAR tile_lo[3:0]) in the low nibble,
+// which bypassed the u1716/u176 X-fix via the meta_hold path and kept the
+// "X moves by blocks of 16" bug on FPGA even after the direct-path fix.
+// Use the already-assembled FH (u1716's Q) and OH wires which have the
+// correct X[3:0] = HPOS[3:0].
+assign oh_cap         = {OH[8:4], OH[3:0]};
+assign fh_cap         = FH[8:0];
 
 // The object ROMs sit behind SDRAM, so data is not stable on every cycle.
 // Hold the last valid selected word; otherwise OBJPS can reload the serializer
