@@ -84,8 +84,19 @@ module SEI0060BU(
     // V1B = 0 : EVEN displays (beam), ODD writes (wr_cnt)
     // V1B = 1 : ODD displays (beam),  EVEN writes (wr_cnt)
     // -----------------------------------------------------------
-    wire [8:0] even_raw = V1B ? wr_cnt  : beam_cnt;
-    wire [8:0] odd_raw  = V1B ? beam_cnt : wr_cnt;
+    // V1B mux: linecunt writes EVEN (u_181/u_182) when V1B=0 (EVNWREN active
+    // only then) and writes ODD (u_183/u_184) when V1B=1. So:
+    //   V1B=0 → EVEN bus carries wr_cnt (sprite X write addr)
+    //   V1B=0 → ODD  bus carries beam_cnt (display read addr for ODD bank)
+    //   V1B=1 → swapped
+    // Previous polarity had even_raw = V1B ? wr_cnt : beam_cnt, which meant
+    // when EVEN was being written (V1B=0) the EA port carried beam_cnt —
+    // the display beam position — instead of the sprite X. Writes then
+    // landed at the current beam X, not the sprite's target X. That was
+    // the root cause of the X offset seen in sim (sprite at X=273 for a
+    // CPU-set X=116) and the "X reversed / random" behavior.
+    wire [8:0] even_raw = V1B ? beam_cnt : wr_cnt;
+    wire [8:0] odd_raw  = V1B ? wr_cnt   : beam_cnt;
     assign EA = HREV ? ~even_raw : even_raw;
     assign OA = HREV ? ~odd_raw  : odd_raw;
 
