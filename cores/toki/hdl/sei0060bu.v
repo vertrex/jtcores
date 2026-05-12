@@ -86,14 +86,8 @@ module SEI0060BU(
     // -----------------------------------------------------------
     wire [8:0] even_raw = V1B ? wr_cnt  : beam_cnt;
     wire [8:0] odd_raw  = V1B ? beam_cnt : wr_cnt;
-    // HREV sense inverted vs schematic: FPGA reports "X+1 goes LEFT" when
-    // HREV=1 inverts the address — but MAD ROM pins HREV=1 via adrs.v's
-    // ~MDB[14] default, so the address is perma-inverted. Flipping the
-    // sense here means cocktail-mode flip is now HREV=0 (opposite of
-    // backgrounds), but for non-cocktail default play the sprite X
-    // direction matches the CPU's X+1.
-    assign EA = HREV ? even_raw : ~even_raw;
-    assign OA = HREV ? odd_raw  : ~odd_raw;
+    assign EA = HREV ? ~even_raw : even_raw;
+    assign OA = HREV ? ~odd_raw  : odd_raw;
 
     // -----------------------------------------------------------
     // Per-line clear pulses: erase the bank that will be *read*
