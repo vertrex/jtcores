@@ -11,6 +11,16 @@
 * single synchronous read model — no combinational pass-through. The line
 * buffer's pixel-select happens in the next clock anyway (see linebuf.v's
 * `if (D1V_7P)` block), so one cycle of extra read latency is harmless.
+*
+* Bulk-clear sweep: when clr_n falls low, a dedicated counter walks
+* 256 addresses (covering the visible LINEBUF X range) and clears each
+* slot. Sweep stops at CLR_END or when clr_n rises (HBL ends). Normal
+* wr_stb writes take priority over sweep so sprite writes landing
+* during any HBL-overhang still commit. User-tested: visible vertical
+* trail reduced while sprite still renders.
+*
+* SCNDDMA instances tie clr_n to 1'b1 so the sweep never triggers there —
+* their behavior is unchanged.
 */
 
 module sis6091B #(
@@ -44,14 +54,39 @@ wire wr_active = WR_CEN_ACTIVE_LOW ? ~wr_cen : wr_cen;
 reg wr_active_d = 1'b0;
 wire wr_stb = (wr_active_d == 1'b0) && (wr_active == 1'b1);
 
+// Bulk-clear sweep state. Starts on clr_n falling edge, walks 256 slots
+// (visible LINEBUF range), self-stops at CLR_END or when clr_n rises.
+reg clr_n_d = 1'b1;
+wire clr_n_fall = (clr_n_d == 1'b1) && (clr_n == 1'b0);
+
+reg [ADDR_W-1:0] clr_cnt = {(ADDR_W){1'b0}};
+reg clr_active = 1'b0;
+localparam [ADDR_W-1:0] CLR_END = {2'b00, {(ADDR_W-2){1'b1}}};  // 256 slots for ADDR_W=10
+
 always @(posedge clk) begin
     wr_active_d <= wr_active;
+    clr_n_d     <= clr_n;
 
+    // Start sweep on clr_n falling edge, when currently idle
+    if (clr_n_fall && !clr_active) begin
+        clr_cnt    <= {(ADDR_W){1'b0}};
+        clr_active <= 1'b1;
+    end else if (clr_active) begin
+        if (clr_n || (clr_cnt == CLR_END)) begin
+            clr_active <= 1'b0;
+        end else begin
+            clr_cnt <= clr_cnt + 1'b1;
+        end
+    end
+
+    // Write priority: normal wr_stb write > sweep clear.
     if (wr_stb) begin
         if (!clr_n)
             mem[addr_eff] <= 17'h00000;
         else if (we)
             mem[addr_eff] <= {1'b1, data};
+    end else if (clr_active) begin
+        mem[clr_cnt] <= 17'h00000;
     end
 
     if (rd_cen)
