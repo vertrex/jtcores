@@ -61,7 +61,12 @@ wire clr_n_fall = (clr_n_d == 1'b1) && (clr_n == 1'b0);
 
 reg [ADDR_W-1:0] clr_cnt = {(ADDR_W){1'b0}};
 reg clr_active = 1'b0;
-localparam [ADDR_W-1:0] CLR_END = {2'b00, {(ADDR_W-2){1'b1}}};  // 256 slots for ADDR_W=10
+// Cover the full 9-bit visible LINEBUF range (512 slots). Sprite writes
+// during wr_cnt free-run can land anywhere in 0..511, so leaving the
+// upper half un-swept lets stale `find=1` bits persist there — user
+// reported trail pixels at columns 5 and 13 which are aliases of such
+// stale slots when displayed via bit-0 of a larger address.
+localparam [ADDR_W-1:0] CLR_END = {1'b0, {(ADDR_W-1){1'b1}}};  // 512 slots for ADDR_W=10
 
 always @(posedge clk) begin
     wr_active_d <= wr_active;
