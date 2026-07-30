@@ -1,8 +1,6 @@
-// Verilog translation of second JED PLD
-// Active-high/low outputs implemented exactly as per JED listing
-//
-// RDCLKR IS NOT USED OR IT"S CLOCKED ??? XXX check it's really a gal168 
-// or if it's clocked
+// Exact Boolean transcription of Toki-PLD24V.H13.jed (schematic sheet 14).
+// Physical pin 4/RDCLK has no term in any decoded output equation, so omitting
+// it from this established interface is intentional rather than a guessed fix.
 module PLD24(
     //counter start at XOBDIR  (clr)
     //@RDCLKR  

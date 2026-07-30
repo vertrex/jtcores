@@ -6,6 +6,10 @@ params:
   #audio bank 1
 
   - { name: Z80_OFFSET,      value: "22'h40000" } # start after gfx4 523288 < 2
+  # jtframe_bram_rom receives the two-bit SDRAM bank tag followed by the
+  # bank-local word address. Keep this expression valid for normal and large
+  # SDRAM address widths.
+  - { name: Z80_BRAM_OFFSET, value: "{2'd3,{(SDRAMW-1){1'b0}}}|{{(SDRAMW-21){1'b0}},Z80_OFFSET}" }
   - { name: BANK_OFFSET,      value: "22'h41000" } # start after 8.m3 (2nd bank start at + BA1_START )
   - { name: OKI_OFFSET,       value: "22'h49000" } # start at 8.m3 + 7.m7 / 2
 
@@ -70,6 +74,13 @@ sdram:
           offset : CHAR_2_OFFSET
           #cs: LVBL
     - buses:
+        # Background 1 has a fixed per-tile display deadline. Keep it ahead of
+        # the bursty object-row fetches so dense sprites cannot starve the
+        # scrolling layer on FPGA.
+        - name: bk1_rom
+          addr_width: 19
+          data_width: 16
+          offset : GFX_3_OFFSET
         # obj rom
         - name: obj_rom_1
           addr_width: 19
@@ -78,11 +89,6 @@ sdram:
           addr_width: 19
           data_width: 16
           offset : OBJ_2_OFFSET
-        - name: bk1_rom
-          addr_width: 19
-          data_width: 16
-          offset : GFX_3_OFFSET
-          #cs: LVBL
         #- name: gfx4_rom
           #addr_width: 19
           #data_width: 16
@@ -95,10 +101,6 @@ sdram:
           data_width: 16
 
     # ..
-        - name: z80_rom
-          addr_width: 13
-          data_width: 8
-          offset : Z80_OFFSET
         - name: bank_rom
           addr_width: 16
           data_width: 8
@@ -110,6 +112,13 @@ sdram:
 
 
 bram:
+  # PCB sheet 12 uses a dedicated 8 KiB program EPROM. JTFrame mirrors that
+  # ROM range into local BRAM during download, before game reset is released.
+  - name: z80_rom
+    addr_width: 13
+    data_width: 8
+    rom:
+      offset: Z80_BRAM_OFFSET
   - name: prom_26
     addr_width: 8
     data_width: 8

@@ -1,3 +1,4 @@
+// Exact Boolean transcription of Toki-PLD21V.L22.jed (schematic sheet 3).
 module PLD21 (
     //seems ok 
     input   [23:17] A,  // Inputs 1 to 7: address[17:23]
@@ -7,7 +8,7 @@ module PLD21 (
 
     output          ROM0,            // Output 12: ROM0 (Active low)
     output          ROM1,            // Output 13: ROM1 (Active low)
-    output          RAM,             // Output 14: RAM (Active high)
+    output          RAM,             // Active-high macrocell; /RAM select asserts low
     output          MUSIC,           // Output 15: MUSIC (Active low)
     output          MBUFEN,          // Output 16: MBUFEN (Active high)
     output          MBUFDR,          // Output 17: MBUFDR (Active high)
@@ -69,4 +70,3 @@ module PLD21 (
     assign RDADRS = ~(~A[17] & A[18] & A[19] & ~A[20] & ~A[21] & ~A[23] & MBUSDIR & OBUSDIR); // /o19
 
 endmodule
-

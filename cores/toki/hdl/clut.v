@@ -9,6 +9,11 @@
 // get pixel final color from the palette
 // output the pixel to the screen
 //
+// PCB provenance: sheet 10. PROM27 address wiring and the palette/mux contract
+// are kept directly; SG0140 ABSEL is behavioral and palette SIS6091 storage is
+// synchronous FPGA RAM. The UEC-51 plus resistor/DAC analogue output stage is
+// intentionally represented as digital 4-bit RGB and blanking.
+//
 module CLUT(
   input             clk,
   input             N6M,
@@ -77,8 +82,10 @@ sg0140_absel    sg0140_absel_u(
 // may be make two different bus  rather than one shared ? 
 // tryied to switch to cpu by default may be better
 
-//ON is actiive high ?
-assign  prom_27_addr[7:0] = { PRIOR_D, PRIOR_C, PRIOR_B, PRIOR_A, S2ON, OBJON, S4ON, S1ON };
+// Sheet 10 U182/82S129 package wiring: A0=S1ON, A1=S4ON, A2=OBJON,
+// A3=S2ON, then PRIOR A..D on A4..A7.
+assign  prom_27_addr[7:0] = { PRIOR_D, PRIOR_C, PRIOR_B, PRIOR_A,
+                             S2ON, OBJON, S4ON, S1ON };
 //assign  prom_27_addr[7:0] = { 1'b0, 1'b0, PRIOR_B, PRIOR_A, S2ON, 1'b0, S4ON, S1ON };
 // 74LS257 2H, 3H 
 // 74LS258 
@@ -111,18 +118,16 @@ always @(posedge clk) begin
  //*/
 
 
+wire [10:1] palette_addr;
+wire [15:0] palette_out;
+
 assign palette_addr[10:1] =  
                              prom_27_data[0] == 1'b1 ?  { prom_27_data[3:2], OOD[7:0] } : 
                              prom_27_data[1] == 1'b0 ?  { prom_27_data[3:2], s1_s4_out[7:0] } :
                                                         { prom_27_data[3:2], SCRN2[7:0] };
 
-
-
-wire [10:1] palette_addr;
-wire [15:0] palette_out;
-
 ///////// PALETTE RAM //////////
-// palette ram (2048)
+// palette RAM: 1024 x 16 bits
 // populated by DMA 
 sis6091 u_palette_ram(
   .clk(clk),

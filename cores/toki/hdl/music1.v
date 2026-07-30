@@ -4,7 +4,7 @@
 // - Z80 @3.579545 MHz
 // - YM3812 OPL2 @3.579545 MHz
 // - MSM6295 @1Mhz 
-// - YM3931 (not implemented)
+// - YM3014 DAC and analogue output network (approximated digitally)
 //
 // z80 communicate with the main 68k cpu :
 //   - recv  command for the MSM6295
@@ -36,6 +36,12 @@
 //                    | encrypted      |
 //                    \----------------/
 //
+// PCB provenance: sheet 11 (MUSIC1). jtopl2 and jt6295 are reusable digital
+// replacements for the YM3812 and MSM6295. hb41 models the component-derived
+// HB-41/Toki line-level filter and mixer separately from those sound chips.
+// pcm_rom_ok is FPGA-only SDRAM validity handshaking; pcm_rom_addr retains
+// the board sample-ROM address semantics.
+//
 module music1(
   input             clk,
   input             rst,
@@ -57,8 +63,6 @@ module music1(
   /////// fpga specific 
   output     [15:0] snd,
   input       [1:0] fxlevel,
-  input             enable_fm,
-  input             enable_psg,
 
   // OKI 6295 ADPCM 
   input       [7:0] pcm_rom_data,
@@ -102,11 +106,13 @@ wire signed [13:0]  oki_snd;
 wire        [17:0]  adpcm_rom_addr;
 wire         [7:0]  oki_dout;
 
-jt6295 #(.INTERPOL(1))  u_adpcm(
+// The PCB feeds the raw MSM6295 DAC into the HB-41 reconstruction filter.
+// Enabling jt6295's interpolation FIR here would filter the signal twice.
+jt6295 #(.INTERPOL(0))  u_adpcm(
     .rst(rst),
-    .clk(clk), //PRCLK1? 
-    .cen(PRCLK1),//1 
-    .ss(1'b1), // pin7 high, select low sample rate
+    .clk(clk),
+    .cen(PRCLK1), // 1 MHz enable matching the MSM6295 PRCLK1 input
+    .ss(1'b1), // pin 7 high: clock/132, about 7.58 kHz at 1 MHz
      //CPU interface
     .wrn(SWRB | SEL6295),   // wr selected // XX there is norCS 
     .din(SD_OUT[7:0]),  // input data from z80 
@@ -125,50 +131,26 @@ assign SD_IN = ~CS3812 & ~SRDB   ? ym3812_dout :
                8'hff;
 
 assign pcm_rom_cs = 1'b1;
-// pcm rom byte 13 and 15 are swapped, that could be a simple encryption 
-// XXX NOT ON THE SCHEMATICS ???
-assign pcm_rom_addr = { adpcm_rom_addr[16], adpcm_rom_addr[13], adpcm_rom_addr[14] ,adpcm_rom_addr[15] , adpcm_rom_addr[12:0]}; 
+// PCB continuity and MAME init_toki confirm MSM6295 A13/A15 are exchanged at
+// sample ROM 9.m1, although sheet 11 draws them one-to-one. This is not an
+// MSM6295 algorithm or an SDRAM cache transformation.
+assign pcm_rom_addr = {
+    adpcm_rom_addr[16], adpcm_rom_addr[13], adpcm_rom_addr[14],
+    adpcm_rom_addr[15], adpcm_rom_addr[12:0]
+};
 
-///////// MIXING /////////////////
+///////// HB-41 FILTER / MIXER /////////////////
 //
-// MIX YM3812 & OKI6295 
+// fxlevel remains an FPGA-side user trim. hb41.v documents which analogue
+// components are represented and which sub-audible/output stages are omitted.
 //
-//
-//1: pcmgain <= 8'h20 ;   // 200%
-//0: pcmgain <= 8'h10 ;   // 100%
-//2: pcmgain <= 8'h0c ;   // 75%
-//3: pcmgain <= 8'h08 ;   // 50%
-//
-reg [7:0] fx_volume;
-reg [7:0] fm_volume;
-
-always @(posedge clk)  begin //posedge clk ?
-  if (clk) begin
-   fm_volume <=  ~enable_fm ? 8'h00 : 8'h10; 
-   fx_volume <=  ~enable_psg ? 8'h00 : 
-                        (fxlevel == 2'h0) ? 8'h08 : 
-                        (fxlevel == 2'h1) ? 8'h0c : 
-                        (fxlevel == 2'h2) ? 8'h10 : 
-                                            8'h20; 
-   end
-end
-
-jtframe_mixer #(.W1(14)) u_mixer(
-    .rst(rst),
-    .clk(clk), 
-    .cen(1'b1), //3_6 ?
-    // input signals
-    .ch0(opl_snd[15:0]), // fm 
-    .ch1(oki_snd[13:0]), // fx
-    .ch2(16'd0),
-    .ch3(16'd0),
-    //
-    .gain0(fm_volume),
-    .gain1(fx_volume),
-    .gain2(8'd0),
-    .gain3(8'd0),
-    .mixed(snd),
-    .peak()
+hb41 u_hb41(
+    .rst     ( rst      ),
+    .clk     ( clk      ),
+    .fm      ( opl_snd  ),
+    .fx      ( oki_snd  ),
+    .fxlevel ( fxlevel  ),
+    .snd     ( snd      )
 );
 
 endmodule

@@ -1,3 +1,4 @@
+// Exact Boolean transcription of Toki-PLD20V.M22.jed (schematic sheet 1).
 module PLD20 (
     input  AS_n,
     input  UDS_n,
@@ -16,7 +17,7 @@ module PLD20 (
     output MRDLB,    // Active low
     output MRDMB,    // Active low
     output BUSAK,    // Active low
-    output BGACK_n,  // Active high
+    output BGACK_n,  // GAL output is active-high; 68000 /BGACK asserts low
     output VPA_n     // Active low
 );
 
@@ -26,9 +27,9 @@ module PLD20 (
     assign MWRMB   = ~((~AS_n) & (~UDS_n) & (~RW));                 // from o14_n
     assign MRDLB   = ~((~AS_n) & (~LDS_n) &  RW);                   // from o15_n
     assign MRDMB   = ~((~AS_n) & (~UDS_n) &  RW);                   // from o16_n
-    //assign BUSAK   = ~(AS_n & (~BG_n));                             // from o17_n
-    // THAT MAKE IT WORK BUT IT'S NOT THE ORIGINAL EQUATION ! XXX ? 
-    assign BUSAK   = ~(~AS_n & (~BG_n));                             // from o17_n  
+    // JED o17_n: acknowledge once the CPU has ended its current bus cycle
+    // and asserted its active-low bus grant.
+    assign BUSAK   = ~(AS_n & (~BG_n));                              // from o17_n
     assign BGACK_n =  (MBUSDIR & OBUSDIR);                          // from o18 (active high)
     assign VPA_n   = ~((~AS_n) & (~LDS_n) & RW & FC0 & FC1 & FC2);  // from o19_n
 

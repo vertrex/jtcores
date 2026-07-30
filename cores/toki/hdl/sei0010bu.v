@@ -1,4 +1,8 @@
-//24bit - shift reg
+// Behavioral model of the SEI0010BU used on sheets 7-9 and 16.
+// Reproduction evidence identifies a six-plane 24-bit serializer; the exact
+// internal gate array and the purpose of pins 34/35 are not recovered.
+// The FPGA reset is an implementation aid, not a claimed PCB pin function.
+// 24-bit shift register
 module sei0010bu(
   //p2 always set to 1 
   input  clk,
@@ -41,12 +45,12 @@ always @(posedge clk, posedge rst) begin
           pixel_5[3:0] <= rom_data[23:20];
           end 
       else if (rev == 1'b1) begin
-          pixel_0 <= {pixel_0[3:1], 1'b0};
-          pixel_1 <= {pixel_1[3:1], 1'b0};
-          pixel_2 <= {pixel_2[3:1], 1'b0};
-          pixel_3 <= {pixel_3[3:1], 1'b0};
-          pixel_4 <= {pixel_4[3:1], 1'b0};
-          pixel_5 <= {pixel_5[3:1], 1'b0};
+          pixel_0 <= {pixel_0[2:0], 1'b0};
+          pixel_1 <= {pixel_1[2:0], 1'b0};
+          pixel_2 <= {pixel_2[2:0], 1'b0};
+          pixel_3 <= {pixel_3[2:0], 1'b0};
+          pixel_4 <= {pixel_4[2:0], 1'b0};
+          pixel_5 <= {pixel_5[2:0], 1'b0};
           end 
       else begin
           pixel_0 <= {1'b0, pixel_0[3:1]};
@@ -60,7 +64,11 @@ always @(posedge clk, posedge rst) begin
 end
 
 always @(*) begin
-    color = { pixel_5[0], pixel_4[0], pixel_3[0], pixel_2[0], pixel_1[0], pixel_0[0] };
+    // The reverse path shifts toward bit 3, so its serial output is the MSB.
+    // Reading bit 0 for both directions turns every reversed nibble into zero
+    // after its first shift and produces the vertical-stripe flip artifact.
+    color = rev ? {pixel_5[3], pixel_4[3], pixel_3[3], pixel_2[3], pixel_1[3], pixel_0[3]} :
+                  {pixel_5[0], pixel_4[0], pixel_3[0], pixel_2[0], pixel_1[0], pixel_0[0]};
 end
 
 endmodule

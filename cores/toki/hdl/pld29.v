@@ -1,3 +1,4 @@
+// Exact Boolean transcription of Toki-PLD29V.C18.jed (object priority/mux).
 module PLD29 (
     input  HREV,
     input  HD,
@@ -12,7 +13,9 @@ module PLD29 (
     //output 
     output HREV_HD,
     output NHREV_HD,
-    //active high 
+    // Physical pin-level result. The decoded /o15 macrocell polarity is
+    // already represented by the complemented sum-of-products below, which
+    // evaluates high for a FIND in the bank selected by this parity input.
     output OBJON,
     output o16_n,
     output MASK_NOOBJ_2,

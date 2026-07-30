@@ -1,3 +1,6 @@
+// Exact exposed-output transcription of Toki-PLD22V.B9.jed (sheet 5).
+// JED o19 is the trivial VCLK=i7 pass-through; the current top routes the same
+// SEI0050 VCLK directly and keeps this mapped module's established ports.
 module PLD22(
     input  N6M,
     input  H1,

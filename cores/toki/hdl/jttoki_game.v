@@ -20,7 +20,6 @@
 //  - main module 
 //  - video module
 //  - sound module 
-//
 module jttoki_game(
     `include "jtframe_game_ports.inc" // see $JTFRAME/hdl/inc/jtframe_game_ports.inc
   );
@@ -341,8 +340,6 @@ music1 u_music1(
   .pcm_rom_cs(pcm_rom_cs)
 );
 
-wire z80_rom_cs_n;
-assign z80_rom_cs = ~z80_rom_cs_n;
 wire bank_rom_cs_n; 
 assign bank_rom_cs = ~bank_rom_cs_n;
 
@@ -384,9 +381,7 @@ music2 u_music2(
   .oki_cen(oki_cen),
 
   .z80_rom_data(z80_rom_data),
-  .z80_rom_ok(z80_rom_ok),
   .z80_rom_addr(z80_rom_addr),
-  .z80_rom_cs_n(z80_rom_cs_n),
 
   .bank_rom_data(bank_rom_data),
   .bank_rom_ok(bank_rom_ok),

@@ -5,6 +5,7 @@ toki:
       - video.v
       - obj.v
       - music1.v
+      - hb41.v
       - music2.v
       - sei0100bu.v
       - sei0060bu.v
@@ -70,7 +71,7 @@ jtframe:
       - jtframe_credits.v
   - from: sound
     get:
-      - jtframe_mixer.v
+      - jtframe_pole.v
 jt6295:
 jtopl:
   - get:

@@ -1,3 +1,4 @@
+// Exact Boolean transcription of Toki-PLD25V.H12.jed (schematic sheet 13).
 module PLD25 (
     input  [2:1] FDA, //i2, i1 
     input        RDCLK,  //i3 
@@ -29,11 +30,11 @@ module PLD25 (
     //  /o13 = i1 & i2 & /i5
     assign RD_VPOS = ~(FDA[2] & FDA[1] & ~OIBDIR);
     //  /o14 = /i1 & i2 & /i5
-    assign RD_HPOS = ~(FDA[2] & ~FDA[1] & ~OIBDIR); // XXX add rdclk ? 
+    assign RD_HPOS = ~(FDA[2] & ~FDA[1] & ~OIBDIR);
     //  o15 = i1 & i2 & /i4 & /i5
-    assign LT_VPOS = FDA[2] & FDA[1] & ~ORIGIN & ~OIBDIR; //XXX add rd clk ? 
+    assign LT_VPOS = FDA[2] & FDA[1] & ~ORIGIN & ~OIBDIR;
     //  o16 = /i1 & i2 & /i4 & /i5
-    assign LT_HPOS = FDA[2] & ~FDA[1] & ~ORIGIN & ~OIBDIR; //xxx add rd clk ? 
+    assign LT_HPOS = FDA[2] & ~FDA[1] & ~ORIGIN & ~OIBDIR;
 
     //  o17 = i6 & /i7 & /i8 +
       ///i6 & i7 & /i8 +

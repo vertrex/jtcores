@@ -1,3 +1,4 @@
+// Exact Boolean transcription of Toki-PLD23V.L6.jed (schematic sheet 12).
 ///////// z80 bus mapping  ////////////////////
 // z80 
 // 0x0000, 0x1fff : rom (decrypted by sei80bu)
@@ -33,7 +34,10 @@ module pld23(
     input  wire M1_n,
 
     output wire SEI0100_CS_N, // active-low
-    output wire B1, // active-low
+    // PCB net B1 to SEI0100BU pin 48. The equation makes it an inferred
+    // active-low enable for the custom IC to drive the shared Z80 data bus
+    // labelled SD0-SD7 on the schematic.
+    output wire SEI0100_Z80_DATA_OE_N,
     output wire SEL6295, // active-low
     output wire irq_ack_n, // active-low
     output wire bank_rom_cs_n, // active-low
@@ -71,7 +75,7 @@ module pld23(
     //wire t_B7  = (~SA_13) & (~SA_14) & (~SA_15) & (~MEMRQ_n) & (~RD_n) & RFSH_n; // same as B6 per JED
 
     assign SEI0100_CS_N = ~t_B0;
-    assign B1 = ~t_B1;
+    assign SEI0100_Z80_DATA_OE_N = ~t_B1;
     assign SEL6295 = ~t_SEL6295;
     assign irq_ack_n = ~t_irq_ack_n;
     assign bank_rom_cs_n = ~t_B4;

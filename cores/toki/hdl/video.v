@@ -4,6 +4,11 @@
 // - char, bk1, bk2, obj drawing
 // - char, bk1, bk2, obj mixing & output
 //
+// PCB provenance: structural integration of sheet 5 timing, sheets 7-9
+// tile/character paths, sheet 10 palette mixer, and sheets 13-18 objects.
+// This wrapper is not itself a PCB IC. Registered PROM access and external
+// ROM *_ok handshakes are FPGA memory-interface adaptations.
+//
 module toki_video(
   input             rst,
 
@@ -121,10 +126,10 @@ wire L3;
 wire HD;
 wire VSYNC; //seems to be ~ sei0050bu XXX (page 5)
 
-//XXX use them
-//REVERSE SCREEN X/Y HD74LS86P A1/2
-wire [7:0] EXH = {hpos[7] ^ HREV, hpos[6] ^ HREV, hpos[5] ^ HREV, hpos[4] ^ HREV, hpos[3] ^ HREV, hpos[2] ^ HREV, hpos[1] ^ HREV, hpos[0] ^ HREV};
-wire [7:0] EXV = {vpos[7] ^ VREV, vpos[6] ^ VREV, vpos[5] ^ VREV, vpos[4] ^ VREV, vpos[3] ^ VREV, vpos[2] ^ VREV, vpos[1] ^ VREV, vpos[0] ^ VREV};
+// Sheet 5 U53/U54 HD74LS86 banks.  These buses feed sheets 7, 8 and
+// 9 directly; the ninth-coordinate/reverse handling remains inside SEI0021.
+wire [7:0] EXH = hpos[7:0] ^ {8{HREV}};
+wire [7:0] EXV = vpos[7:0] ^ {8{VREV}};
 
 //
 //PROM26
@@ -179,7 +184,6 @@ assign LHBL = HBL; // ?
 
 reg OBJT2_7;
 reg D1V_7;
-reg [2:0] EXV_7;
 
 //CHAR_CEN IS T3F
 always @(posedge clk) begin
@@ -189,9 +193,6 @@ always @(posedge clk) begin
     end
 
     HBLB <= HBL; //HBL sei50bu pin 23
-    EXV_7[0] <= EXV[0];
-    EXV_7[1] <= EXV[1];
-    EXV_7[2] <= EXV[2];
 end
 
 ///////// SCREEN 4 : char tile //////////
@@ -214,9 +215,9 @@ scrn4 scrn4_u(
   .DMSL_S4(DMSL_S4),
   .MDB(MDB_RAM_OUT),
 
-  .hpos(hpos[7:0]),
-  .vpos(vpos[7:0]),
-  .hrev(HREV),
+  .EXH(EXH),
+  .EXV(EXV),
+  .HREV(HREV),
 
   .char_rom_1_data(char_rom_1_data),
   .char_rom_1_ok(char_rom_1_ok),
@@ -257,6 +258,11 @@ scrn_bk bk1_u(
 
   .hpos(hpos[8:0]),
   .vpos(vpos[8:0]),
+  .EXH(EXH),
+  .EXV(EXV),
+  .T8H(T8H),
+  .HREV(HREV),
+  .VREV(VREV),
 
   .rom_data(bk1_rom_data),
   .rom_ok(bk1_rom_ok),
@@ -294,6 +300,11 @@ scrn_bk bk2_u(
 
   .hpos(hpos[8:0]),
   .vpos(vpos[8:0]),
+  .EXH(EXH),
+  .EXV(EXV),
+  .T8H(T8H),
+  .HREV(HREV),
+  .VREV(VREV),
 
   .rom_data(bk2_rom_data),
   .rom_ok(bk2_rom_ok), //glitch if at same time than sound because not enoughtrouput XXX !
@@ -314,8 +325,19 @@ reg   [8:0] obj_line_buffer_addr;
 
 wire FIRST_LD, SECND_LD, CTLT1, CTLT2, EVN_LD, ODD_LD, NV256;
 
-//page 5 osc
-wire V1B = vpos[0];
+// Page 5: V1B is the buffered SEI0050BU V(1) counter output and changes with
+// VCLK. Framework vpos changes at hpos 0, whereas this core deliberately
+// rotates the PCB horizontal count so the measured active interval is hpos
+// 6..261; the PCB VCLK/V(1) transition is therefore at hpos 254. Re-latch
+// only the parity bit at that measured boundary to preserve the physical
+// phase without moving the framework raster coordinates used by every layer.
+reg V1B;
+always @(posedge clk) begin
+  if (rst)
+    V1B <= 1'b0;
+  else if (VCLK)
+    V1B <= ~vpos[0];
+end
 
 PLD22 pld22_u(
     .N6M(N6M),
@@ -417,13 +439,10 @@ obj obj_u(
   .OBJ_HREV(OBJ_HREV)
 );
 
-// Final color blanking must only suppress output during actual blanking.
-// Live MAD traces showed valid OBJON/OOD/palette_out in the visible window
-// while this old HBLB&L3 expression still forced MASK=1, turning the sprite
-// black.  HBLB is active during the visible horizontal region, and LVBL stays
-// low during visible lines, so blank only when outside HBLB or during LVBL.
-//wire MASK = ~HBLB | LVBL;
-wire MASK =  HBLB & L3;//XXX; L3 IS NOT GOOD in sei50bu.v !
+// Sheet 5 U511D produces active-high video enable HBLB & VBLB.  CLUT's MASK
+// port has the opposite polarity (one means black), so invert that PCB term.
+// L3 is SEI0050 pin 24/VBLB and is high on visible raster lines.
+wire MASK = ~(HBLB & L3);
 
 //74LS174 8H page 8
 //74LS374 7FH page 8
@@ -437,9 +456,12 @@ always @(posedge clk) begin
     if (S2CLLT) begin // COL_B_EN ?
       bk2_code_latch <= bk2_code[3:0];
     end
-//if    (~S2MASK )
-    s2on <= (bk2_color[3:0] == 4'hf) ? 1'b0: 1'b1; //sch page 8 XXX
-    bk2[7:0] <= { bk2_code_latch[3:0], bk2_color[3:0]};
+    // Sheet 8: S2MASK drives the active-low output enable of U187.  The
+    // resistor network leaves a disabled SCRN2 at transparent F, and S2ON
+    // must be low so the priority PROM cannot select it.
+    s2on <= !S2MASK && (bk2_color[3:0] != 4'hf);
+    bk2[7:0] <= S2MASK ? 8'hff :
+                              {bk2_code_latch[3:0], bk2_color[3:0]};
   end
 end
 
@@ -575,10 +597,12 @@ always @(posedge clk) begin
      `dump_linebuf_ram("linebuf_u182.bin", obj_u.linebuf_u.u_182.mem)
      `dump_linebuf_ram("linebuf_u183.bin", obj_u.linebuf_u.u_183.mem)
      `dump_linebuf_ram("linebuf_u184.bin", obj_u.linebuf_u.u_184.mem)
-     `dump_sis6091b_used("linebuf_u181_used.bin", 512, obj_u.linebuf_u.u_181.mem)
-     `dump_sis6091b_used("linebuf_u182_used.bin", 512, obj_u.linebuf_u.u_182.mem)
-     `dump_sis6091b_used("linebuf_u183_used.bin", 512, obj_u.linebuf_u.u_183.mem)
-     `dump_sis6091b_used("linebuf_u184_used.bin", 512, obj_u.linebuf_u.u_184.mem)
+     // Fast line RAM clears its separate FIND plane in one edge; BRAM bit 16
+     // is stale by design after that command, so dump the simulation mirror.
+     `dump_ram8("linebuf_u181_used.bin", 512, obj_u.linebuf_u.u_181.used)
+     `dump_ram8("linebuf_u182_used.bin", 512, obj_u.linebuf_u.u_182.used)
+     `dump_ram8("linebuf_u183_used.bin", 512, obj_u.linebuf_u.u_183.used)
+     `dump_ram8("linebuf_u184_used.bin", 512, obj_u.linebuf_u.u_184.used)
 
      `dump_ram16_split("cpu_ram.bin", 32768, $root.game_test.u_game.u_game.u_main.u_cpu_ram)
 

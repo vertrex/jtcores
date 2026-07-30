@@ -5,7 +5,18 @@
 //  - cpu 2*32kx8 ram
 //  - palette / video / bk1 / bk2 / obj ram
 //  - scrolling & sound latch
-// 
+//
+// PCB provenance: sheets 1-4 and 6.  PLD20/PLD21, the address decoders and
+// the memory-DMA selects remain separate schematic-mapped blocks below.
+// FPGA-only adaptations are deliberately kept at this integration level:
+//   * fx68k replaces the physical 68000;
+//   * priority muxes replace internal tri-state address/data buses;
+//   * jtframe_68kdtack_cen waits for shared-SDRAM ROM data and defensively
+//     holds DTACK after BUSOPN reports DMA ownership; BR/BG is the primary bus
+//     arbitration. The PCB grounds /DTACK because its program ROM is local and
+//     asynchronous; grounding it here would let cache misses return stale data.
+// The local 64 KiB work RAM remains BRAM-backed and does not use that ROM wait.
+//
 module toki_main(
   input             rst,
 
@@ -252,11 +263,12 @@ cnt_nx[CW] ? {CW{1'b1}} : cencnt_nx[CW-1:0];
 
 // XXX USE PLD  INSTEAD
 wire bus_cs  = cpu_rom_cs;
-//  XXX in the board DTACK is grounded and rom is not checked 
-//  but it seems rom in sdram is too slow so we need to check for it 
-//  to avoid cpu having problem reading the rom 
-//  we also need to stop the CPU for dma 
-wire bus_busy = (cpu_rom_cs & ~cpu_rom_ok)  | ~br_n | BUSOPN;
+// On the PCB /DTACK is grounded because program ROM access is asynchronous.
+// The FPGA program ROM is shared SDRAM, so only ROM misses and DMA ownership
+// may extend a cycle. BUSOPN becomes active only
+//  after a DMA controller owns the bus. Gating on BR itself prevents the
+//  68000 from finishing its current cycle and issuing BG.
+wire bus_busy = (cpu_rom_cs & ~cpu_rom_ok) | BUSOPN;
 
 jtframe_68kdtack_cen  u_dtack(
     .rst        (rst),     //INPUT 
@@ -342,7 +354,7 @@ assign      cpu_din = ~ROM0 | ~ROM1 ? cpu_rom_data[15:0] :
                  inputs_cs  ? {1'b1,1'b1,p2_button2,p2_button1,p2_right,p2_left,p2_down,p2_up,
                                1'b1,1'b1,p1_button2,p1_button1,p1_right,p1_left,p1_down,p1_up} :
                  system_cs  ? {1'b1,1'b1,1'b1,1'b1,1'b1,1'b1,1'b1,1'b1,
-                               1'b1,1'b1,1'b1,p2_start,p1_start,1'b1,1'b1,1'b1} : 
+                               1'b1,1'b1,1'b1,p2_start,p1_start,service,1'b1,1'b1} :
                  //(~cpu_as_n & ~MUSIC)  ? {8'd0, SEI0100_MDB_IN} : 
                  ~MUSIC  ? {8'd0, SEI0100_MDB_IN} : 
                  16'd0;
