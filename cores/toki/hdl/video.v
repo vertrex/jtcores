@@ -75,14 +75,14 @@ module toki_video(
   output            bk2_rom_cs,
 
   input      [7:0]  prom_26_data,
-  output reg [7:0]  prom_26_addr,
+  output     [7:0]  prom_26_addr,
 
   input      [7:0]  prom_27_data, // XXX 4 bit wide !
   output     [7:0]  prom_27_addr,
 
 
   output            INT_T,
-  output  reg       HBLB,
+  output            HBLB,
 
   input             S1MASK,
   input             S2MASK,
@@ -124,25 +124,28 @@ module toki_video(
 wire HBL;
 wire L3;
 wire HD;
-wire VSYNC; //seems to be ~ sei0050bu XXX (page 5)
+wire VSYNC; // SEI0050 pin 28 composite-sync level (sheet 5)
+wire [8:0] H;
+wire [8:0] V;
 
 // Sheet 5 U53/U54 HD74LS86 banks.  These buses feed sheets 7, 8 and
-// 9 directly; the ninth-coordinate/reverse handling remains inside SEI0021.
-wire [7:0] EXH = hpos[7:0] ^ {8{HREV}};
-wire [7:0] EXV = vpos[7:0] ^ {8{VREV}};
+// 9 directly.  H/V are the literal SEI0050 counter-pin buses; hpos/vpos are
+// retained separately for JTFrame and acknowledged-memory scheduling.
+wire [7:0] PCB_EXH = H[7:0] ^ {8{HREV}};
+wire [7:0] PCB_EXV = V[7:0] ^ {8{VREV}};
 
 //
 //PROM26
 //
 
-//reg HBL;
 wire OBJT1, OBJT2, STARTV, VORIGIN, VBL_ROM;
-//assign prom_26_addr[7:0] = vpos[7:0]; // generate CPU VBLANK on O5 (pin 6)
 
-always @(posedge clk)
-  if (~N6M) begin
-    prom_26_addr[7:0] <= vpos[7:0]; // generate CPU VBLANK on O5 (pin 6)
-  end
+// Sheet 5 connects SEI0050 V<1:128> directly to PROM26 A<0:7>. The FPGA PROM
+// is synchronous BRAM, so it already contributes one registered read; adding
+// another normalized-vpos address register shifted every decoded PCB event to
+// framework H=0. Direct captures fix V=0x100 as raster line zero and show the
+// PROM blanking edges at raw V=0x110/0x1f0 (normalized lines 16/240).
+assign prom_26_addr = V[7:0];
 
 assign OBJT1 =   prom_26_data[0];
 assign STARTV =  prom_26_data[2];
@@ -161,11 +164,13 @@ SEI0050BU sei0050bu_u(
   .N6M(N6M),
 
   .VBL_ROM(VBL_ROM),
+  .H(H),
+  .V(V),
   .hpos(hpos),
   .vpos(vpos),
 
   .N1H(N1H),
-  .T8H(T8H), //char cen
+  .T8H(T8H), // physical pin 22 timing phase
   .HBL(HBL),
   .L3(L3),
   .T3F(T3F),
@@ -179,21 +184,69 @@ SEI0050BU sei0050bu_u(
 
 
 
-assign LVBL = VBL_ROM;
-assign LHBL = HBL; // ?
-
-reg OBJT2_7;
-reg D1V_7;
-
-//CHAR_CEN IS T3F
+// PROM26 changes its physical VBL output at the H/V counter seam, eight
+// pixels before HBLB falls.  That phase is correct for the PCB mixer and must
+// remain live in L3/MASK below, but JTFrame requires vertical blank to change
+// between complete output lines.  Sample only the exported framework blank
+// at the end of active video so its 224-line capture cannot lose the final
+// HUD row depending on the target's video sampling phase.
+reg frame_lvbl;
 always @(posedge clk) begin
-    if (T8H) begin
-        OBJT2_7 <= prom_26_data[1];
-        D1V_7 <= V1B;
-    end
-
-    HBLB <= HBL; //HBL sei50bu pin 23
+  if (rst)
+    frame_lvbl <= 1'b0;
+  else if (N6M && hpos == 9'd261)
+    frame_lvbl <= VBL_ROM;
 end
+
+assign LVBL = frame_lvbl;
+assign LHBL = HBLB;
+
+// Page 5: V1B is the VCLK-buffered SEI0050BU V<1> counter output. In this
+// common-clock model V changes on the H wrap and VCLK becomes visible after
+// that edge, so this register retains the physical old-Q interval for one
+// 48 MHz clock before publishing the new raw V<1> state.
+reg V1B;
+always @(posedge clk) begin
+  if (rst)
+    V1B <= 1'b0;
+  else if (VCLK)
+    V1B <= V[0];
+end
+
+// Sheet 5 U518 is a 74LS174 clocked by the rising edge of T8H. At the
+// 48 MHz common-clock boundary, raw H still ends in 3'b111 immediately before
+// the N6M edge which advances it to pin 22's H[2:0]=3'b000 level. This
+// one-cycle enable preserves TTL old-Q ordering and avoids treating the full
+// T8H level as a transparent latch. It is also the common-clock
+// representation of the same physical T8H edge at SG0140 pin 27 on sheet 10.
+//
+// U518 CLR is tied high on the PCB. Driving it from the framework reset is an
+// FPGA-only deterministic-start aid. Q[5:3] are the sheet-5 EXV4/2/1 `/7`
+// outputs used by the sheet-9 character-ROM row address. A PCB capture shows
+// the ROM A1 lane changing with the matching U518 Q output, about one T8H
+// group after its raw EXV D input; feeding raw EXV directly here corrupts the
+// final character when the physical H/V counters wrap eight active pixels
+// before HBLB falls.
+wire       t8h_rise_cen = N6M && (H[2:0] == 3'b111);
+// FPGA compatibility event used by the last Pocket-hardware-good object
+// pipeline. It changes U5A once on the normalized H2 edge. The literal raw-H2
+// migration moved this coupled object-scheduling island by two pixels and is
+// being kept out of the live path until its fitted-hardware failure is traced.
+wire       u5a_h2_compat_cen = N6M && (hpos[1:0] == 2'b01);
+wire [5:0] u518_q;
+
+LS174 u518(
+    .CLK (clk),
+    .CLRn(~rst),
+    .CEN (t8h_rise_cen),
+    .D   ({PCB_EXV[2:0], HBL, V1B, prom_26_data[1]}),
+    .Q   (u518_q)
+);
+
+wire OBJT2_7 = u518_q[0];
+wire D1V_7   = u518_q[1];
+assign HBLB  = u518_q[2];
+wire [7:0] SCR4_EXV = {PCB_EXV[7:3], u518_q[5:3]};
 
 ///////// SCREEN 4 : char tile //////////
 //
@@ -208,15 +261,15 @@ scrn4 scrn4_u(
   .N6M(N6M),
   .WRN6M(WRN6M),
   .T4H(T4H),
-  .T8H(T8H), //char_cen T8H
+  .T8H(T8H), // retained sheet-9 interface; SCRN4 does not consume it
   .T3F(T3F), //char rom cen T3F
 
   .KDA(KDA[10:1]),
   .DMSL_S4(DMSL_S4),
   .MDB(MDB_RAM_OUT),
 
-  .EXH(EXH),
-  .EXV(EXV),
+  .EXH(PCB_EXH),
+  .EXV(SCR4_EXV),
   .HREV(HREV),
 
   .char_rom_1_data(char_rom_1_data),
@@ -241,7 +294,7 @@ wire [3:0] bk1_color;
 wire [3:0] bk1_code;
 wire S1CLLT; //S1 col latch
 
-scrn_bk bk1_u(
+scrn_bk #(.FPGA_H_SOURCE_PHASE(9'd5)) bk1_u(
   .clk(clk),
   .rst(rst),
   .N6M(N6M),
@@ -258,8 +311,10 @@ scrn_bk bk1_u(
 
   .hpos(hpos[8:0]),
   .vpos(vpos[8:0]),
-  .EXH(EXH),
-  .EXV(EXV),
+  .EXH(PCB_EXH),
+  .EXV(PCB_EXV),
+  .H128(H[7]),
+  .H256(H[8]),
   .T8H(T8H),
   .HREV(HREV),
   .VREV(VREV),
@@ -282,7 +337,7 @@ wire [3:0] bk2_color;
 wire [3:0] bk2_code;
 wire S2CLLT; // S2 COL latch
 
-scrn_bk bk2_u(
+scrn_bk #(.FPGA_H_SOURCE_PHASE(9'd4)) bk2_u(
   .clk(clk),
   .rst(rst),
   .N6M(N6M),
@@ -300,8 +355,10 @@ scrn_bk bk2_u(
 
   .hpos(hpos[8:0]),
   .vpos(vpos[8:0]),
-  .EXH(EXH),
-  .EXV(EXV),
+  .EXH(PCB_EXH),
+  .EXV(PCB_EXV),
+  .H128(H[7]),
+  .H256(H[8]),
   .T8H(T8H),
   .HREV(HREV),
   .VREV(VREV),
@@ -325,20 +382,10 @@ reg   [8:0] obj_line_buffer_addr;
 
 wire FIRST_LD, SECND_LD, CTLT1, CTLT2, EVN_LD, ODD_LD, NV256;
 
-// Page 5: V1B is the buffered SEI0050BU V(1) counter output and changes with
-// VCLK. Framework vpos changes at hpos 0, whereas this core deliberately
-// rotates the PCB horizontal count so the measured active interval is hpos
-// 6..261; the PCB VCLK/V(1) transition is therefore at hpos 254. Re-latch
-// only the parity bit at that measured boundary to preserve the physical
-// phase without moving the framework raster coordinates used by every layer.
-reg V1B;
-always @(posedge clk) begin
-  if (rst)
-    V1B <= 1'b0;
-  else if (VCLK)
-    V1B <= ~vpos[0];
-end
-
+// FPGA object scheduling retains the Pocket-hardware-good normalized phase.
+// Raw H/V remain on the literal SCR4/background paths above. The PCB wires
+// PLD22 to raw pins, but the coupled raw object migration (U5A, PLD22,
+// VH4/VH8, SORT48 and LINECUNT) regressed descriptor/flip behavior on Pocket.
 PLD22 pld22_u(
     .N6M(N6M),
     .H1(hpos[0]),
@@ -347,8 +394,7 @@ PLD22 pld22_u(
     .H8(hpos[3]),
     .V1B(V1B),
     .OBJT1(OBJT1),
-    .V256(~vpos[8]), // ????? does v256 is inversed in sei50bu ?
-    //because NV256 signal is not good for what we have
+    .V256(~vpos[8]),
 
     .FIRST_LD(FIRST_LD),
     .SECND_LD(SECND_LD),
@@ -366,9 +412,12 @@ wire PRIOR_C, PRIOR_D;
 wire D1V_2;
 
 
+// Keep U5A on the proven one-shot compatibility phase. A level enable would
+// repeatedly sample V1B; the raw-H2 event exposes the next list bank two
+// pixels earlier than this FPGA scheduling contract.
 LS74 u_5a(
   .CLK(clk),
-  .CEN(hpos[1]),
+  .CEN(u5a_h2_compat_cen),
   .D(V1B),
   .PRE(1'b1),
   .CLR(1'b1),
@@ -380,7 +429,6 @@ wire OBJ_HREV;
 wire OPSREV = HREV ^ OBJ_HREV;
 wire VH4 = ~hpos[2] ^ OPSREV;
 wire VH8 = hpos[3] ^ ~hpos[2] ^ OPSREV;
-//wire NH2 = ~hpos[1];
 
 obj obj_u(
   .clk(clk),
@@ -439,9 +487,10 @@ obj obj_u(
   .OBJ_HREV(OBJ_HREV)
 );
 
-// Sheet 5 U511D produces active-high video enable HBLB & VBLB.  CLUT's MASK
-// port has the opposite polarity (one means black), so invert that PCB term.
-// L3 is SEI0050 pin 24/VBLB and is high on visible raster lines.
+// Sheet 5 U511D combines U518's T8H-registered pin 23 with SEI0050 pin 24.
+// Pin 24 already contains both the two-P6M horizontal delay and PROM26's
+// vertical qualification. CLUT's MASK port has the opposite polarity
+// (one means black), so invert the PCB video-enable term.
 wire MASK = ~(HBLB & L3);
 
 //74LS174 8H page 8
@@ -476,7 +525,10 @@ CLUT CLUT_u(
   .S4PIC(char_color),
   .S4COL(char_code),
   .S1CLLT(S1CLLT), // ?
-  .S4CLLT(T8H), // ?
+  // Sheet 10 wires physical T8H directly to SG0140 pin 27. T8H remains high
+  // from the N6M rising edge through the P6M/falling-edge ABSEL capture.
+  // t8h_rise_cen remains the separate U518 common-clock edge enable.
+  .S4CLLT(T8H),
   .S1MASK(S1MASK),
   .S4MASK(S4MASK),
   .SCRN2(bk2),

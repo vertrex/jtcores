@@ -3,7 +3,11 @@
 *  Sprite generation subsystem : Fetch sprite attributes from main memory,
 *  process them, fetch graphics data and output sprite pixel and priority via
 *  a double line buffer
-*/ 
+*
+*  PCB mapping: the live path follows sheets 13-18 through
+*  HVPOS -> OBJDMA -> SCNDDMA -> LINECUNT -> OBJPS -> LINEBUF. External
+*  object-ROM acknowledgement is contained in the LINECUNT memory facade.
+*/
 module obj(
   input         clk,
   input         rst,
@@ -12,6 +16,7 @@ module obj(
   input         STARTV,
   input         ODMARQ,
   input         VORIGIN,
+  // Retained wrapper name; carries literal SEI0050 H<1:256> for sheets 14/15.
   input  [8:0]  H_POS,
   input         VREV,  //reverse Y axis
   input         HBLB,
@@ -30,7 +35,7 @@ module obj(
   input         OBJ_N6M,
   input         RDCLK,
   input         V1B,
-  input         D1V_2,  //V1B @hpos[1]
+  input         D1V_2,  // V1B captured by sheet-5 U5A on raw H2 rising
   input         OBJMASK,
   input         HREV,
   input         HD, 
@@ -208,10 +213,22 @@ wire        OSP2;
 // applies horizontal/vertical flipping (HREV/VREV) and applies color palette
 // index
 wire NOOBJ_CT2;
+wire FPGA_REPLAY_REV;
 
 wire OBJ1_Z, OBJ2_Z;
 
-OBJPS objps_u(
+// Sheet 5 U518 now publishes D1V_7 on the literal T8H edge at raw
+// H=0x087->0x088 (normalized 261->262), on the same edge which closes HBLB.
+// U161 does not sample it until the following P6M, four master clocks later.
+// A dual OBJPS/PLD29/LINEBUF seam bench proves the former blank-held FPGA
+// facade and this direct PCB wire are identical at every consumer sample, so
+// no extra line-bank register remains in the live path.
+
+OBJPS #(
+    // The PCB ROM is asynchronous. Toki's FPGA port is acknowledged SDRAM,
+    // so bind each cached row's direction to its serializer load.
+    .FPGA_ROM_REPLAY(1)
+) objps_u(
     .clk(clk),
     .rst(rst),
     .OBJ_P6M(OBJ_P6M),
@@ -222,12 +239,13 @@ OBJPS objps_u(
     .FIRST_LD(FIRST_LD),
     .SECND_LD(SECND_LD),
     .OPSREV(OPSREV),
+    .FPGA_REPLAY_REV(FPGA_REPLAY_REV),
     .OBJCOL(OBJCOL[3:0]), //from linecunt
     .OSP1(OSP1),
     .OSP2(OSP2),
     .NOOBJ_CT2(NOOBJ_CT2), 
     .HREV(HREV),    // horizontal reverse, reverse screen from dipswitch
-    .HD(HD),        // from sei50bu !
+    .HD(HD),        // SEI0050 pin 27
     .E1FIND(E1FIND),
     .E2FIND(E2FIND),
     .O1FIND(O1FIND),
@@ -297,7 +315,8 @@ LINECUNT linecunt_u(
    .EVNWREN(EVNWREN),
    .O2A(O2A),
    .E2A(E2A),
-   .NOOBJ_CT2(NOOBJ_CT2)
+   .NOOBJ_CT2(NOOBJ_CT2),
+   .FPGA_REPLAY_REV(FPGA_REPLAY_REV)
 );
 
 /////////// Line Buffering /////////////////
@@ -330,11 +349,15 @@ LINEBUF linebuf_u(
     .E2FIND(E2FIND),  //Even 2 find 
     .O1FIND(O1FIND),  //Odd 1 find 
     .O2FIND(O2FIND),  //Odd 2 find 
-    .OOD(OOD[7:0]),   //object out data
-    .PRIOR_C(PRIOR_C),//prior c 
+    .OOD(OOD),   //object out data
+    .PRIOR_C(PRIOR_C),//prior c
     .PRIOR_D(PRIOR_D), //prior d
     .OBJ1_Z(OBJ1_Z),
     .OBJ2_Z(OBJ2_Z)
 );
+
+`ifdef SIMULATION
+initial $display("OBJ: PCB sheets 13-18 renderer selected");
+`endif
 
 endmodule 

@@ -12,8 +12,6 @@ toki:
       - sei0050bu.v
       - sei0010bu.v
       - sei0021bu.v
-      #- sg0140.v
-      #- sg0140_ohmax.v
       - sg0140_absel.v
       - sg0140_ohmax.v
       - sg0140_vcheck.v
@@ -48,6 +46,24 @@ toki:
       - objps.v
       - linecunt.v
       - linebuf.v
+      # FPGA-only transport/facade helpers. These have no direct PCB IC.
+      - toki_bk_sdram_adapter.v
+      - jtframe_rom_pair_cache.v
+      - fpga_level_timeout.v
+      - obj_line_used_plane.v
+      - obj_line_pair_priority.v
+      - obj_load_aligned_reverse.v
+      - obj_planar_pixel_patch.v
+      - obj_rom_row_phase.v
+      - obj_rom_phase_window.v
+      - obj_rom_pair_boundary.v
+      - obj_rom_row_bridge.v
+      - obj_rom_row_cache.v
+      - obj_dual_row_replay.v
+      - obj_desc_pair_fifo.v
+      - obj_snapshot_valid_plane.v
+      - obj_secondary_list_bridge.v
+      - toki_obj_sdram_adapter.v
 jtframe:
   - from: ram
     get:

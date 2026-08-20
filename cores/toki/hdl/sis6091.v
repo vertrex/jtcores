@@ -36,17 +36,25 @@ RAM CLR 34-|      |-57 Q-13
 CLK1    73-|      |-58 Q-14 
         33-|      |-59 Q-15
 ?       38-|      | 
-        39-|      |-60  //ACTIVATE SELECT ? O2FIND, O1FIND ??related to ~39 ...
+        39-|      |-60
 ?       36-|      | 
         37-|______|
   
-Q == Q1 only ?i remove q0 !
-Data = D0 only remove D1 
-we must add a clear to set full ram to zero ! 
 */
 
-module sis6091
-(
+// Behavioral storage facade for the opaque SIS6091 devices used throughout
+// the video and object sheets. The FPGA replacement is two synchronous
+// byte-wide dual-port BRAMs. The PCB's exact output timing and read-during-write
+// behavior are not recovered, so the registered FPGA read is an implementation
+// choice rather than a claim that the physical outputs are asynchronous.
+// REVIEW: CLK0/CLK1 are descriptive pin names; their exact active edges and
+// internal behavior have not been established by the available PCB captures.
+// REVIEW: U153 drives pin 26 from OIBDIR, suggesting output direction/enable.
+// rd_cen represents the required FPGA read phase, not that pin electrically.
+// REVIEW: Static and unknown package pins are deliberately omitted from this
+// common 1Kx16 storage interface.
+
+module sis6091(
     // Port 0
     input          clk,
 

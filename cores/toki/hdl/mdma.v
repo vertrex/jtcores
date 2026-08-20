@@ -1,11 +1,11 @@
-///////////// Memory DMA //////////////////
-// Toki board is using DMA to copy CPU memory to VRAM, BG1, BG2, PALETTE  memory (SIS6091 1024KB RAM) 
-//
-//
+///////////// Memory DMA - schematic sheet 6 //////////////////
+// Copies 4096 16-bit CPU-work-RAM words to four 1024-word video
+// destinations: palette, background 1, background 2 and SCR4.
 module MDMA(
     input clk,
     input rst,
-    // 6MHZ clock
+    // 6 MHz phase enables. P6M is retained for the sheet-6 interface;
+    // WRN6M/counting use its complementary N6M phase in this clock domain.
     input P6M,
     input N6M,
     // System reset 
@@ -22,21 +22,21 @@ module MDMA(
     output EXH_4_n,
     // ~ P6M 
     output WRN6M,
-    // Memory Bus Request, active low ?
+    // Memory Bus Request, active low
     output reg MBUSRQ,
 
     // Memory Bus Direction (R/W) , DMA Arbitration
     output MBUSDIR,
     // DMA select palette 
     output DMSL_GL,
-    // DMA select  background 2
+    // DMA select background 1
     output DMSL_S1, 
     // DMA select background 2
     output DMSL_S2,
     // DMA select char
     output DMSL_S4,
 
-    // DMA counter (0, 2048) 
+    // DMA counter (0..4095)
     output [12:1] KDA,
     // Memory Address Bus  
     //output MAB[15:1],
@@ -45,139 +45,115 @@ module MDMA(
     output DMARD
 );
 
-// 74LS74 5k page 6 
-//
-wire q_6k1; 
-wire qn_6k1; //start dma counter 
+// The PCB sequencer is U653A/U654A/U655B/U656B (four 74LS74 halves), followed
+// by U657/U658/U659 (three cascaded 74LS161 counters).  Generated PCB clocks
+// are represented as enables in the 48-MHz domain.  Only U654A cannot map to
+// a native FPGA flip-flop; its documented replacement is kept in a separate
+// module.  Positive internal state names represent the active form of the
+// PCB's active-low inter-stage paths.  The externally visible sequence is
+// unchanged.
+reg        dma_active;       // U656B: counter/bus ownership stage
+reg        dma_pending;      // retained U653A request state
+reg        mdmarq_d;         // U653A positive-edge representation
+reg        grant_first_n6m;  // U655B: first WRN6M grant stage
+reg [11:0] dma_count;        // U659:U658:U657 counter outputs
 
-// output RCO of 74LS161 9K
-wire  copy_end; // XXX we need to add the COUNTER SO WE can copy and finish the counter 
+wire [3:0] u657_q = dma_count[3:0];
+wire [3:0] u658_q = dma_count[7:4];
+wire [3:0] u659_q = dma_count[11:8];
+wire       copy_end = &{u659_q, u658_q, u657_q};
+wire       dma_retire = dma_active && N6M && copy_end;
 
-//74LS368 17M
-wire dma_end_n; 
-//this mean we can replace most of the CS and we got the MDMARQ !!!
-assign MBUSDIR = ~qn_6k1;
+wire q_6k1 = ~dma_active; // active-low enable used by PCB decoder U7L
+wire mdmarq_rise = MDMARQ && !mdmarq_d;
+
+// U654A uses only asynchronous set/clear on the PCB.  The separate facade
+// documents the one necessary FPGA substitution while preserving the live
+// grant path into U655B on a coincident N6M edge.
+wire grant_now;
+toki_mdma_u654a_fpga u654a_fpga(
+    .clk          (clk),
+    .rst          (rst),
+    .SET_LEVEL    (!MBUSRQ && !BUSAK),
+    .RETIRE       (dma_retire),
+    .Q            (),
+    .Q_FOR_SAMPLE (grant_now)
+);
+
+wire start_dma = !dma_active && N6M && grant_now && grant_first_n6m;
+
+assign MBUSDIR = ~dma_active;
 assign EXH_4_n = ~EXH_4;
 assign WRN6M = N6M;
-assign dma_end_n = ~copy_end; // XXX OUTPUT OF RCO COUNTER HIGH 4*3 bits  1 when dma is finished 
+assign KDA = dma_count;
 
-reg previous_MDMARQ;
-
+// U653A request FF.  The PCB clocks this part from MDMARQ itself; sampling the
+// rising edge in the master domain avoids introducing that generated clock.
 always @(posedge clk) begin
-    previous_MDMARQ <= MDMARQ; 
+  if (rst) begin
+    MBUSRQ      <= 1'b1;
+    dma_pending <= 1'b0;
+    mdmarq_d    <= 1'b1;
+  end else begin
+    mdmarq_d <= MDMARQ;
 
-    if (rst)
-      MBUSRQ <= 1'b1; 
-    else if (q_6k1 == 1'b0)
-      MBUSRQ <= 1'b1; 
-    else if (MDMARQ == 1'b1 && previous_MDMARQ == 1'b0)
-      MBUSRQ <= 1'b0;
-end 
+    if (dma_active || start_dma) begin
+      MBUSRQ      <= 1'b1;
+      dma_pending <= 1'b0;
+    end else begin
+      // D is tied low on the PCB, so the active-low request asserts on the
+      // rising/release edge of MDMARQ, not while the write decode is low.
+      if (mdmarq_rise) begin
+        dma_pending <= 1'b1;
+        MBUSRQ      <= 1'b0;
+      end else if (dma_pending) begin
+        MBUSRQ <= 1'b0;
+      end else begin
+        MBUSRQ <= 1'b1;
+      end
+    end
+  end
+end
 
-/*
-LS74  _5K1_u( //XXX VERSION CEN NE MARCHE PAS !
-   .CLK(MDMARQ),
-   .CEN(MDMARQ), // GET Memory DMA Request 
-   .D(1'b0),
-   .PRE(q_6k1), // stop counter  
-   .CLR(1'b1),
-   .Q(MBUSRQ),  // START DMA BUS REQUEST 
-   .QN()
-);
-*/
+// U655B and U656B: two WRN6M-clocked grant stages.  Besides matching the PCB,
+// these hold KDA=0 long enough for the synchronous FPGA source RAM to return
+// its first word.  Keep their terminal action clock-qualified: a literal
+// asynchronous U655B /PRE driven by cascaded FPGA RCO logic can pulse during
+// the 0xeff->0xf00 transition and terminate before the last SCR4 quarter.
+// The PCB's C861 (2800 pF) on U659 RCO and TTL propagation are not represented
+// by the zero-delay LS161 wrappers.
+always @(posedge clk) begin
+  if (rst) begin
+    grant_first_n6m <= 1'b0;
+    dma_active      <= 1'b0;
+  end else if (dma_active) begin
+    if (dma_retire) begin
+      grant_first_n6m <= 1'b0;
+      dma_active      <= 1'b0;
+    end
+  end else if (N6M && grant_now) begin
+    if (!grant_first_n6m)
+      grant_first_n6m <= 1'b1;
+    else
+      dma_active <= 1'b1;
+  end
+end
 
-//end 
-// 5K 2 
-//
-wire qn_6k2;
-wire q_5k2;
+// U657/U658/U659: the three cascaded 74LS161 counters.  A single 12-bit FPGA
+// carry chain has the same observable KDA/RCO sequence without exposing the
+// physical cascade's propagation skew to an asynchronous fabric control.
+always @(posedge clk) begin
+  if (rst || !dma_active) begin
+    dma_count <= 12'h000;
+  end else if (N6M) begin
+    if (copy_end)
+      dma_count <= 12'h000;
+    else
+      dma_count <= dma_count + 12'd1;
+  end
+end
 
-LS74 _5K2_u(
-   .CLK(clk),
-   .CEN(WRN6M),
-   .D(qn_6k2),
-   .PRE(dma_end_n), 
-   .CLR(1'b1),
-   .Q(q_5k2),
-   .QN()
-);
-
-// 6K 
-LS74  _6k1_u(
-   .CLK(clk),
-   .CEN(WRN6M),
-   .D(q_5k2),
-   .PRE(1'b1),
-   .CLR(1'b1),
-   .Q(q_6k1),
-   .QN(qn_6k1) //start_dma_counter_n
-);
-
-wire busak_rq;
-assign busak_rq = (MBUSRQ | BUSAK);
-
-// 6K 2 
-LS74 _6K2_u(
-   .CLK(clk),
-   .CEN(1'b0),
-   .D(1'b0),
-   .PRE(busak_rq), 
-   .CLR(dma_end_n),
-   .Q(),
-   .QN(qn_6k2)
-);
-
-
-// Memory DMA COUNTER / Address bus
-// This is used to copy from CPU memory to devices memory 
-//
-// 7K 
-wire rco_1;
-
-LS161 LS161_7K_u(
-  .clk(clk),
-  .rst(rst),
-  .CEN(WRN6M),
-  .CLR_n(1'b1),
-  .LOAD_n(qn_6k1), //load /reset to 4'b0
-  .ENP(dma_end_n),  // 1 ? 0 if end ? 
-  .ENT(~rst),  //~rst ? XXX 
-  .D(4'b0),
-  .Q(KDA[4:1]),
-  .RCO(rco_1)
-);
-
-// 8K
-wire rco_2;
-
-LS161 LS161_8K_u(
-  .clk(clk),
-  .rst(rst),
-  .CEN(WRN6M),
-//  .CLR_n(~SYS_RESET),
-  .CLR_n(1'b1),
-  .LOAD_n(qn_6k1),
-  .ENP(dma_end_n),
-  .ENT(rco_1),
-  .D(4'b0),
-  .Q(KDA[8:5]),
-  .RCO(rco_2)
-);
-
-LS161 LS161_9K_u(
-  .clk(clk),
-  .rst(rst),
-  .CEN(WRN6M),
-  .CLR_n(1'b1),
-  //.CLR_n(~SYS_RESET),
-  .LOAD_n(qn_6k1),
-  .ENP(dma_end_n),
-  .ENT(rco_2),
-  .D(4'b0),
-  .Q(KDA[12:9]),
-  .RCO(copy_end)
-);
-
+// PCB U7L: active-low destination-quarter decode.
 LS139 LS139_7L_u(
     .E1(q_6k1), //counter start 
     .A1(KDA[11]),
@@ -190,8 +166,8 @@ LS139 LS139_7L_u(
     .Y2()
 );
 
-// 74LS244P 8L & 9L 
-//assign {DMARD , MAB[15:1]} = (MBUSDIR == 1'b0) ? { 1'b0 ,3'b111,  KDA[12:1]} : 16'bz; XXX
-assign {DMARD } = MBUSDIR == 1'b0 ?  1'b0 : 1'b1; //z ???? 
+// PCB U8L/U9L are tri-state bus drivers.  main.v performs the FPGA address
+// mux explicitly, and DMARD has no consumer, so use its high idle level.
+assign DMARD = MBUSDIR == 1'b0 ? 1'b0 : 1'b1;
 
 endmodule

@@ -1,3 +1,10 @@
+//  Opaque SG0140 mode-11 behavioral model for sheet 17, inferred from the
+//  external phase buses and U153 traces; this is not an internal netlist.
+//  The reduced module interface omits additional physical SPR pins whose
+//  relevance is still unknown, and the current level-latch timing is chosen
+//  to tolerate registered FPGA RAM. This block is synthesis-pruned while the
+//  pair adapter owns visible pixels.
+//
 //  "Object H-position + ROM index latch" for the sprite pipeline.
 //  Two-phase latch, driven by CTLT1/CTLT2 (both active low).
 //

@@ -471,7 +471,11 @@ MDMA mdma_u(
   //.SYS_RESET(rst),
   .MDMARQ(MDMARQ), // Request DMA, start DMA 
   .BUSAK(BUSAK),
-  .EXH_4(hpos[2]), //hpos XXX rev version 
+  // Compatibility-only input: MDMA currently only inverts it to EXH_4_n,
+  // and that output has no consumer.  This normalized bit is therefore not
+  // claimed as sheet-6 physical EXH4; the live raw/XORed EXH bus stays in
+  // video.v until the U652 net is actually reconnected outside that wrapper.
+  .EXH_4(hpos[2]),
   
   .EXH_4_n(EXH_4_n),
   .WRN6M(WRN6M),

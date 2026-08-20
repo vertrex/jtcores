@@ -3,6 +3,9 @@
 // During objdma it read MDB to get and decode sprite information 
 // (Position X, Y, tile code, color, flip, ...) 
 // and send that data to the objdma module  
+// PCB provenance: sheet 13 standard latches/adders plus exact PLD25 decode.
+// Master-clock edge qualification replaces physical strobe clocks so the
+// synchronous FPGA RAM payload is captured once per object word.
 module HVPOS(
   input           clk,
   input    [15:0] MDB,    // Data from CPU RAM  (data from CPU RAM)
@@ -28,7 +31,7 @@ module HVPOS(
 );
 
 //74LS244P 10J 
-//74LS22P  19J
+//74LS244P 19J
 assign OBJ_DB[15:0] = MDB[15:0]; 
 
 //PLD25 
@@ -112,39 +115,58 @@ PLD25 pld25_u(
 //
 
 //74LS174 U134
-// Word 0 (CTRL) attribute latch.
-// User FPGA report: X+1 in CPU RAM causes sprite flip/direction to oscillate,
-// which points to CTRL_LT's active window capturing bits from adjacent words
-// (word 1/2 OVD bus bits bleeding into HREVD/VREVD).
-// Capture only on CTRL_LT falling edge — samples OBJ_DB once per sprite
-// right when word 0 becomes stable, instead of tracking the whole low phase.
+// Sheet 13 clocks U134/U135/U136 on CTRL_LT's low-to-high edge. MDB comes from
+// synchronous FPGA RAM, however, so at that physical edge its registered
+// output has already advanced to CHAR. This explicit memory-latency facade
+// samples one system clock after CTRL_LT enters its active-low window, when
+// the returned CTRL word is stable. Descriptor zero is a special case because
+// DMA starts with CTRL_LT already low; dma_start_pipe generates the equivalent
+// delayed sample for it. This is not an extra PCB latch.
 reg ctrl_lt_d;
-always @(posedge clk) ctrl_lt_d <= CTRL_LT;
-wire ctrl_lt_fall = (ctrl_lt_d == 1'b1) && (CTRL_LT == 1'b0);
+reg ctrl_sample_pending;
+reg [1:0] dma_start_pipe;
+wire ctrl_lt_fall = ctrl_lt_d && !CTRL_LT;
+wire first_ctrl_sample = dma_start_pipe == 2'b01;
+wire ctrl_sample = ctrl_sample_pending || first_ctrl_sample;
 
-reg [5:0] u134_Q;
 always @(posedge clk or negedge XOBDIR) begin
-    if (!XOBDIR)
-        u134_Q <= 6'b0;
-    else if (ctrl_lt_fall)
-        u134_Q <= {OBJ_DB[15], OBJ_DB[13], OBJ_DB[11:8]};
+    if (!XOBDIR) begin
+        ctrl_lt_d <= 1'b1;
+        ctrl_sample_pending <= 1'b0;
+        dma_start_pipe <= 2'b00;
+    end else begin
+        ctrl_lt_d <= CTRL_LT;
+        ctrl_sample_pending <= ctrl_lt_fall;
+        dma_start_pipe <= {dma_start_pipe[0], 1'b1};
+    end
 end
+
+wire [5:0] u134_Q;
+
+// Explicit sheet-13 U134 package. CEN is the common-clock FPGA equivalent of
+// the physical CTRL_LT capture edge; it does not represent an extra PCB pin.
+LS174 u134(
+    .CLK(clk),
+    .CLRn(XOBDIR),
+    .CEN(ctrl_sample),
+    .D({OBJ_DB[15], OBJ_DB[13], OBJ_DB[11:8]}),
+    .Q(u134_Q)
+);
+
 assign {OBJEN_1, ORIGIN, SPR2_1, SPR1_1, VREVD_1, HREVD_1} = u134_Q;
 
 //74LS173 u135 & 74LS173 u136
 wire [3:0] OFST;
 reg  [3:0] offset_x;
 reg  [3:0] offset_y;
-reg        rdclk_d;
-wire       rdclk_rise = (rdclk_d == 1'b0) && (RDCLK == 1'b1);
 
-// Offset X/Y latches — same race fix as u134. Level-sensitive capture on
-// ~CTRL_LT let adjacent-word OBJ_DB bits bleed into offsets when the user
-// changes X/Y in CPU RAM. Edge-triggered on CTRL_LT falling samples word 0
-// once, stably.
+// The two offset latches use the same control-word sample as U134.  The PCB
+// 74LS173 CLR pins are tied to XOBDIR; in this synchronous-RAM facade their
+// values are simply replaced by the first valid descriptor before use.  Do
+// not add the asynchronous clear here: the Pocket-tested mapping intentionally
+// leaves these data registers on the ordinary system-clock path.
 always @(posedge clk) begin
-    rdclk_d <= RDCLK;
-    if (ctrl_lt_fall) begin
+    if (ctrl_sample) begin
         // 9H [3:0] (Offset Y)
         offset_y <= OBJ_DB[3:0];
         // 10H [7:4] (Offset X)
@@ -168,25 +190,21 @@ assign OFST[3:0] = (RD_VPOS == 1'b0) ? offset_y[3:0] :
 
 //74F841 u137 11H
 reg   [9:0] u137_latch;
-wire  [9:0] u137;
 
-// Same fix as u138: level-sensitive on LT_HPOS to avoid the 1-sprite
-// lag from edge-sampling at rdclk_rise.
+// Same fix as u138: level-sensitive on LT_HPOS to avoid sampling the
+// preceding sprite at an isolated RDCLK edge.
 always @(posedge clk) begin
     if (LT_HPOS)
       u137_latch <= {1'b0, OBJ_DB[8:0]};
     end
 
-//assign {CARY_M, POS[8:4], ND2[3:0]} = ~RD_HPOS  ? u137_latch : 10'bz;
-
 //74F841 u138 12H
 
 reg   [9:0] u138_latch;
-wire  [9:0] u138;
 
-// Change: capture OBJ_DB while LT_VPOS is HIGH (level-sensitive) instead
-// of only on rdclk_rise. The rdclk_rise edge samples FDA[2:1] pre-advance
-// so LT_VPOS was still 0 → u138_latch skipped the CURRENT sprite and
+// Change: capture OBJ_DB while LT_VPOS is HIGH (level-sensitive). Sampling
+// at the isolated RDCLK edge sees FDA[2:1] pre-advance, when LT_VPOS is still
+// low, so u138_latch would skip the CURRENT sprite and
 // held PREVIOUS sprite's data. During the whole FDA[2:1]=11 window,
 // LT_VPOS stays high, so refreshing on every clk keeps u138 aligned
 // with the CURRENT sprite when u_141 writes it (also during FDA[2:1]=11).
@@ -195,12 +213,7 @@ always @(posedge clk) begin
       u138_latch <= {1'b0, OBJ_DB[8:0]};
     end
 
-//assign {CARY_M, POS[8:4], ND1[3:0]} = ~RD_VPOS ? u138_latch : 10'bz; 
-
-
 //74F827 u139 13H 
-
-//assign {CARY_M, POS[8:4] , ND2[3:0]} = ~RD_CHAR ? {1'b1, OBJ_DB[8:0]} : 10'bz;
 
 // The original 74F841 path behaves like the current position word is visible
 // in the same phase that strobes the latch. Modeling it as a pure edge-caught

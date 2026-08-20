@@ -1,7 +1,11 @@
 ////////// char ram  //////////////////////////////////
 //
-// State machine that draw a line of 8x8 tile
-// each time line number change.
+// Sheet 9 character path: SIS6091 -> paired mask ROMs -> SEI0010.
+// The PCB ROM pair is asynchronous. The acknowledged pair collector, stale-OK
+// gap and tagged cache live in a separate FPGA-only SDRAM bridge; the VRAM
+// address and serializer remain the schematic-facing shell.
+//
+// Draw a line of 8x8 tiles each time the line number changes.
 // RAM is fully scanned, address in ram give 
 // tile position on screen, there is 32 tiles by line
 // RAM data describe a tile :
@@ -22,25 +26,25 @@ module scrn4(
   input                 N6M,
   input                 WRN6M,
   input                 T4H,
-  input                 T8H,  //T8H char_cen 
-  input                 T3F, //T3F char_rom_cen
+  input                 T8H, // retained interface; not wired on sheet 9
+  input                 T3F, // SEI0050 pin 25, character serializer timing
 
   input          [10:1] KDA,
   input                 DMSL_S4,
   input          [15:0] MDB,
 
-  input           [7:0] hpos, //8:0
-  input           [7:0] vpos, //8:0
-  input                 hrev,
+  input           [7:0] EXH,  // sheet 5 XORed horizontal coordinate
+  input           [7:0] EXV,  // sheet-9 bus: raw high, U518-buffered low bits
+  input                 HREV, // U94 SEI0010 pin 38
 
   input          [7:0]  char_rom_1_data,
   input                 char_rom_1_ok,
-  output    reg  [15:0] char_rom_1_addr,
+  output         [15:0] char_rom_1_addr,
   output                char_rom_1_cs,
 
   input          [7:0]  char_rom_2_data,
   input                 char_rom_2_ok,
-  output    reg  [15:0] char_rom_2_addr,
+  output         [15:0] char_rom_2_addr,
   output                char_rom_2_cs,
 
   output         [3:0]  char_color, //pic  
@@ -62,37 +66,49 @@ sis6091 u_vram_ram(
   .wr_addr(KDA[10:1]),    // KDA [1,10]
 
   .rd_cen(T4H),
-  .rd_addr({vpos[7:3], hpos[7:3]}),
+  .rd_addr({EXV[7:3], EXH[7:3]}),
   .rd_data(ram_out[15:0])
 );
 
-// SEI50BU -> RAM (sis6091) -> ROM -> SEI10BU -> SG0140 -> PALETTE RAM -> UEC51 
-reg [2:0] vpos_latch;
+// Sheet 9 wires the sheet-5 U518 EXV1/2/4 `/7` outputs to A1..A3 of both
+// character ROMs. video.v folds those three T8H-buffered PCB lanes into
+// EXV[2:0], while EXV[7:3] remains the raw tile-map row address. T8H itself
+// does not enter this sheet; it continues to SG0140 pin 27 on sheet 10.
+// Sheet 6 U652A is a permanently enabled inverting 74LS368 driver.  Its
+// `EXH<4>/4` output is therefore the complement of sheet-5 EXH<4>, not an
+// additional registered phase like the U518 `/7` vertical lanes.
+wire EXH4_BUF_N = ~EXH[2];
+wire [15:0] char_addr_next = {ram_out[11:0], EXV[2:0], EXH4_BUF_N};
 
-always @(posedge clk) begin 
-  if (~N6M) begin 
-    if (T8H)
-     vpos_latch[2:0] <= vpos[2:0];
-  end 
-end
-//hpos2 is latched too ? (hpos/4)
+// U92/U93 are independent asynchronous byte ROMs on the PCB.  JTFrame backs
+// them with independently acknowledged SDRAM slots, so the FPGA-only bridge
+// holds and joins a complete pair, rejects stale latched OKs, and caches
+// repeated rows to meet the fixed four-pixel serializer deadline.  Keeping
+// that transport mechanism in its own reusable module leaves this file as the
+// sheet-9 VRAM/address/serializer shell.
+wire [15:0] char_data_hold;
 
-assign char_rom_1_cs = 1'b1;
-assign char_rom_2_cs = 1'b1;
+jtframe_rom_pair_cache #(
+  .ADDR_W (16),
+  .DATA_W (8),
+  .INDEX_W(12)
+) u_char_rom_bridge (
+  .clk       (clk),
+  .rst       (rst),
+  .cen       (~N6M),
+  .addr      (char_addr_next),
+  .q         (char_data_hold),
 
-//page 6 
-//74LS368  exh<4> -> exh<4>/4
-//assign char_rom_1_addr[15:0] =  {ram_out[11:0], vpos_latch[2:0], ~hpos[2]} ;  
-//assign char_rom_2_addr[15:0] =  {ram_out[11:0], vpos_latch[2:0], ~hpos[2]} ; 
+  .rom_0_data(char_rom_1_data),
+  .rom_0_ok  (char_rom_1_ok),
+  .rom_0_addr(char_rom_1_addr),
+  .rom_0_cs  (char_rom_1_cs),
 
-always @(posedge clk) begin
-  if (~N6M) begin 
-    //if (hpos[1:0] == 2'b00) begin //if this is wrong this create bug like synthesis  
-        char_rom_1_addr[15:0] <=  {ram_out[11:0], vpos_latch[2:0], ~hpos[2]} ;  
-        char_rom_2_addr[15:0] <=  {ram_out[11:0], vpos_latch[2:0], ~hpos[2]} ; 
-    //end
-  end 
-end
+  .rom_1_data(char_rom_2_data),
+  .rom_1_ok  (char_rom_2_ok),
+  .rom_1_addr(char_rom_2_addr),
+  .rom_1_cs  (char_rom_2_cs)
+);
 
 wire [1:0] NC;
 
@@ -101,8 +117,8 @@ sei0010bu sei0010bu_u(
   .rst(rst),
   .cen(N6M),
   .load(T3F), //load new pixel
-  .rev(1'b0),
-  .rom_data({8'b0, char_rom_2_data[7:0], char_rom_1_data[7:0]}),
+  .rev(HREV),
+  .rom_data({8'b0, char_data_hold}),
   .color({NC[1:0], char_color})
 );
     

@@ -56,7 +56,11 @@ wire S4ON, S1ON;
 sg0140_absel    sg0140_absel_u(
   .clk(clk),
   //.rst(1'b0),
-  .cen(N6M), 
+  // Sheet 10 ties SG0140 pins 41/38/26 to the physical N6M waveform.
+  // Joint pin-22..27 captures show the mixed Q outputs publishing on the
+  // falling edge of that waveform, after the source serializers change on
+  // its rising edge. P6M is the common-clock enable for that opposite edge.
+  .cen(P6M), //XXX N6M on schematics
 
   .PIC_A(S1PIC),
   .COL_A(S1COL), 
