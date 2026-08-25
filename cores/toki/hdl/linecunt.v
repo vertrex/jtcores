@@ -1,6 +1,9 @@
+// Sheet-17 object metadata/ROM-address/line-counter path. This drives both
+// physical serializer lanes. Acknowledged-ROM queue/cache/replay policy lives
+// in toki_obj_sdram_adapter rather than this schematic-facing shell.
 module LINECUNT(
    input         clk,
-   input  [15:0] OVD, //Object Video Data (is it metadata positon for object ?)
+   input  [15:0] OVD, // multiplexed object descriptor data
    input   [3:0] VA,
    input         ODHREV,
    input         RESETA,
@@ -10,7 +13,9 @@ module LINECUNT(
    input         CTLT2,
    input         HREV,
    input         OBJ_N6M,
-   input         ODD_LD, //odd line data ? odd load ?
+   // Physical PLD22 load pins retained as part of the sheet-17 interface.
+   // Acknowledged SDRAM requires regenerated committed-row loads below.
+   input         ODD_LD,
    input         EVN_LD,
    input         HBLB,    //hblank
    input         OBJT2_7,
@@ -18,7 +23,7 @@ module LINECUNT(
    input         T8H,  // cen
    input         VH4,  // cen
    input         VH8,  // cen
-   input         NOOBJ,  // ?
+   input         NOOBJ,
    input  [15:0] obj_rom_1_data,
    input         obj_rom_1_ok,
    input  [15:0] obj_rom_2_data,
@@ -37,66 +42,121 @@ module LINECUNT(
    output        ODDCLR,
    output  [8:0] O1A,     // odd 1 address
    output  [8:0] E1A,     // even 1 address
-   output        ODDWREN, // ~EVNCLR
-   output        EVNWREN, // ~ODDCLR
+   // PCB U1713D/U1714E continuously form these as ~EVNCLR/~ODDCLR.
+   // The FPGA adapter instead emits tagged, finite active-low write windows.
+   output        ODDWREN,
+   output        EVNWREN,
    output  [8:0] O2A,     // odd 2 address
    output  [8:0] E2A,     // even 2 address
-output        NOOBJ_CT2
+   output        NOOBJ_CT2,
+   // FPGA-only cached-row direction selected for the current serializer load.
+   // This is not a sheet-17 pin; see the SDRAM adapter's replay_opsrev.
+   output        FPGA_REPLAY_REV
 );
 
 wire [4:0] ADDR_live;
-wire       ROM_CE_live;
 wire       NOOBJ_CT2_live;
 wire [3:0] OBJCOL_live;
 wire       OBJ_HREV_live;
 wire       OSP1_live;
 wire       OSP2_live;
 
-reg        meta_hold_valid;
-reg [11:0] rom_index_hold;
-reg [3:0]  line_sel_hold;
-reg        rom_ce_hold;
-reg [3:0]  objcol_hold;
-reg        obj_hrev_hold;
-reg        osp1_hold;
-reg        osp2_hold;
-reg        noobj_ct2_hold;
-reg [8:0]  oh_hold;
-reg [8:0]  fh_hold;
-wire [8:0] OH;
+wire [8:4] OH;
 wire [8:0] FH;
 wire       evn_ld_scan;
 wire       odd_ld_scan;
 
 wire [11:0] rom_index_live;
-wire [11:0] rom_index_eff;
 wire [3:0]  line_sel_live;
-wire [3:0]  line_sel_eff;
-wire [11:0] rom_index_cap;
-wire [3:0]  line_sel_cap;
-wire        rom_ce_cap;
-wire [3:0]  objcol_cap;
-wire        obj_hrev_cap;
-wire        osp1_cap;
-wire        osp2_cap;
-wire [8:0]  oh_cap;
-wire [8:0]  fh_cap;
-wire [4:0]  ADDR_eff;
-wire        ROM_CE_eff;
-wire        NOOBJ_CT2_eff;
-wire [8:0]  OH_eff;
-wire [8:0]  FH_eff;
+wire [17:0] live_rom_addr;
+wire [8:0]  draw_h2_1_addr_eff;
+wire [8:0]  draw_h2_0_addr_eff;
 
-assign ADDR_eff      = meta_hold_valid ? rom_index_hold[8:4] : ADDR_live;
-assign ROM_CE_eff    = meta_hold_valid ? rom_ce_hold : ROM_CE_live;
-assign NOOBJ_CT2_eff = meta_hold_valid ? noobj_ct2_hold : NOOBJ_CT2_live;
-assign OBJCOL        = meta_hold_valid ? objcol_hold : OBJCOL_live;
-assign OBJ_HREV      = meta_hold_valid ? obj_hrev_hold : OBJ_HREV_live;
-assign OSP1          = meta_hold_valid ? osp1_hold : OSP1_live;
-assign OSP2          = meta_hold_valid ? osp2_hold : OSP2_live;
-assign OH_eff        = meta_hold_valid ? oh_hold : OH;
-assign FH_eff        = meta_hold_valid ? fh_hold : FH;
-assign NOOBJ_CT2     = NOOBJ_CT2_eff;
+// CTLT1/CTLT2 are physical clocks on sheet 17. Their PLD outputs stay low for
+// several 48 MHz clocks, while each TTL register captures once on the decoded
+// clock's rising edge. One common-clock enable preserves the PCB old-Q chain.
+reg ctlt1_capture_d;
+reg ctlt2_capture_d;
+
+always @(posedge clk) begin
+   if (RESETA) begin
+      ctlt1_capture_d <= 1'b1;
+      ctlt2_capture_d <= 1'b1;
+   end else begin
+      ctlt1_capture_d <= CTLT1;
+      ctlt2_capture_d <= CTLT2;
+   end
+end
+
+wire ctlt1_capture_cen = CTLT1 && !ctlt1_capture_d;
+wire ctlt2_capture_cen = CTLT2 && !ctlt2_capture_d;
+
+// OHMAX historically accepts active-low phase clocks. Feeding the same
+// qualified pulse keeps it and the TTL registers on one logical PCB edge.
+wire ohmax_ctlt1_n = ~ctlt1_capture_cen;
+wire ohmax_ctlt2_n = ~ctlt2_capture_cen;
+
+// The local PCB mask ROMs need no request scheduler. JTFrame stores them behind
+// acknowledged SDRAM, so the explicitly FPGA-only adapter snapshots descriptor
+// pairs, obtains complete rows, and replays them on the physical CTLT/SEI0060
+// schedule. LINECUNT retains the sheet-17 TTL, OHMAX and SEI0060 boundaries.
+//
+// Sheet 17 wires PLD22 EVN_LD/ODD_LD directly to the SEI0060s. With delayed
+// SDRAM that edge can arrive before a complete row exists, so the adapter emits
+// evn_ld_scan/odd_ld_scan at the matching committed SECND edge. The original
+// ports remain visible above as the PCB pin contract; bypassing this one timing
+// facade would reintroduce partial-row and dense-list corruption.
+toki_obj_sdram_adapter sdram_adapter_u(
+   .clk(clk),
+   .RESETA(RESETA),
+   .OVD(OVD),
+   .VA(VA),
+   .ODHREV(ODHREV),
+   .SPR1_3(SPR1_3),
+   .SPR2_3(SPR2_3),
+   .CTLT1(CTLT1),
+   .CTLT2(CTLT2),
+   .HREV(HREV),
+   .OBJ_N6M(OBJ_N6M),
+   .HBLB(HBLB),
+   .V1B(V1B),
+   .T8H(T8H),
+   .VH4(VH4),
+   .VH8(VH8),
+   .NOOBJ(NOOBJ),
+   .ctlt1_capture_d(ctlt1_capture_d),
+   .ctlt2_capture_cen(ctlt2_capture_cen),
+   .FH(FH),
+   .OBJCOL_live(OBJCOL_live),
+   .OBJ_HREV_live(OBJ_HREV_live),
+   .OSP1_live(OSP1_live),
+   .OSP2_live(OSP2_live),
+   .NOOBJ_CT2_live(NOOBJ_CT2_live),
+   .EVNCLR(EVNCLR),
+   .ODDCLR(ODDCLR),
+   .live_rom_addr(live_rom_addr),
+   .obj_rom_1_data(obj_rom_1_data),
+   .obj_rom_1_ok(obj_rom_1_ok),
+   .obj_rom_2_data(obj_rom_2_data),
+   .obj_rom_2_ok(obj_rom_2_ok),
+   .obj_rom_1_addr(obj_rom_1_addr),
+   .obj_rom_1_cs(obj_rom_1_cs),
+   .obj_rom_2_addr(obj_rom_2_addr),
+   .obj_rom_2_cs(obj_rom_2_cs),
+   .OBJCOL(OBJCOL),
+   .OBJ_HREV(OBJ_HREV),
+   .OSP1(OSP1),
+   .OSP2(OSP2),
+   .PD(PD),
+   .NOOBJ_CT2(NOOBJ_CT2),
+   .FPGA_REPLAY_REV(FPGA_REPLAY_REV),
+   .draw_h2_1_addr_eff(draw_h2_1_addr_eff),
+   .draw_h2_0_addr_eff(draw_h2_0_addr_eff),
+   .evn_ld_scan(evn_ld_scan),
+   .odd_ld_scan(odd_ld_scan),
+   .ODDWREN(ODDWREN),
+   .EVNWREN(EVNWREN)
+);
 
 // 74LS174 20F
 wire [5:0] u171_Q;
@@ -104,7 +164,7 @@ wire [5:0] u171_Q;
 LS174 u171_20F(
    .CLK(clk),
    .CLRn(1'b1),
-   .CEN(~CTLT1),
+   .CEN(ctlt1_capture_cen),
    .D({OVD[10:9], OVD[3:0]}),
    .Q(u171_Q[5:0])
 );
@@ -116,7 +176,7 @@ wire NC;
 LS174 u172_21F(
    .CLK(clk),
    .CLRn(1'b1),
-   .CEN(~CTLT1),
+   .CEN(ctlt1_capture_cen),
    .D({1'b0, OVD[15:11]}),
    .Q({NC, u172_Q[4:0]})
 );
@@ -127,7 +187,7 @@ wire [6:0] u174_Q;
 LS273 u174_20E(
    .CLK(clk),
    .CLRn(1'b1),
-   .CEN(~CTLT2),
+   .CEN(ctlt2_capture_cen),
    // Data flow analysis (deep trace, 2026-05-09):
    //   u_153 writes: word 1 (CHAR) at FDA[2:1]=01 → LSB=0;
    //                 word 2 (HPOS) at FDA[2:1]=10 → LSB=1
@@ -146,126 +206,32 @@ wire [3:0] u175_Q;
 LS273 u175_21E(
    .CLK(clk),
    .CLRn(1'b1),
-   .CEN(~CTLT2),
+   .CEN(ctlt2_capture_cen),
    //.D({ODHREV, VA8, VA4, VA2, VA1, u172_Q[4:2]}),
    .D({ODHREV, VA[3:0], u172_Q[4:2]}),
    .Q({OBJ_HREV_live, u175_Q[3:0], OBJCOL_live[3:1]})
 );
 
-
-//ROM 20C
-//HN62404
-//4M-bit
-assign obj_rom_1_cs = ~ROM_CE_eff;
-
-//ROM 22C
-//HN62404
-//4M-bit
-assign obj_rom_2_cs = ROM_CE_eff;
-//split in two ? on original use two separated rom of 16bits
-//read same address on the two but enable one or the other with an inverter
-//U177 22F
-//WE USE ONE ROM NOT TWO SO IT WILL NOT WORK AS IT WE NEED TO << 1 ?
-//assign obj_rom_addr[19:1] = {u174_Q[6:4], SG0140_Q[4:0], u174_Q[3:0], VH8, u175_Q[3:0], VH4};
-//          rom_index[12:0] << 6
-//                           12 bits       6 bits
-//                       u174,   addr, u174  |vh8  u175_q, vh4)
-                            //3 , 5, 4,     | 1,    4, 1
-                            // rom index | line number + rom words index 4bits1
-                            // 4 bits => line number * 2 < + rom_words+index
-
-//                                        va[3:0] => line number / 16 ligne of
-//                                        pixel
-//
-//           rom_index[12:0] <= {ram_words[2][15], ram_words[1][11:0]};
-//                                                    ADDR ???
-//
-// One 16x16 sprite tile occupies 64 16-bit words: 16 rows * 4 words/row.
-// The old working sprite model fetches them as:
-//   row*2 + word[0]           for words 0/1
-//   32 + row*2 + word[0]      for words 2/3
-// so the low six offset bits are packed as {word[1], row[3:0], word[0]}.
-// Using {line_sel, VH8, VH4} makes OFFSET Y act like part of the sprite index
-// and breaks the second half of each row. The correct packing is
-// {VH8, line_sel, VH4}.
-assign obj_rom_1_addr[17:0] = {rom_index_eff, VH8, line_sel_eff, VH4};
-assign obj_rom_2_addr[17:0] = {rom_index_eff, VH8, line_sel_eff, VH4};
-
-//XXX just here to check our indexs value is ok 
-wire [11:0] rom_index = rom_index_eff;
-
-//rom_index << 7 == obj_rom_addr 
-// one tile is 128 byte 
-
-//rom bus  16 bits  (pas 8 bits )
-//donc on lit par groupe de 64 bytes pour un tile complet 
-//  6 bits pour le current pixel qui doivent etre incrementer 1 par 1 pour
-//  lire le sprite ( 16 par ligne pui switch )
-//  VH8, u175_Q[3:0], VH4 -> sprite pos 64 
-//  le reste c'est l 'index ? (every 64 bits ? )
-//
-//
-
-//addr IS OK (avec la rom d'origine ca affiche toki pendant un moment)
-//
-wire [17:0] obj_rom_1_addr_toki = {12'h40, VH8, u175_Q[3:0], VH4};
-wire [17:0] obj_rom_2_addr_toki = {12'h40, VH8, u175_Q[3:0], VH4};
-
+// Sheet 17 forms the live asynchronous-ROM address directly from the physical
+// U174/U175/OHMAX latch chain. The FPGA adapter uses it as the idle/fallback
+// address and substitutes an acknowledged row request only while transport is
+// active.
 assign rom_index_live = {u174_Q[6:4], ADDR_live[4:0], u174_Q[3:0]};
-assign rom_index_eff  = meta_hold_valid ? rom_index_hold : rom_index_live;
 assign line_sel_live  = u175_Q[3:0];
-assign line_sel_eff   = meta_hold_valid ? line_sel_hold : line_sel_live;
-assign rom_index_cap  = {u172_Q[0], u171_Q[5:4], ADDR_live[4:0], u174_Q[3:0]};
-assign line_sel_cap   = VA[3:0];
-assign rom_ce_cap     = OVD[15];
-assign objcol_cap     = {u172_Q[4:1]};
-assign obj_hrev_cap   = ODHREV;
-assign osp1_cap       = SPR1_3;
-assign osp2_cap       = SPR2_3;
-// oh_cap / fh_cap feed meta_hold's *_shadow → *_hold. When meta_hold_valid,
-// OH_eff / FH_eff come from these held values — so they MUST carry the
-// correct sprite X, not a CHAR/HPOS hybrid.
-// Previous form used u171_Q[3:0] (= CHAR tile_lo[3:0]) in the low nibble,
-// which bypassed the u1716/u176 X-fix via the meta_hold path and kept the
-// "X moves by blocks of 16" bug on FPGA even after the direct-path fix.
-// Use the already-assembled FH (u1716's Q) and OH wires which have the
-// correct X[3:0] = HPOS[3:0].
-assign oh_cap         = {OH[8:4], OH[3:0]};
-assign fh_cap         = FH[8:0];
+assign live_rom_addr = {rom_index_live, VH8, line_sel_live, VH4};
 
-// The object ROMs sit behind SDRAM, so data is not stable on every cycle.
-// Hold the last valid selected word; otherwise OBJPS can reload the serializer
-// with transient 0xffff/garbage between the four fetches that make one sprite row.
-wire        pd_use_rom1 = obj_rom_1_cs;
-wire [15:0] pd_sel_dual = pd_use_rom1 ? obj_rom_1_data[15:0] : obj_rom_2_data[15:0];
-wire        pd_sel_ok   = pd_use_rom1 ? obj_rom_1_ok : obj_rom_2_ok;
-reg  [15:0] pd_latch;
+// SG0140 U173, 16D, OHMAX mode.
+// ADDR[4:0] captures object-ROM tile-index bits and OH[8:4] captures the
+// coarse sprite X position from the multiplexed OVD bus.
 
-always @(posedge clk) begin
-   if (RESETA)
-      pd_latch <= 16'hffff;
-   else if (pd_sel_ok)
-      pd_latch <= pd_sel_dual;
-end
-
-assign PD[15:0] = pd_latch;
-
-//SEI0140 16D
-//MODE=OHMAX
-// Object H position extracted from OVD metadata.
-//to get data from rom we need the ROM_INDEX which is stored in some of the
-//RAM and then the line_number % .. need to translate that
-
-sg0140_ohmax sg0140_u174_16D(
+sg0140_ohmax sg0140_u173_16D(
    //input
    .clk(clk),
    .rst(RESETA), // pin 40
-   //41, 9, 10, 28-36 1'b0
-   .CTLT1(CTLT1),
-   .CTLT2(CTLT2),
-   //38 CLT1 clk   / ?
-   //39 CLT2 clk 2 / en2 ?
-   //36,37 1'b1 OHMAX mode
+   // Pins 28..35 are tied low. Pins 36/37 are tied high for OHMAX mode.
+   // Physical pins 38/39 are the active-low CTLT1/CTLT2 phase inputs.
+   .CTLT1(ohmax_ctlt1_n),
+   .CTLT2(ohmax_ctlt2_n),
    //.Q({NOOBJ_CT2, ADDR[4:0] ,OH[8:4]})
 
    //.MODE(2'b11), //OHMAX mode
@@ -273,9 +239,6 @@ sg0140_ohmax sg0140_u174_16D(
    .OVD(OVD[8:4]),
    .HREV(HREV),
    //output
-   //high address were pixel will be written [8:4] (position on screen)
-   //the other part 3:0 => 16pixel  is generated  by the sei60bu to draw each
-   // of the 16 pixel
    .OH(OH[8:4]),
    .ADDR(ADDR_live[4:0]),
    .NOOBJ_CT2(NOOBJ_CT2_live)
@@ -285,54 +248,54 @@ sg0140_ohmax sg0140_u174_16D(
 
 //74LS273
 //22E
+wire [7:0] u176_Q;
+
 LS273 u176(
    .CLK(clk),
    .CLRn(1'b1),
-   .CEN(~CTLT2),
-   .D({OH[8], OVD[15],  SPR2_3, SPR1_3 ,u171_Q[3:0]}),
-   .Q({FH[8], ROM_CE_live, OSP2_live ,OSP1_live ,OH[3:0]})
+   .CEN(ctlt2_capture_cen),
+   // Sheet 17 U176 pins 3/4/7/8 are OVD[0:3] directly. At CTLT2 this
+   // is HPOS[3:0]; using the CTLT1 tile-low latch couples tile number to X.
+   .D({OH[8], OVD[15], SPR2_3, SPR1_3, OVD[3:0]}),
+   .Q(u176_Q)
 );
 
-//74LS04 U177
-//wire ROM_CE_N = ~ROM_CE;
+assign FH[8]     = u176_Q[7];
+assign OSP2_live = u176_Q[5];
+assign OSP1_live = u176_Q[4];
+
+// U176 physical Q7 (u176_Q[6]) is ROM_CE. On the PCB it selects U178
+// directly and U179 through U177C. The acknowledged-ROM adapter retains the
+// same OVD[15] selection with each descriptor and issues the delayed CS.
 
 //74LS273
 //14D
-// FH[7:0] = sprite X position for sei0060bu address loading.
-// FH[7:4] = OH[7:4] (latched by ohmax from HPOS at CTLT2 = X[7:4])
-// FH[3:0] = live OVD[3:0] at CTLT2 = X[3:0] from u_153 HPOS word
+// Sheet 17 wires U1716 D=OH[7:0], Q=FH[7:0]. OH[3:0] is U176's Q while
+// OH[7:4] comes from U173. Because U176 and U1716 share CTLT2, U1716 sees
+// both old Q values and retains the preceding H2 descriptor.
 //
-// Previous code used u171_Q[3:0] (CTLT1-latched = CHAR[3:0] = tile_lo[3:0]),
-// which stuck FH[3:0] at tile's low nibble — making X position snap to
-// 16-pixel boundaries on FPGA. Sprite X should step by 1 pixel per X+1
-// change, but appeared to jump by 16.
+// A previous FPGA workaround fed live OVD[3:0] here. That removed the
+// 16-pixel X granularity symptom but bypassed the physical old-Q transfer;
+// using u176_Q[3:0] restores the literal sheet-17 chain.
+wire [7:0] u1716_d = {OH[7:4], u176_Q[3:0]};
+
 LS273 u1716(
    .CLK(clk),
    .CLRn(1'b1),
-   .CEN(~CTLT2),
-   .D({OH[7:4], OVD[3:0]}),
+   .CEN(ctlt2_capture_cen),
+   .D(u1716_d),
    .Q(FH[7:0])
 );
 
-// transform object H position into an address that will match the line buffer
-// position ? so we can get the data via the address ?
-// it's storead as 4 bytes blob that will then be deserialzied by objps
-// before been stored in ram
-// so each ram address effectively store a pixel that's why sei0060bu
-// may have two 4 bits counter, it count for each pixel because each one is
-// deserialized by the other part objps and thten stored  in ram
-//
-
-
-// act as X pos counter for the line buffer
-// so we have the position to store the pixel deserialized by the SEI0010BU (see objps)  in the line buffer
+// U1711/U1712 turn the captured sprite X bases into per-pixel odd/even
+// line-buffer write addresses for the two SEI0010/OBJPS serializer lanes.
 
 //SEI0060BU
 //12CD
 SEI0060BU sei60bu_u1711(
    .clk(clk),
    .cen(OBJ_N6M),
-   .ADDR(FH_eff[8:0]),
+   .ADDR(draw_h2_1_addr_eff[8:0]),
    .ODD_LD(odd_ld_scan),
    .EVN_LD(evn_ld_scan),
    .HBLB(HBLB),
@@ -346,231 +309,16 @@ SEI0060BU sei60bu_u1711(
    .ODDCLR(ODDCLR)
 );
 
-//74LS04 22F on schematics generates active-low write enables.
-// Start a 16-pixel write burst from the real LD edge, not from the whole
-// HBLB-active phase. The broad HBLB model repaints garbage before any valid
-// sprite slot is armed.
-reg evn_ld_d;
-reg odd_ld_d;
-reg hblb_d;
-reg ctlt2_d;
-reg noobj_d;
-reg noobj_ct2_d;
-reg preload_hold;
-reg even_ld_arm;
-reg odd_ld_arm;
-reg even_ld_pending;
-reg odd_ld_pending;
-reg even_wren_active;
-reg odd_wren_active;
-reg [3:0] even_wren_pix;
-reg [3:0] odd_wren_pix;
-reg        capture_sig_valid;
-reg [22:0] capture_sig_last;
-reg        slot_shadow_valid;
-reg [22:0] slot_sig_shadow;
-reg [11:0] rom_index_shadow;
-reg [3:0]  line_sel_shadow;
-reg        rom_ce_shadow;
-reg [3:0]  objcol_shadow;
-reg        obj_hrev_shadow;
-reg        osp1_shadow;
-reg        osp2_shadow;
-reg [8:0]  oh_shadow;
-reg [8:0]  fh_shadow;
-wire evn_ld_fall = (evn_ld_d == 1'b1) && (EVN_LD == 1'b0);
-wire odd_ld_fall = (odd_ld_d == 1'b1) && (ODD_LD == 1'b0);
-wire hblb_fall   = (hblb_d == 1'b1) && (HBLB == 1'b0);
-wire ctlt2_fall  = (ctlt2_d == 1'b1) && (CTLT2 == 1'b0);
-// Live MAD traces show the sprite write burst happening while HBLB is low.
-// The previous active-high model let bursts arm correctly but never asserted
-// EVNWREN/ODDWREN on hardware-consistent waveforms.
-wire hblank_active = ~HBLB;
-wire burst_active   = even_wren_active || odd_wren_active;
-wire [22:0] capture_sig_cur = {OVD[15:0], VA[3:0], ODHREV, SPR1_3, SPR2_3};
-wire preload_evt = (noobj_d == 1'b1) && (NOOBJ == 1'b0) &&
-                   meta_hold_valid && capture_sig_valid &&
-                   (capture_sig_cur == capture_sig_last) &&
-                   (rom_index_live != 12'h000) && !burst_active &&
-                   !preload_hold;
-wire noobj_rise = (noobj_d == 1'b0) && (NOOBJ == 1'b1);
-wire noobj2_rise = (noobj_ct2_d == 1'b0) && (NOOBJ_CT2_live == 1'b1);
-wire slot_capture_evt = noobj2_rise && !burst_active && slot_shadow_valid &&
-                        (!capture_sig_valid || (slot_sig_shadow != capture_sig_last));
-wire evn_ld_start = (EVN_LD == 1'b0 || even_ld_pending) &&
-                    !V1B && even_ld_arm && !even_wren_active;
-wire odd_ld_start = (ODD_LD == 1'b0 || odd_ld_pending) &&
-                     V1B &&  odd_ld_arm && !odd_wren_active;
-// The write burst can start either from a raw LD pulse that overlaps the armed
-// slot, or from a previously seen LD pulse that is held in *_ld_pending until
-// the slot is armed. Feed the actual start event to SEI0060BU so it always
-// sees a real active-low load edge and captures the held X base.
-assign evn_ld_scan = ~evn_ld_start;
-assign odd_ld_scan = ~odd_ld_start;
-
-always @(posedge clk) begin
-   evn_ld_d <= EVN_LD;
-   odd_ld_d <= ODD_LD;
-   hblb_d   <= HBLB;
-   ctlt2_d  <= CTLT2;
-   noobj_d  <= NOOBJ;
-   noobj_ct2_d <= NOOBJ_CT2_live;
-   if (RESETA) begin
-      preload_hold     <= 1'b0;
-      even_ld_arm      <= 1'b0;
-      odd_ld_arm       <= 1'b0;
-      even_ld_pending  <= 1'b0;
-      odd_ld_pending   <= 1'b0;
-      even_wren_active <= 1'b0;
-      odd_wren_active  <= 1'b0;
-      even_wren_pix    <= 4'd0;
-      odd_wren_pix     <= 4'd0;
-      capture_sig_valid <= 1'b0;
-      capture_sig_last  <= 23'h0;
-      slot_shadow_valid <= 1'b0;
-      slot_sig_shadow   <= 23'h0;
-      rom_index_shadow  <= 12'h000;
-      line_sel_shadow   <= 4'h0;
-      rom_ce_shadow     <= 1'b0;
-      objcol_shadow     <= 4'h0;
-      obj_hrev_shadow   <= 1'b0;
-      osp1_shadow       <= 1'b0;
-      osp2_shadow       <= 1'b0;
-      oh_shadow         <= 9'h000;
-      fh_shadow         <= 9'h000;
-      noobj_ct2_d       <= 1'b0;
-   end else begin
-      if (hblb_fall) begin
-         preload_hold     <= 1'b0;
-         even_ld_arm      <= 1'b0;
-         odd_ld_arm       <= 1'b0;
-         even_ld_pending  <= 1'b0;
-         odd_ld_pending   <= 1'b0;
-         even_wren_active <= 1'b0;
-         odd_wren_active  <= 1'b0;
-         even_wren_pix    <= 4'd0;
-         odd_wren_pix     <= 4'd0;
-         slot_shadow_valid <= 1'b0;
-      end
-
-      if (ctlt2_fall && !NOOBJ) begin
-         slot_shadow_valid <= 1'b1;
-         slot_sig_shadow   <= capture_sig_cur;
-         rom_index_shadow  <= rom_index_live;
-         line_sel_shadow   <= line_sel_cap;
-         rom_ce_shadow     <= rom_ce_cap;
-         objcol_shadow     <= objcol_cap;
-         obj_hrev_shadow   <= obj_hrev_cap;
-         osp1_shadow       <= osp1_cap;
-         osp2_shadow       <= osp2_cap;
-         oh_shadow         <= oh_cap;
-         fh_shadow         <= fh_cap;
-      end
-
-      if (evn_ld_fall && !even_wren_active)
-         even_ld_pending <= 1'b1;
-      if (odd_ld_fall && !odd_wren_active)
-         odd_ld_pending <= 1'b1;
-
-      if (preload_evt)
-         preload_hold <= 1'b1;
-      if (noobj_rise || hblb_fall)
-         capture_sig_valid <= 1'b0;
-      if (slot_capture_evt) begin
-         capture_sig_valid <= 1'b1;
-         capture_sig_last  <= slot_sig_shadow;
-         slot_shadow_valid <= 1'b0;
-         if (V1B && !odd_wren_active)
-            odd_ld_arm <= 1'b1;
-         else if (!V1B && !even_wren_active)
-            even_ld_arm <= 1'b1;
-      end
-
-      if (evn_ld_start) begin
-         even_wren_active <= 1'b1;
-         even_wren_pix    <= 4'd0;
-         even_ld_arm      <= 1'b0;
-         even_ld_pending  <= 1'b0;
-      end else if (OBJ_N6M && hblank_active && !V1B && even_wren_active) begin
-         preload_hold  <= 1'b0;
-         even_wren_pix <= even_wren_pix + 4'd1;
-         if (even_wren_pix == 4'd15)
-            even_wren_active <= 1'b0;
-      end
-
-      if (odd_ld_start) begin
-         odd_wren_active <= 1'b1;
-         odd_wren_pix    <= 4'd0;
-         odd_ld_arm      <= 1'b0;
-         odd_ld_pending  <= 1'b0;
-      end else if (OBJ_N6M && hblank_active && V1B && odd_wren_active) begin
-         preload_hold <= 1'b0;
-         odd_wren_pix <= odd_wren_pix + 4'd1;
-         if (odd_wren_pix == 4'd15)
-            odd_wren_active <= 1'b0;
-      end
-   end
-end
-
-always @(posedge clk) begin
-   if (RESETA) begin
-      meta_hold_valid <= 1'b0;
-      rom_index_hold  <= 12'h000;
-      line_sel_hold   <= 4'h0;
-      rom_ce_hold     <= 1'b0;
-      objcol_hold     <= 4'h0;
-      obj_hrev_hold   <= 1'b0;
-      osp1_hold       <= 1'b0;
-      osp2_hold       <= 1'b0;
-      noobj_ct2_hold  <= 1'b0;
-      oh_hold         <= 9'h000;
-      fh_hold         <= 9'h000;
-   end else begin
-      if (hblb_fall) begin
-         meta_hold_valid <= 1'b0;
-      end else if (preload_evt) begin
-         // Repeated NOOBJ falls before the LD edge must preserve the already
-         // captured slot metadata. The preload path only keeps that held slot
-         // alive; it must not overwrite X/index/row with whatever happens to
-         // be on the live bus at the later NOOBJ edge.
-         meta_hold_valid <= 1'b1;
-         noobj_ct2_hold  <= 1'b1;
-      // Capture the live metadata on the same clock edge that detects the new
-      // slot. A registered request delays the copy by one cycle, which is too
-      // late in MAD: the good ADDR/index window is already gone by then.
-      end else if (slot_capture_evt && !burst_active) begin
-         line_sel_hold   <= line_sel_shadow;
-         meta_hold_valid <= 1'b1;
-         rom_index_hold  <= rom_index_shadow;
-         rom_ce_hold     <= rom_ce_shadow;
-         objcol_hold     <= objcol_shadow;
-         obj_hrev_hold   <= obj_hrev_shadow;
-         osp1_hold       <= osp1_shadow;
-         osp2_hold       <= osp2_shadow;
-         noobj_ct2_hold  <= 1'b1;
-         oh_hold         <= oh_shadow;
-         fh_hold         <= fh_shadow;
-      end else if (!burst_active && !even_ld_arm && !odd_ld_arm && !preload_hold) begin
-         meta_hold_valid <= 1'b0;
-      end
-   end
-end
-
-assign EVNWREN = ~(even_wren_active && hblank_active && !V1B);
-assign ODDWREN = ~(odd_wren_active  && hblank_active &&  V1B);
-
 //SEI0060BU
 //16CD
-// Use FH_eff (same as u1711) instead of OH_eff. OH_eff[3:0] is driven by
-// u176 which captures u171_Q[3:0] = CHAR tile_lo[3:0] — wrong X low bits.
-// FH_eff[3:0] is OVD[3:0] at CTLT2 = HPOS[3:0] = correct sprite X[3:0].
-// Both sei0060bu instances (obj1 and obj2 channels) must use the same X
-// base; otherwise u_182/u_184 get the "X by 16" bug while u_181/u_183
-// track per-pixel X.
+// Sheet 17 feeds U1711 from FH (the preceding H2=1 descriptor) and U1712
+// from OH (the current H2=0 descriptor). Cached-row replay happens after the
+// live chain has advanced, so the adapter supplies those two retained X bases
+// separately as draw_h2_1_addr_eff and draw_h2_0_addr_eff.
 SEI0060BU sei60bu_u1712(
    .clk(clk),
    .cen(OBJ_N6M),
-   .ADDR(FH_eff[8:0]),
+   .ADDR(draw_h2_0_addr_eff[8:0]),
    .ODD_LD(odd_ld_scan),
    .EVN_LD(evn_ld_scan),
    .HBLB(HBLB),
@@ -583,5 +331,6 @@ SEI0060BU sei60bu_u1712(
    .EVNCLR(),
    .ODDCLR()
 );
+
 
 endmodule

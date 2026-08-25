@@ -1,143 +1,198 @@
-// Define dual-linebuffer (line odd or even) for obj 1 & obj 2 
-// Odd and Even line are switched at each hbl 
-// Object 1 & 2 are written to current WREN line (either odd or even)
-// and read from other line 
-// selected object is data is outputed 
+// Sheet-18 dual object line buffer. OBJ1 and OBJ2 write the bank selected by
+// EVNWREN/ODDWREN while delayed U161 D1V_7P/ND1V_7P enables the other bank's
+// shared OOD/priority outputs. The bank transition is related to HBL timing,
+// but sheet 18 selects it through these explicit delayed parity nets.
+//
+// Sheet-18 line-buffer boundary. Both physical object lanes write their own
+// row, X and attribute phases at the four U181-U184 storage positions; the
+// FPGA storage mechanism is isolated in sis6091B_atomic.
 
 module LINEBUF(
     input             clk,
-    input             ODDWREN,
-    input             EVNWREN,  // Even write en 
-    input             OBJ_N6M,  // ~Clk 6mhz  
-    input       [9:0] OBJ1,     // Obj 1 data 
-    input       [9:0] OBJ2,     // Obj 2 data 
-    input       [8:0] E1A,      // Even 1 addr 
-    input             EVNCLR,   // Even clear 
-    input             D1V_7P,  
-    input             OBJ_P6M,  // Clk 6Mhz
-    input       [8:0] E2A,      // Even 2 addr 
-    input       [8:0] O1A,      // Obj 1 addr 
-    input             ODDCLR,   // Odd line clear 
-    input             ND1V_7P,  //~div 7p 
-    input       [8:0] O2A,      // Odd 2 addr 
-    input             OBJ1_Z,
-    input             OBJ2_Z,
-    //output 
-    output            E1FIND,  // Even 1 find (en?) 
-    output            E2FIND,  // Even 2 find (en?)
-    output            O1FIND,  // Odd 1 find  (en?)
-    output            O2FIND,  // Odd 2 find  (en?)
-    output reg  [7:0] OOD,     // object out data 
-    output reg        PRIOR_C, // object priority C
-    output reg        PRIOR_D  // object priority D
+    input             ODDWREN,  // active-low pin-30 write enable, U183/U184
+    input             EVNWREN,  // active-low pin-30 write enable, U181/U182
+    input             OBJ_N6M,  // bubbled SIS6091B pin-31 write phase
+    input       [9:0] OBJ1,     // U164A/U166 delayed lane data and attributes
+    input       [9:0] OBJ2,     // U164B direct lane data and attributes
+    input       [8:0] E1A,      // U181 address pins 62-70
+    input             EVNCLR,   // active-low pin-34 clear, U181/U182
+    input             D1V_7P,   // active-low output enable for EVEN devices
+    input             OBJ_P6M,  // physical read/output phase; presently inert
+    input       [8:0] E2A,      // U182 address pins 62-70
+    input       [8:0] O1A,      // U183 address pins 62-70
+    input             ODDCLR,   // active-low pin-34 clear, U183/U184
+    input             ND1V_7P,  // active-low output enable for ODD devices
+    input       [8:0] O2A,      // U184 address pins 62-70
+    input             OBJ1_Z,   // FPGA: delayed lane was not physically driven
+    input             OBJ2_Z,   // FPGA: direct lane was not physically driven
+    output            E1FIND,   // U181 pin 60 FIND
+    output            E2FIND,   // U182 pin 60 FIND
+    output            O1FIND,   // U183 pin 60 FIND
+    output            O2FIND,   // U184 pin 60 FIND
+    output reg  [7:0] OOD,      // shared SIS pins 42-49
+    output reg        PRIOR_C,  // shared SIS pin 51
+    output reg        PRIOR_D   // shared SIS pin 53
 );
 
-wire [9:0] Q_EVN1;
-wire [9:0] Q_EVN2; 
-wire [9:0] Q_ODD1;
-wire [9:0] Q_ODD2;
+wire [15:0] Q_EVN1;
+wire [15:0] Q_EVN2;
+wire [15:0] Q_ODD1;
+wire [15:0] Q_ODD2;
 
-wire [5:0] nc0;
-wire [5:0] nc1;
-wire [5:0] nc2;
-wire [5:0] nc3;
+wire [5:0] even_obj1_tag;
+wire [5:0] even_obj2_tag;
+wire [5:0] odd_obj1_tag;
+wire [5:0] odd_obj2_tag;
+wire       even_selected_find;
+wire       odd_selected_find;
+wire [9:0] even_selected_data;
+wire [9:0] odd_selected_data;
 
-// Only write active, non-transparent sprite pixels.
-// OBJ*_Z emulates the tri-state output enable from OBJPS/PLD gating.
+// Only write active, non-transparent sprite pixels. OBJ1_Z carries U164A's
+// qualification through U166's two physical delay stages; OBJ2_Z directly
+// represents U164B's output qualification.
 wire obj1_pix_valid = (~OBJ1_Z) & (OBJ1[3:0] != 4'hF);
+// The hardware-good compatibility schedule consumes adjacent compact slots:
+// H2=0 direct U168/OBJ2 is slot 2n; H2=1 delayed U162/OBJ1 is slot 2n+1.
 wire obj2_pix_valid = (~OBJ2_Z) & (OBJ2[3:0] != 4'hF);
 
-/// XXX ADD CLEAR SUPPORT !!! 
+// FPGA phase adapter for the four physical sheet-18 SIS6091B line stores.
+// The tested implementation admits a pixel on the rising OBJ_N6M phase and
+// treats each active-low CLR transition as one atomic validity command.  Keep
+// those Toki phases here; sis6091B_atomic contains no raster knowledge.
+reg obj_n6m_d = 1'b0;
+reg evnclr_d  = 1'b1;
+reg oddclr_d  = 1'b1;
 
-// XXX  THIS MODULE USE ONLY 6091B that are different than 6091 !!!
+always @(posedge clk) begin
+    obj_n6m_d <= OBJ_N6M;
+    evnclr_d  <= EVNCLR;
+    oddclr_d  <= ODDCLR;
+end
 
-// XXXX MUST ADD D1V_7p directio n?
-sis6091B u_181(
-  .clk(clk),
-  .wr_cen(OBJ_N6M), //31 //XXX ~OBJ_N6M or change in sis6091B ? 
-  //.we(~EVNWREN & ~OBJ1_Z), //30
-  //OBJ1_Z must be up only for 16 ticks 
-  //since start of object otherwise it will loop and write same object on
-  //whole line  determine by pld29 noobj & noobj_ct2 so by sg0140 (VFIND =>
-  //MATCHV => NOOBJ => NOOB_CT2)
-  // Gate writes by line write enable and non-transparent pixel
-  .we(~EVNWREN & obj1_pix_valid), //30
-  // clr at each line by sei60bu (or each frame ?)  
-  .clr_n(EVNCLR),
-  //data is deserialized by sei0010bu 
-  .data({6'b0, OBJ1[9:0]}), //6,7,8,10,12-19,22-25
-  // E1A come from sei60bu it extract write addr of each pixel 
-  // or provide read addr depending if it's even or odd line turn 
-  .addr({1'b0, E1A[8:0]}),//62-71    
-  .rd_cen(OBJ_P6M), //73
-  .find(E1FIND),
-  .q({nc0, Q_EVN1}) //42-56
+wire line_write_phase = !obj_n6m_d && OBJ_N6M;
+wire even_clear_cmd   =  evnclr_d && !EVNCLR;
+wire odd_clear_cmd    =  oddclr_d && !ODDCLR;
 
+// OBJ_P6M and ND1V_7P remain in the schematic-mapped LINEBUF interface. The
+// former SIS facade's rd_cen input was behaviorally inert, and the exact
+// package output-enable truth table is unrecovered, so the FPGA backend does
+// not claim either signal as a memory-read control.
+
+// The PCB has no conventional OBJ1/OBJ2 output mux: all four SIS6091B devices
+// connect to the pulled-up OOD/PRIOR nets. D1V parity leaves one two-lane bank
+// driving those shared nets. Its simultaneous-FIND behavior is opaque, while
+// CPU/MAME ordering and the validated single-lane compositor establish global
+// first-object-wins priority. Keep a compact slot-order tag in the six FPGA
+// RAM bits which sheet 18 leaves unconnected, then resolve simultaneous FINDs
+// by that tag. This is an FPGA representation of the shared-bus result, not a
+// claim that the original SIS6091B stores these tag bits.
+obj_line_pair_priority even_pair_priority_u(
+    .clk(clk),
+    .clear_n(EVNCLR),
+    .write_clock(OBJ_N6M),
+    .write_enable_n(EVNWREN),
+    .earlier_find(E2FIND),
+    .later_find(E1FIND),
+    .earlier_word(Q_EVN2),
+    .later_word(Q_EVN1),
+    .earlier_write_tag(even_obj2_tag),
+    .later_write_tag(even_obj1_tag),
+    .selected_find(even_selected_find),
+    .selected_data(even_selected_data)
 );
 
-//6091 B 
-sis6091B u_182(
-  .clk(clk),
-  .wr_cen(OBJ_N6M), //31
-  .we(~EVNWREN & obj2_pix_valid), //30
-  .clr_n(EVNCLR),
-  .data({6'b0, OBJ2[9:0]}), //6,7,8,10,12-19,22-25
-  .addr({1'b0, E2A[8:0]}),//62-71
-  .rd_cen(OBJ_P6M), //73
-  .find(E2FIND),
-  .q({nc1, Q_EVN2}) //42-56
+obj_line_pair_priority odd_pair_priority_u(
+    .clk(clk),
+    .clear_n(ODDCLR),
+    .write_clock(OBJ_N6M),
+    .write_enable_n(ODDWREN),
+    .earlier_find(O2FIND),
+    .later_find(O1FIND),
+    .earlier_word(Q_ODD2),
+    .later_word(Q_ODD1),
+    .earlier_write_tag(odd_obj2_tag),
+    .later_write_tag(odd_obj1_tag),
+    .selected_find(odd_selected_find),
+    .selected_data(odd_selected_data)
 );
 
-//
-sis6091B u_183(
-  .clk(clk),
-  .wr_cen(OBJ_N6M), //31
-  .we(~ODDWREN & obj1_pix_valid), //30
-  .clr_n(ODDCLR),
-  .data({6'b0, OBJ1[9:0]}), //6,7,8,10,12-19,22-25
-  .addr({1'b0, O1A[8:0]}),//62-71
-  .rd_cen(OBJ_P6M), //73
-  .find(O1FIND),
-  .q({nc2, Q_ODD1}) //42-56
+// Physical U181-U184 are SIS6091B/FIND devices.  Their exact collision and
+// clear implementation remains unrecovered; these explicit FPGA backends
+// preserve the Pocket/MiSTer-tested registered-read, first-write and atomic
+// FIND-clear result without claiming those mechanisms are SIS internals.
+sis6091B_atomic #(
+    .ADDR_W(9),
+    .DATA_W(16)
+) u_181(
+  .clk(clk),             // FPGA master clock; no package-pin equivalent
+  .clear_cmd(even_clear_cmd), // normalized U181 pin-34 EVNCLR event
+  .write_req(line_write_phase && ~EVNWREN && obj1_pix_valid), // pins 31/30
+  .write_data({even_obj1_tag, OBJ1[9:0]}), // OBJ pins + FPGA priority tag
+  .addr(E1A),            // package address pins 62-70
+  .read_valid(E1FIND),   // package pin 60 FIND
+  .read_data(Q_EVN1)     // package OOD/PRIOR pins + FPGA priority tag
 );
 
-//
-sis6091B u_184(
-  .clk(clk),
-  .wr_cen(OBJ_N6M), //31
-  .we(~ODDWREN & obj2_pix_valid), //30
-  .clr_n(ODDCLR),
-  .data({6'b0, OBJ2[9:0]}), //6,7,8,10,12-19,22-25
-  .addr({1'b0, O2A[8:0]}),//62-71
-  .rd_cen(OBJ_P6M), //73
-  .find(O2FIND),
-  .q({nc3, Q_ODD2}) //42-56
+sis6091B_atomic #(
+    .ADDR_W(9),
+    .DATA_W(16)
+) u_182(
+  .clk(clk),             // FPGA master clock; no package-pin equivalent
+  .clear_cmd(even_clear_cmd), // normalized U182 pin-34 EVNCLR event
+  .write_req(line_write_phase && ~EVNWREN && obj2_pix_valid), // pins 31/30
+  .write_data({even_obj2_tag, OBJ2[9:0]}), // OBJ pins + FPGA priority tag
+  .addr(E2A),            // package address pins 62-70
+  .read_valid(E2FIND),   // package pin 60 FIND
+  .read_data(Q_EVN2)     // package OOD/PRIOR pins + FPGA priority tag
+);
+
+sis6091B_atomic #(
+    .ADDR_W(9),
+    .DATA_W(16)
+) u_183(
+  .clk(clk),             // FPGA master clock; no package-pin equivalent
+  .clear_cmd(odd_clear_cmd), // normalized U183 pin-34 ODDCLR event
+  .write_req(line_write_phase && ~ODDWREN && obj1_pix_valid), // pins 31/30
+  .write_data({odd_obj1_tag, OBJ1[9:0]}), // OBJ pins + FPGA priority tag
+  .addr(O1A),            // package address pins 62-70
+  .read_valid(O1FIND),   // package pin 60 FIND
+  .read_data(Q_ODD1)     // package OOD/PRIOR pins + FPGA priority tag
+);
+
+sis6091B_atomic #(
+    .ADDR_W(9),
+    .DATA_W(16)
+) u_184(
+  .clk(clk),             // FPGA master clock; no package-pin equivalent
+  .clear_cmd(odd_clear_cmd), // normalized U184 pin-34 ODDCLR event
+  .write_req(line_write_phase && ~ODDWREN && obj2_pix_valid), // pins 31/30
+  .write_data({odd_obj2_tag, OBJ2[9:0]}), // OBJ pins + FPGA priority tag
+  .addr(O2A),            // package address pins 62-70
+  .read_valid(O2FIND),   // package pin 60 FIND
+  .read_data(Q_ODD2)     // package OOD/PRIOR pins + FPGA priority tag
 );
 
 
-//objon is active high
-//PRIOR_C & D are active high
-//FIND is active high
+// The current system contract treats PRIOR_C/D and FIND as active high.
+// FIND is unbubbled on sheet 18 but still needs package-pin confirmation.
 
-always @(posedge clk) begin 
-  if (D1V_7P) begin
-    if (E1FIND) 
-      { PRIOR_D, PRIOR_C, OOD[7:0] } <= Q_EVN1;
-    else if (E2FIND) 
-      { PRIOR_D, PRIOR_C, OOD[7:0] } <= Q_EVN2;
+// Sheet 18 connects D1V_7P and ND1V_7P to active-low RAM output enables.
+// Thus D1V_7P=0 enables the EVEN pair, while D1V_7P=1 makes ND1V_7P=0 and
+// enables the ODD pair. This also matches the captured SEI0060 beam routing
+// (V1B=0 -> EA is the beam, V1B=1 -> OA is the beam).
+always @(posedge clk) begin
+  if (!D1V_7P) begin
+    if (even_selected_find)
+      { PRIOR_D, PRIOR_C, OOD[7:0] } <= even_selected_data;
     else
       { PRIOR_D, PRIOR_C, OOD[7:0] } <= 10'b11_1111_1111;
   end else begin
-    if (O1FIND)
-      { PRIOR_D, PRIOR_C, OOD[7:0] } <= Q_ODD1;
-    else if (O2FIND)
-      { PRIOR_D, PRIOR_C, OOD[7:0] } <= Q_ODD2;
+    if (odd_selected_find)
+      { PRIOR_D, PRIOR_C, OOD[7:0] } <= odd_selected_data;
     else
       { PRIOR_D, PRIOR_C, OOD[7:0] } <= 10'b11_1111_1111;
   end
 end
-
-//assign {PRIOR_D, PRIOR_C, OOD[7:0]} = E1FIND ? Q_EVN1 : E2FIND ? Q_EVN2 :  O1FIND ? Q_ODD1 : O2FIND ? Q_ODD2 : 10'b0; 
-
 
 endmodule 

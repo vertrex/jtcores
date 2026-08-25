@@ -1,21 +1,11 @@
-/**
-*
-* This module handle object (sprite) DMA
-* It incrementaly goes through all main CPU RAM address from:
-* 0x6c00  to 0x6fff (1024) (0x36c00 to 0x36fff if we had ram offset for the CPU which start at 0x3000)
-* and copy the output MDB through the HVPOS module
-* copy start when XOBDIR is set to 1
-*
-* XXX also send DMA2_EA & DMA2_OA to scndma ??
-* copy DMA to this ram + the 3 ram of scndma while decoding in parallel via
-* HVPOS ?
-*  then linecunt get data from scndma calculate intersection
-*  use objps to decode and get current pixel that are decode and send to
-*  linebuf ?
-*
-*  then one line on the other the data from linebuffer is read and sent to the
-*  screen ?
-*/
+// Sheet-14 object snapshot DMA and per-line list discovery.
+// Standard TTL parts and recovered PLD24 remain explicit; VCHECK/SORT48 are
+// inferred custom-IC modes. Physical U141 is replaced by registered FPGA BRAM,
+// so the common-clock edge/read phases are FPGA timing accommodations. The
+// separate validity plane is timeout-recovery policy, not recovered U141 logic.
+// FDA traverses 1,024 16-bit source words = 256 descriptors x four words.
+// U149/U1418 select RAM word offsets 0x6c00..0x6fff; CPU-visible byte addresses
+// are 0x06d800..0x06dfff (CPU word addresses 0x36c00..0x36fff).
 module OBJDMA(
     input             clk,
     input             rst,
@@ -34,11 +24,13 @@ module OBJDMA(
     input             ODMARQ,
     input             OBUSAK,
     input             VORIGIN,
+    // Pocket-tested normalized object-scheduling coordinate. Sheet 14 uses
+    // literal SEI0050 H; restoring that requires a coupled object-path migration.
     input       [8:0] H_POS,
     input             VREV,
     input             NV256,
-    input             H_128,
-    input             H_256,
+    input             H_128, // retained unused compatibility alias of H_POS[7]
+    input             H_256, // retained unused compatibility alias of H_POS[8]
     input             V1B,
     //output
     output            MATCHV,
@@ -62,13 +54,29 @@ module OBJDMA(
 wire [7:0]VPD;
 wire VREVD_2;
 wire SDTS, XSDTS;
+reg  vclk_d;
+wire vclk_rise = VCLK && !vclk_d;
+
+always @(posedge clk) begin
+   if (rst)
+      vclk_d <= 1'b0;
+   else
+      vclk_d <= VCLK;
+end
 
 // start DMA one time per frame at VBLANK (STARTV) 
 // scan whole CPU sprite ram from 0 to 1023 
+// Clarification: those are 1024 16-bit words, four words for each of 256
+// descriptors. HVPOS decodes them and U141 stores one packed entry per object.
 // copy RAM to sis 6091 u191 
+// Correction: the sheet-14 snapshot RAM is U141, not U191.
+// U142 is physically clocked by the rising edge of SEI0050 VCLK.  VCLK is a
+// one-pixel level in the common-clock FPGA model, so a level enable would
+// resample STARTV after synchronous PROM26 changes during that same pulse.
+// Edge qualification preserves the LS74 old-D ordering of the PCB.
 LS74 u142(
    .CLK(clk),
-   .CEN(VCLK), // at each line ? 
+   .CEN(vclk_rise),
    .D(STARTV), // at each frame / vblank 
    .PRE(1'b1),
    .CLR(1'b1),
@@ -78,10 +86,23 @@ LS74 u142(
 
 wire LSBLD;
 wire [1:0] NC2;
+reg rdclk_word_d;
+wire rdclk_word_rise = RDCLK && !rdclk_word_d;
+
+always @(posedge clk) begin
+    if (rst)
+        rdclk_word_d <= 1'b0;
+    else
+        rdclk_word_d <= RDCLK;
+end
 
 LS161 u143(
     .clk(clk),
-    .CEN(RDCLK),
+    // U143 is physically clocked by the RDCLK rising edge. Today's RDCLK=N6M
+    // caller is already a one-master-clock JTFrame enable; the explicit event
+    // also preserves that physical contract if a future caller supplies a
+    // stretched level.
+    .CEN(rdclk_word_rise),
     .rst(1'b0),
     .CLR_n(XOBDIR),
     .LOAD_n(LSBLD),
@@ -93,6 +114,7 @@ LS161 u143(
 );
 
 wire OBJEN_2;
+wire OBJEN_2_RAM;
 wire OBJEN_3;
 wire MSBLD;
 wire MSBET;
@@ -101,11 +123,12 @@ wire OVER256;
 wire VFIND;
 wire INSCRN;
 
-// u146
+// Physical U146 / recovered PLD24.
 PLD24 u_pld24(
    .FDA(FDA[2:1]),
    .SDTS(SDTS),
-   //RDCKL i3 p4 unused ?
+   // Physical RDCLK pin 4 is present, but the recovered JED uses it in no
+   // output product term; its omission from PLD24's established port is exact.
    .DLHD(DLHD),
    .OIBDIR(OIBDIR),
    .OVER256(OVER256),
@@ -113,12 +136,12 @@ PLD24 u_pld24(
    .OBJEN_2(OBJEN_2),
    .VFIND(VFIND),
 ///
-   .MATCHV(MATCHV), // ==NOOBJ
+   .MATCHV(MATCHV), // PLD24 result; not the later SCNDDMA NOOBJ stage
    .OBJEN_3(OBJEN_3),
    .LSBLD(LSBLD),
    .XOBDIR(XOBDIR),
    .RAM2VLD(RAM2VLD),
-   .MSBLD(MSBLD), //start dma counter Memory Start B? Load ?
+   .MSBLD(MSBLD), // sampled by U145; it does not parallel-load U147
    .MSBET(MSBET),
    .ILD2(ILD2)
 );
@@ -142,6 +165,13 @@ wire [1:0] NC;
 // the scndma data is send to the line buffer so the sprite is written in
 // the line buffer
 
+// REVIEW CORRECTION: HVPOS decodes four 16-bit source words and U141 stores one
+// packed tuple per descriptor. On each raster line VCHECK tests those tuples;
+// SORT48 admits at most 48, and EVNWR2/ODDWR2 write the admitted tuples into the
+// selected U151/U152 ping-pong list bank. These are line banks, not "two
+// sprites". SEI0060 is downstream on sheet 17 after U153 readout, not driven
+// directly here.
+
 //what is strange is when does FDA is activated at each line it read only four by four 
 //when it's activated by dma it read one by one 
 //may  e not that much we we write only a RD_VPOS so each 4 address ..
@@ -151,14 +181,21 @@ wire [1:0] NC;
 
 // STORE VPOS and other INFO 
 // WHILE HPOS AND OTHER INFOS AS STORED IN 6091 SCNDMA 
+// Exact U141 word: {00,OBJEN,SPR2,SPR1,VREV,HREV,INSCRN,VPD[7:0]},
+// with INSCRN=ND2[8] and VPD={ND2[7:4],ND1[3:0]}. FDA3..10 select
+// the 256 used entries; the two remaining physical address pins are grounded.
 sis6091 u_141(
   .clk(clk),
+  // FPGA BRAM capture phase; the exact physical SIS6091 write edge is not yet
+  // recovered. RD_VPOS selects word 3 of four 16-bit/eight-byte source words.
   .wr_cen(~RDCLK), //clk 31
   .wr_en(~RD_VPOS), //each 4 bytes of DMA when ~OIBIDIR & FDA[2:1] == 1'b11
   // 1 fois par VBL (whole screen)  ecrit les resultats du ma ca prends plusieurs ligne 2/3 
   .wr_addr({2'b0, FDA[10:3]}),
   .wr_data({2'b0, OBJEN_1, SPR2_1, SPR1_1, VREVD_1, HREVD_1, ND2[8:4], ND1[3:0]}),
 
+  // FPGA registered-read phase; do not interpret this as a recovered SIS6091
+  // physical read-edge equation.
   .rd_cen(~RDCLK), //RDCLK ???
   // a chaque line, hbl  ca lit pour check avec sg0140 
   // si chaque sprite colisisone avec la ligne courente 
@@ -166,8 +203,32 @@ sis6091 u_141(
   // si le sg0140 colisione il affiche le sprite 
   //
   .rd_addr({2'b0, FDA[10:3]}),
-  .rd_data({NC[1:0], OBJEN_2, SPR2_2, SPR1_2, VREVD_2, ODH, INSCRN ,VPD[7:0]})
+  .rd_data({NC[1:0], OBJEN_2_RAM, SPR2_2, SPR1_2, VREVD_2, ODH, INSCRN ,VPD[7:0]})
 );
+
+// The physical and FPGA U141 memories both retain data. The difference is that
+// the FPGA VCHECK model has a recovery timeout which can return the CPU bus
+// after only part of the 256-entry refresh completed. Start an empty logical
+// epoch at ownership acquisition and expose only entries whose final-word phase
+// was reached in this refresh, so an untouched old tail cannot become a ghost.
+// A normal complete refresh marks every entry and sees no added delay.
+wire         dma_entry_valid_q;
+
+obj_snapshot_valid_plane #(
+    .ADDR_W(8)
+) u_snapshot_valid (
+    .clk(clk),
+    .rst(rst),
+    .epoch_active(~OIBDIR),
+    .mark_cen(!OIBDIR && !RD_VPOS),
+    .mark_addr(FDA[10:3]),
+    .read_cen(~RDCLK),
+    .read_addr(FDA[10:3]),
+    .read_valid(dma_entry_valid_q)
+);
+
+// OBJEN is active low at PLD24: force an invalid snapshot entry disabled.
+assign OBJEN_2 = dma_entry_valid_q ? OBJEN_2_RAM : 1'b1;
 
 /**
 *  Obj DMA genreate FDA[10:3] addr to copy obj from cpu ram to sis6091
@@ -175,9 +236,14 @@ sis6091 u_141(
 wire TC;
 wire Q_144;
 
+// Physical chain: U144A samples U147 /TC on the RDCLK edge and drives U148B
+// /PRE; U145B samples MSBLD on that edge and drives U148B /CLR. Reuse the U143
+// edge event for both LS74 halves. This is identical for today's one-clock N6M
+// pulse and prevents a future stretched RDCLK from sampling either D twice.
+
 LS74 u144(
     .CLK(clk),
-    .CEN(RDCLK),
+    .CEN(rdclk_word_rise),
     .D(TC),
     .PRE(1'b1),
     .CLR(1'b1),
@@ -189,7 +255,7 @@ wire Q_145;
 
 LS74 u145(
     .CLK(clk),
-    .CEN(RDCLK),
+    .CEN(rdclk_word_rise),
     .D(MSBLD),
     .PRE(1'b1),
     .CLR(1'b1),
@@ -199,28 +265,51 @@ LS74 u145(
 
 wire Q_148;
 
-LS74 u148(
-    .CLK(clk),
-    .CEN(1'b0),
-    .D(1'b0),
-    .PRE(Q_144),
-    .CLR(Q_145),
-    .Q(Q_148),
-    .QN(OVER256)
+// Physical sheet-14 U148B is the following 74LS74 half, used only through its
+// asynchronous /PRE and /CLR pins. Keep the literal PCB form here for review:
+//
+// LS74 u148(
+//     .CLK(clk),
+//     .CEN(1'b0),
+//     .D(1'b0),
+//     .PRE(Q_144),
+//     .CLR(Q_145),
+//     .Q(Q_148),
+//     .QN(OVER256)
+// );
+//
+// Cyclone V cannot map both independent asynchronous controls into one native
+// flip-flop. Quartus turns that literal block into an untimed latch loop with
+// undefined power-up state. Q_144/Q_145 are master-clock-domain levels, so the
+// separate facade preserves their live set/clear effect and stores the result
+// in a reset-defined FPGA register without changing the shared LS74 model.
+toki_objdma_u148_fpga u148_fpga (
+    .clk  (clk),
+    .rst  (rst),
+    .PRE_N(Q_144),
+    .CLR_N(Q_145),
+    .Q    (Q_148),
+    .QN   (OVER256)
 );
 
 //74F268 //269 ??? XXX
+// REVIEW CORRECTION: U147 is a 74F269. /PE pin 24 is tied high; it counts up,
+// MSBET drives /CEP, U148 Q drives /CET, direct RDCLK drives CP, and /TC feeds
+// U144A. FDA10:3 is the 0..255 descriptor number; U143 supplies word phase
+// FDA2:1, so each U147 increment represents one four-word/eight-byte descriptor.
 // DMA COUNTER ? 8bits !
 // output fda {FDA[10:3], 2'b11} => {DMARD, MAB[15:1]}
 // 256 value au final calculer les addresses reel
 // car en sortie des 2 bus driver
 ttl_74F269 u147(
     .clk(clk),
-    .PE_n(MSBLD),
+    // Sheet 14 U147 pin 24 (/PE) is tied high. MSBLD clocks the
+    // surrounding U145/U148 control chain; it does not reload this counter.
+    .PE_n(1'b1),
     .U_D(1'b1),
     .CEP_n(MSBET), 
     .CET_n(Q_148),
-    .CP(RDCLK), //74LS244 quad buffer 2Y4 p3 == RDCLK
+    .CP(RDCLK), // direct sheet-14 RDCLK net
     .P(8'b0),
     .Q(FDA[10:3]),
     .TC_n(TC)
@@ -241,6 +330,13 @@ ttl_74F269 u147(
 //impl directly in main.v !  XXX exlain that in MAIN_V !
 //assign {DMARD, MAB_OUT[15:1]} = !OIBDIR ? { 6'b011011 , FDA[10:1]} : {16'b0};
 //assign DMARD = !OIBDIR ? 1'b0 : 1'b1; //z ?
+
+// REVIEW CORRECTION: U149 buffers FDA1..8 to MAB1..8. U1418 buffers FDA9/10
+// to MAB9/10; the sheet straps MAB15..11=11011 and DMARD low. Both buffer
+// groups are enabled while OIBDIR is low. FPGA tri-state ownership is the
+// `main.v` mux `!OIBDIR ? {1'b0,6'b011011,FDA[10:1]}`. CPU RAM uses only
+// MAB15:1, so 0x6c00..0x6fff are RAM word offsets (1,024x16=2 KiB), while the
+// CPU map is byte 0x06d800..0x06dfff / word 0x36c00..0x36fff.
 
 // check if sprite intersect with current line ?
 // sprite is 16x16
@@ -329,26 +425,33 @@ wire OVER48;
 //and synchronize itself ?
 //maybe all the clocking is only to count line
 
+// Current trace/schematic conclusion: this SG0140 mode has no V counter bus
+// input. It reconstructs the scan line internally from physical VCLK,
+// VORIGIN, NV256 and the list/DMA cadence. Physical pin 38 is raw H2, but the
+// current hardware-tested object scheduling island supplies normalized H_POS;
+// VCHECK does not yet infer a function for H2 and SORT48 consumes that same
+// compatibility phase. Do not migrate either input in isolation.
+
 sg0140_vcheck u1411_sg0140_vcheck(
   .clk(clk),
   .rst(rst),
-  .VPD(VPD[7:0]), // {ND2[8:4], ND1[3:0]} //ND2 OFFS y (some time x some time y ?)
+  .VPD(VPD[7:0]), // {ND2[7:4], ND1[3:0]}; ND2[8] is separate INSCRN
   .ODMARQ(ODMARQ),
   .OBUSAK(OBUSAK),
   .SDTS(SDTS),
   .VORIGIN(VORIGIN),
   .OVER256(OVER256),
   .OVER48(OVER48),
-  .VREVD_2(VREVD_2),  // sprite 1 or sprite 2 (to know to which ram send it ?)
-  .OBJEN_3(OBJEN_3), //obj metadata sprite valid ?
-  .H2(H_POS[1]), //H<2>
+  .VREVD_2(VREVD_2), // vertical-reverse descriptor bit
+  .OBJEN_3(OBJEN_3), // active-high eligibility: ~INSCRN & ~OBJEN_2
+  .H2(H_POS[1]), // normalized compatibility phase; physical pin 38 is raw H2
   //.SW(1'b0),
   .RDCLK(RDCLK),
   .VCLK(VCLK),
   .VREV(VREV),
   .NV256(NV256),
   //output
-  .VMT(VMT[3:0]), // == VA1,2,3,4 address obj  in ROM
+  .VMT(VMT[3:0]), // four-bit vertical row / VA result
   .EVNWR2(EVNWR2),
   .ODDWR2(ODDWR2),
   .OIBDIR(OIBDIR),
@@ -356,13 +459,20 @@ sg0140_vcheck u1411_sg0140_vcheck(
   .VFIND(VFIND)
 );
 //74LS244 u1413 22K
+// Sheet 14: VCHECK pin 7 is buffered twice as OIBDIR and OBUSDIR, pin 6 as
+// OBUSRQ, and pin 5 as VFIND; pin 8 is NC. /2OE is grounded.
 // XXX IMPL THAT out goes tothe counter 269
 //assign Y1_4 = (!OE1_n) ? A1_4 : 4'bz;  // Tri-state si OE1_n = 1
-//assign {RDCLK_, OBUSDIR ,OBUSRQ, OIBDIR} can assign directly to sg0140
+// Correction to the exploratory tuple above: U1413 outputs are
+// {VFIND, OBUSDIR, OBUSRQ, OIBDIR}; U147 receives RDCLK directly.
 //output
 
-assign OBUSDIR = OIBDIR; // XXX check that on board ?
+// Both nets are non-inverting U1413 outputs driven by the same VCHECK pin 7.
+assign OBUSDIR = OIBDIR;
 
+// All H-derived inputs below currently share normalized H_POS compatibility
+// coordinates. The PCB uses raw SEI0050 H nets; VCHECK, SORT48, SCNDDMA and
+// their list-address/lane contracts must migrate together, never pin by pin.
 sg0140_sort48 u1412_sg0140_sort48(
   .clk(clk),
   .rst(rst),

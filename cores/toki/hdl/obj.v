@@ -16,7 +16,9 @@ module obj(
   input         STARTV,
   input         ODMARQ,
   input         VORIGIN,
-  // Retained wrapper name; carries literal SEI0050 H<1:256> for sheets 14/15.
+  // Retained wrapper name; currently carries the Pocket-tested normalized
+  // object-scheduling coordinate. A future raw-H conversion must migrate the
+  // coupled PLD22/U5A/VCHECK/SORT48/SCNDDMA list-address and lane contract.
   input  [8:0]  H_POS,
   input         VREV,  //reverse Y axis
   input         HBLB,
@@ -35,7 +37,8 @@ module obj(
   input         OBJ_N6M,
   input         RDCLK,
   input         V1B,
-  input         D1V_2,  // V1B captured by sheet-5 U5A on raw H2 rising
+  // U5A-compatible V1B sample; video.v currently uses the normalized H2 phase.
+  input         D1V_2,
   input         OBJMASK,
   input         HREV,
   input         HD, 

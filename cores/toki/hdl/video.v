@@ -649,8 +649,8 @@ always @(posedge clk) begin
      `dump_linebuf_ram("linebuf_u182.bin", obj_u.linebuf_u.u_182.mem)
      `dump_linebuf_ram("linebuf_u183.bin", obj_u.linebuf_u.u_183.mem)
      `dump_linebuf_ram("linebuf_u184.bin", obj_u.linebuf_u.u_184.mem)
-     // Fast line RAM clears its separate FIND plane in one edge; BRAM bit 16
-     // is stale by design after that command, so dump the simulation mirror.
+     // The FPGA line-store backend clears its separate FIND/used plane in one
+     // edge while leaving BRAM data stale, so dump that plane independently.
      `dump_ram8("linebuf_u181_used.bin", 512, obj_u.linebuf_u.u_181.used)
      `dump_ram8("linebuf_u182_used.bin", 512, obj_u.linebuf_u.u_182.used)
      `dump_ram8("linebuf_u183_used.bin", 512, obj_u.linebuf_u.u_183.used)

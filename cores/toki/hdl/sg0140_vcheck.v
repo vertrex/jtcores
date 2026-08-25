@@ -1,47 +1,47 @@
-///////////////////////////////////////////////////
-///////////// SG0140 VCHECK ///////////////////////
-///////////////////////////////////////////////////
-// gemini : 
+// Sheet-14 U1411 SG0140 VCHECK operating mode: object-bus arbitration,
+// vertical visibility checking, sprite-row generation and even/odd secondary-
+// list write control.
 //
-// Vertical Visibility Checker & Ping-Pong Buffer Controller
-// This is the heart of the Sprite DMA engine.
-// 1. Tracks the CRT Scanline (current_y).
-// 2. Checks if the sprite currently on the bus (VPD) intersects the scanline.
-// 3. Generates the Texture Line Offset (VMT).
-// 4. Manages the Write Strobes for the Ping-Pong Line Buffers.
+// PCB captures prove that the selected physical list receives exactly 48 WR2
+// transfers per line: visible descriptors first, followed by invalid padding
+// until SORT48 reaches OVER48.  This RTL instead emits one active-low VFIND/WR2
+// pulse for each admitted descriptor and stores a compact 0..47 list.  The
+// synchronous-memory aperture and stale-slot validity needed by that FPGA
+// representation live in obj_secondary_list_bridge.v.  The two models must be
+// migrated together; the pulse protocol below is not claimed as SG0140 logic.
 //
-// codex : 
-// 1. Visibility test: Compare the current scanline with each sprite’s Y position and produce a 4‑bit line‑within‑sprite offset
-//     (VMT) if visible.
-// 2. List write strobes: Generate EVNWR2/ODDWR2 to store the sprite’s per‑line metadata into the line list RAMs (SIS6091B in
-//     SCNDDMA).
-//  3. DMA handshaking: Generate OBUSRQ and OIBDIR to request/hold the object RAM bus during the DMA scan.
+// The 48 MHz clk, edge detectors, registered-U141 phase compensation and
+// fpga_level_timeout recovery are FPGA infrastructure.  Pin 39 is selected by
+// the board's JP141 VCC/GND jumper, but its custom-IC function is unrecovered
+// and it is intentionally omitted from this interface.  Physical pin 7 fans
+// out through two U1413 buffer channels as both OIBDIR and OBUSDIR, so OBJDMA's
+// external OBUSDIR=OIBDIR connection matches the schematic.
 
 module sg0140_vcheck(
-  input             clk,      // main clk 48Mhz
-  input             rst,      // reset signal 
+  input             clk,      // FPGA 48 MHz common clock; not an SG0140 pin
+  input             rst,      // FPGA reset abstraction for RESETA pins 40/41
 
-  input       [7:0] VPD,      // Sprite Y Position (Lower 8 bits) + offset (objdma -> hvpos -> SIS6091 -> VPD)
-  input             ODMARQ,   // DMA Request (Bus Arbitration) Assertion should drive OBUSRQ low
-  input             OBUSAK,   // Bus Acknowledge from CPU. When asserted, OIBDIR becomes active (bus granted).
-  input             SDTS,     // Serial Data Timing Strobe : "Scan DMA" start / sprite processing start(from STARTV) 59.61khz frequency 
-  input             VORIGIN,  // Vertical Origin (Frame Reset) PROM‑derived visible vertical origin 
-  input             OVER256,  // Scan-active window from OBJDMA (high while FDA is walking, low after terminal count)
-  input             OVER48,   // List overflow (from sort48), stop to writes and VFIND 
-  input             VREVD_2,  // Sprite Vertical Flip Flag
-  input             OBJEN_3,  // Sprite Slot Valid Flag (sprite enable after PLD24 gating (~INSCRN & OBJEN_2))
-  input             H2,       // Horizontal Timing used for ? (every 8 pixel? 2**3? to validate) 
-  input             RDCLK,    // Read Clock (6MHz Strobe) from Object DMA. 
-  input             VCLK,     // Line tick (≈15.6 kHz) (Increments Y /internal scanline counter)
-  input             VREV,     // Screen Vertical Flip (Cocktail Mode)
-  input             NV256,    // Vertical Blanking/MSB or "in-visible-area"/active display flag (reset scanline counter?) > 256pixel
+  input       [7:0] VPD,      // pins 9..16: descriptor vertical-position bus from U141
+  input             ODMARQ,   // pin 28: active-low object-DMA request
+  input             OBUSAK,   // pin 29: active-low 68000 bus grant/acknowledge
+  input             SDTS,     // pin 30: STARTV sampled by VCLK in U142; frame-phase level
+  input             VORIGIN,  // pin 31: PROM26-derived vertical-origin timing
+  input             OVER256,  // pin 32: OBJDMA 256-entry terminal/window level
+  input             OVER48,   // pin 34: SORT48 48-entry terminal level
+  input             VREVD_2,  // pin 33: per-descriptor vertical reverse
+  input             OBJEN_3,  // pin 35: PLD24 admitted-object level
+  input             H2,       // pin 38: physical H2 timing input; internal role unrecovered
+  input             RDCLK,    // pin 26: physical read timing input; exact SG edge unrecovered
+  input             VCLK,     // pin 27: one-line timing level (about 15.6 kHz)
+  input             VREV,     // pin 3: global/cocktail vertical reverse
+  input             NV256,    // pin 2: PLD22 /V256 vertical-MSB timing
 
-  output reg  [3:0] VMT,    // Vertical Map Texture/ Vertical Metadata (Line Offset 0-15) used to fetch correct row from ROM
-  output reg        EVNWR2, // Write Enable for Even Buffer (Active Low) write strobes into SCNDMA list RAMs
-  output reg        ODDWR2, // Write Enable for Odd Buffer (Active Low)
-  output reg        OIBDIR, // Bus direction enable (Active low , 0 = object DMA own the bus)
-  output reg        OBUSRQ, // Bus Request Output to the CPU (Active low)
-  output reg        VFIND   // Sprite Found Strobe (Active Low) consumed by sort48 and PLD24 to generate MATCHV
+  output reg  [3:0] VMT,    // pins 17..20: 1/2/4/8 sprite row within the 16-line object
+  output reg        EVNWR2, // pin 23: active-low even-list write control
+  output reg        ODDWR2, // pin 24: active-low odd-list write control
+  output reg        OIBDIR, // pin 7 via U1413: active-low object-bus ownership/direction
+  output reg        OBUSRQ, // pin 6 via U1413: active-low CPU bus request
+  output reg        VFIND   // pin 5: physical active-low level; compact RTL uses a pulse
 );
 
     // -------------------------------------------------------------------------
@@ -50,19 +50,31 @@ module sg0140_vcheck(
     reg [8:0] current_y;
     reg old_vclk;
     reg old_vorigin;
+    reg old_nv256;
     
     always @(posedge clk) begin
         if (rst) begin
             current_y  <= 0;
             old_vclk   <= 0;
             old_vorigin<= 0;
+            old_nv256  <= 0;
         end else begin
             old_vclk    <= VCLK;
             old_vorigin <= VORIGIN;
+            old_nv256   <= NV256;
 
-            // Frame Reset on rising edge of VORIGIN
+            // Current inferred phase: restart on the rising edge of VORIGIN.
             if (!old_vorigin && VORIGIN) begin
                 current_y <= 9'd0;
+            end
+            // NV256 is the PCB's vertical-MSB input to VCHECK.  Its falling
+            // edge is the 261->0 raster wrap.  The object list is a
+            // ping-pong line buffer, so VCHECK must assemble beam line + 1:
+            // preload one here, then let VCLK advance it once per line.
+            // Ignoring this pin let the six post-VORIGIN blanking lines leak
+            // into the counter and displayed every sprite five lines early.
+            else if (old_nv256 && !NV256) begin
+                current_y <= 9'd1;
             end
             // Line Increment
             else if (VCLK && !old_vclk) begin
@@ -74,97 +86,130 @@ module sg0140_vcheck(
     // -------------------------------------------------------------------------
     // 2. Bus Arbitration
     // -------------------------------------------------------------------------
+    reg dma_pending;
+
+    // A normal 256-entry object transfer occupies about 8k master clocks.
+    // If either the bus request or its ownership survives for 131072 clocks
+    // (about 2.7 ms at 48 MHz), the grant/terminal-count handshake is stuck.
+    // Briefly release the 68000 bus so the next ODMARQ can start a clean
+    // arbitration cycle instead of freezing the object snapshot forever. This
+    // guard is FPGA recovery policy, not inferred SG0140 behavior.
+    wire bus_timeout;
+
+    fpga_level_timeout #(
+        .WIDTH(17)
+    ) u_bus_timeout (
+        .clk(clk),
+        .rst(rst),
+        .active(!OBUSRQ),
+        .expired(bus_timeout)
+    );
+
     always @(posedge clk) begin
         if (rst) begin
             OBUSRQ <= 1'b1; 
             OIBDIR <= 1'b1; 
+            dma_pending <= 1'b0;
         end
         else begin
-            // Keep the request line explicitly deasserted whenever object DMA
-            // is not asking for the bus. Without this, an early ODMARQ pulse
-            // can leave OBUSRQ stuck low forever if no grant happens in the
-            // same phase, which stalls the 68k.
-            if (!OVER256) begin
+            // ODMARQ is only a short active-low CPU write strobe. Latch that
+            // request until the 68000 acknowledges it; the grant normally
+            // arrives after ODMARQ has already returned high.
+            if (!ODMARQ)
+                dma_pending <= 1'b1;
+
+            if (bus_timeout) begin
                 OIBDIR <= 1'b1;
                 OBUSRQ <= 1'b1;
+                dma_pending <= 1'b0;
+            end else if (!OVER256) begin
+                // End DMA ownership and release the RAM bus. A new short
+                // ODMARQ can coincide with this idle/terminal interval, so
+                // preserve BR if either the live pulse or its pending latch is
+                // active instead of discarding that frame's refresh request.
+                OIBDIR <= 1'b1;
+                OBUSRQ <= (dma_pending || !ODMARQ) ? 1'b0 : 1'b1;
             end else if (!OBUSAK && !OBUSRQ) begin
-                OIBDIR <= 1'b0; // bus granted
-                OBUSRQ <= 1'b1;
-            end else if (!ODMARQ && OIBDIR) begin
+                // The 68000 granted the bus.  Keep BR asserted until the whole
+                // 256-entry transfer completes; BG remains valid throughout
+                // this ownership window on the PCB.
+                OIBDIR <= 1'b0;
                 OBUSRQ <= 1'b0;
-            end else if (ODMARQ && OIBDIR) begin
-                OBUSRQ <= 1'b1;
+                dma_pending <= 1'b0;
+            end else if ((dma_pending || !ODMARQ) && OIBDIR) begin
+                OBUSRQ <= 1'b0;
+            end else if (!OIBDIR) begin
+                OBUSRQ <= 1'b0;
             end
 
-        // SDTS could also gate request/ownership
         end
     end
-
-    // Latch VPD on the consume edge for observability, but use the live bus
-    // value for the actual compare. Live MAD captures show the old RDCLK-rise
-    // latch model compared the previous object while SORT48/SCNDDMA kept the
-    // current object metadata, producing mixed Y/X pairs.
-    reg [7:0] vpd_latched;
 
     // Extended Y to 9 bits for calculation logic
     wire [8:0] sprite_y = {1'b0, VPD};
 
-    // Distance from current scanline
-    // Unsigned subtraction handles wrapping correctly for this logic
-    wire [8:0] diff_y = current_y - sprite_y;
+    // current_y names the N+1 secondary-list bank being assembled. Sheets
+    // 16-18 add the second ping-pong stage: that list is consumed into the
+    // object line RAM and becomes visible on N+2. Visibility and VMT must
+    // therefore describe current_y+1. Keep the WR2 bank choice below on
+    // current_y[0]; using display_y parity there would write the live bank.
+    wire [8:0] display_y = current_y + 9'd1;
+    wire [8:0] diff_y = display_y - sprite_y;
     
-    // Sprite is visible if scanline is within [Y, Y+15]
-    // AND the slot is not an empty/unused placeholder (VPD != 0).
-    // Rationale: unused sprite slots in CPU RAM have all-zero attributes.
-    // Their VPD=0 would match "visible" on scanlines 0..15 for EVERY
-    // unused slot, filling scnddma with phantom entries. Test ROMs like
-    // MAD only populate slot 0; real games fill all 128. Filtering VPD=0
-    // is safe because any sprite at screen Y=0 is in VBL area anyway.
+    // VPD!=0 is a non-PCB compatibility heuristic: the FPGA epoch-valid gate
+    // rejects stale/unwritten U141 entries, but a freshly copied all-zero CPU
+    // slot can still assert OBJEN_3 in the current inferred enable model. MAD
+    // leaves such slots behind; admitting them fills the 48-entry list at Y=0
+    // and breaks stock/MAD frames. Keep this until the physical unused-slot or
+    // object-enable rule is recovered. It currently excludes legitimate Y=0.
     wire visible = (diff_y < 9'd16) && (VPD != 8'h00);
    
-    // Flip Logic:
-    // Screen Flip (VREV) XOR Sprite Flip (VREVD_2)
+    // Current inferred global/per-object vertical-reverse equation.  The pins
+    // are physical, but the XOR and complemented-row update phase still need a
+    // joint VPD/VMT/flip capture to be called recovered SG0140 behavior.
     wire screen_flip = VREV ^ VREVD_2;
 
-    // Ping-Pong Logic:
-    // If we are displaying Line N, we must prepare the buffer for Line N+1.
-    // Line N Even (LSB=0) -> Next is Odd. Write to Odd.
-    // Line N Odd  (LSB=1) -> Next is Even. Write to Even.
-    //wire target_is_even = current_y[0]; // If 1 (Odd), next is Even.
-    
     // RDCLK edge detector for single-cycle strobes
     reg rdclk_d;
-    wire rdclk_rise = (rdclk_d == 1'b0) && (RDCLK == 1'b1);
+    reg over256_d;
     wire rdclk_fall = (rdclk_d == 1'b1) && (RDCLK == 1'b0);
 
-    // List-build phase: during display-side scan while OBJDMA is still
-    // actively walking the cached sprite table. Once OVER256 drops low, the
-    // scan is finished and VCHECK must stop re-evaluating the wrapped entry 0.
-    wire list_phase = ~SDTS & OVER256;
+    // Current compact-list build gate.  It is not the physical WR2 padding
+    // protocol: PCB captures also show WR2 transfers in the terminal/padding
+    // interval. U141's registered FPGA read output trails the FDA/OVER256 chain
+    // by one system clock, so delay only this gate to suppress the priming tuple
+    // while retaining entry 255. The PCB RAM has no registered-output delay.
+    wire list_phase = ~SDTS & over256_d;
 
     always @(posedge clk) begin
         rdclk_d <= RDCLK;
+        over256_d <= OVER256;
         if (rst) begin
+            rdclk_d <= 1'b0;
+            over256_d <= 1'b0;
             VFIND <= 1'b1;
             EVNWR2 <= 1'b1;
             ODDWR2 <= 1'b1;
             VMT <= 4'h0;
-            vpd_latched <= 8'h00;
         end else begin
             // Defaults (inactive)
             VFIND  <= 1'b1;
             EVNWR2 <= 1'b1;
             ODDWR2 <= 1'b1;
 
+            // U141 is synchronous FPGA RAM.  Its pre-advance output is valid
+            // on the clock that detects RDCLK falling; U141 advances to the
+            // next entry through a nonblocking update on that same clock.
+            // Consume the current entry here before the new value is visible.
             if (list_phase && rdclk_fall) begin
-                vpd_latched <= VPD;
                 if (visible && OBJEN_3 && !OVER48) begin
                     VFIND <= 1'b0;
                     VMT   <= screen_flip ? ~diff_y[3:0] : diff_y[3:0];
 
-                    // Ping-pong target:
-                    // when current line is odd, build next even list (EVNWR2 low)
-                    // when current line is even, build next odd list (ODDWR2 low)
+                    // The list RAM being built is opposite the bank currently
+                    // displayed. Sheet 15 hard-wires EVNWR2 to U151/EA and
+                    // ODDWR2 to U152/OA; SORT48 applies the matching address
+                    // mux. current_y is the next raster row being assembled.
                     if (current_y[0]) begin
                         EVNWR2 <= 1'b0;
                     end else begin

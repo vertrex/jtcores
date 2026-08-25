@@ -1,9 +1,9 @@
 //  Opaque SG0140 mode-11 behavioral model for sheet 17, inferred from the
 //  external phase buses and U153 traces; this is not an internal netlist.
-//  The reduced module interface omits additional physical SPR pins whose
-//  relevance is still unknown, and the current level-latch timing is chosen
-//  to tolerate registered FPGA RAM. This block is synthesis-pruned while the
-//  pair adapter owns visible pixels.
+//  On Toki sheet 17 SPR1/3 and SPR2/3 bypass U173 and enter U176 directly;
+//  U173 pins 28..35 are strapped low, so they are not omitted sprite inputs.
+//  The current level-latch timing is chosen to tolerate registered FPGA RAM.
+//  Current fits retain the ADDR/NOOBJ path; only unused OH fanout may prune.
 //
 //  "Object H-position + ROM index latch" for the sprite pipeline.
 //  Two-phase latch, driven by CTLT1/CTLT2 (both active low).
