@@ -5,7 +5,7 @@
 *
 * Provisional fixed behavior for the reduced pin facade formerly used by the
 * sheet-15 object lists and retained for custom-IC review/other Seibu boards.
-* Toki production U151/U152 now use obj_secondary_list_ram_fpga because their
+* Toki production U151/U152 now use direct jtframe_ram instances because their
 * synchronous BRAM latency must be explicit outside this IC facade. Sheet-18
 * registered line storage, atomic FIND clearing and first-write admission are
 * FPGA implementation requirements in the separate sis6091B_atomic backend.

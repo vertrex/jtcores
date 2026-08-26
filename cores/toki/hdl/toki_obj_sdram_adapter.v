@@ -102,13 +102,7 @@ reg        pair_even_arm;
 reg        pair_odd_arm;
 reg        pair_draw_started;
 reg        pair_draw_seen_active;
-reg        pair_seam_primed;
-// FPGA acknowledged-ROM publication marker. PAIR_READY means both cached rows
-// are complete, so an isolated pair is published as soon as it becomes the
-// active render bank. That gives T3F/T3F_2 asynchronous-ROM-like setup before
-// FIRST/SECND; line-RAM writing is still held until the matching attributes and
-// X counter have transferred. This is transport state, not an extra PCB latch.
-reg        pair_replay_armed;
+reg        pair_lane1_primed;
 // An acknowledged row request may outlive the raster generation which issued
 // it.  The PCB's local ROM cannot do that; this flag retires the completed
 // transport response without ever publishing it to the physical serializers.
@@ -173,7 +167,6 @@ wire  [1:0] render_word;
 // continuously available independent U168/U162 source words after complete
 // rows have returned from SDRAM. The PCB has no corresponding fill/replay RAM.
 wire        row_replay_ready;
-wire        row_replay_busy;
 wire        row_replay_cs;
 wire        row_replay_rom_select;
 wire [17:0] row_replay_addr;
@@ -189,7 +182,6 @@ wire row_replay_present = pair_push_desc[39];
 wire row_replay_lane = pair_push_lane;
 wire row_replay_pair_bank = pair_fill_bank;
 wire row_replay_rom_select_in = pair_push_desc[31];
-wire row_replay_reverse_in = pair_push_desc[38] ^ HREV;
 wire [17:0] row_replay_base = pair_push_base;
 // With the literal SEI0050 T3F phase, direct T3F loads at draw_hphase=1 and
 // delayed T3F_2 at phase 3. Bit 1 still distinguishes direct lane 0 from
@@ -213,23 +205,15 @@ wire [39:0] pair_replay_lane1 =
     pair_lane1_ctx[row_replay_active_bank];
 wire [39:0] pair_replay_desc = row_replay_lane_out ?
                                pair_replay_lane1 : pair_replay_lane0;
-// The former normalized PLD22 schedule reached FIRST two pixels after the
-// delayed T3F_2 load, so FPGA replay had to splice one cached word across two
-// pair banks. Literal raw FIRST now coincides with that load: early_lane1 can
-// select the complete new bank directly, just as the PCB ROM bus changes with
-// the descriptor. Keep the pre-load readiness qualification below, but do not
-// replace either complete cached word with the obsolete 2-old/2-new splice.
-wire row_replay_seam_valid = 1'b0;
-wire row_replay_seam_old_bank = pair_render_bank;
-wire row_replay_seam_new_bank = pair_fill_bank;
-wire row_replay_seam_reverse = row_replay_lane_out ?
-                               (pair_render_lane1[38] ^ HREV) :
-                               (pair_render_lane0[38] ^ HREV);
-// Retained inactive compatibility inputs of obj_dual_row_replay. If the old
-// splice were enabled, lane 0 would cross at word 0 forward / word 3 reverse
-// and lane 1 at word 3 forward / word 0 reverse. seam_valid is tied low above.
-wire [1:0] row_replay_seam_word =
-    (row_replay_lane_out ^ row_replay_seam_reverse) ? 2'd3 : 2'd0;
+// Literal raw FIRST now coincides with the delayed T3F_2 load, so a complete
+// pending bank can replace the old bank directly. Keep the word-index check
+// which proves that lane 1 reached its load before FIRST/SECND handoff, without
+// retaining the obsolete normalized-raster cross-bank pixel splice.
+wire row_replay_prime_reverse = row_replay_lane_out ?
+                                (pair_render_lane1[38] ^ HREV) :
+                                (pair_render_lane0[38] ^ HREV);
+wire [1:0] row_replay_prime_word =
+    (row_replay_lane_out ^ row_replay_prime_reverse) ? 2'd3 : 2'd0;
 wire row_replay_fire = row_replay_req && row_replay_ready;
 
 // Literal raw FIRST/SECND timing supplies the two-pixel displacement between
@@ -239,10 +223,7 @@ wire row_replay_fire = row_replay_req && row_replay_ready;
 // cached row payloads in ROM order and select them with the raw word phase.
 // Complete replay banks switch at FIRST/SECND; no 2-old/2-new word splice is
 // active.
-obj_dual_row_replay #(
-    .LANE0_PHASE_SHIFT(0),
-    .LANE1_PHASE_SHIFT(0)
-) row_replay_u(
+obj_dual_row_replay row_replay_u(
     .clk(clk),
     .rst(RESETA),
     .push_valid(row_replay_req),
@@ -251,7 +232,6 @@ obj_dual_row_replay #(
     .push_lane(row_replay_lane),
     .push_pair_bank(row_replay_pair_bank),
     .push_rom_select(row_replay_rom_select_in),
-    .push_reverse(row_replay_reverse_in),
     .push_row_base(row_replay_base),
     .rom_cs(row_replay_cs),
     .rom_select(row_replay_rom_select),
@@ -261,17 +241,12 @@ obj_dual_row_replay #(
     .active_pair_bank(row_replay_active_bank),
     .replay_lane(row_replay_lane_out),
     .word_sel(render_word),
-    .seam_valid(row_replay_seam_valid),
-    .seam_old_pair_bank(row_replay_seam_old_bank),
-    .seam_new_pair_bank(row_replay_seam_new_bank),
-    .seam_word_sel(row_replay_seam_word),
-    .seam_reverse(row_replay_seam_reverse),
     .pair_ready(),
     .ready_map(),
     .replay_pd(row_replay_pd),
     .slot_done(row_replay_done),
     .slot_done_ctx(row_replay_done_ctx),
-    .busy(row_replay_busy)
+    .busy()
 );
 
 // Once a cached pair owns replay, the live list scanner may already be showing
@@ -327,8 +302,10 @@ assign fh_cap         = hpos_cap;
 // unchanged.
 wire pair_cap_visible_h = !fh_cap[8] || (fh_cap > 9'h1f1);
 
-assign PD[15:0] = pair_render_active && pair_replay_armed ?
-                  row_replay_pd : 16'hffff;
+// PAIR_READY publishes only complete cached rows. pair_render_active is thus
+// both the render-bank ownership and replay-data validity state; the former
+// duplicate replay-armed register never represented an independent phase.
+assign PD[15:0] = pair_render_active ? row_replay_pd : 16'hffff;
 // U177's 74LS04 gates generate active-low write enables on sheet 17. The FPGA
 // adapter starts a finite 16-pixel burst only after a complete row and its
 // effective counter load are committed. Using the whole HBLB-active phase
@@ -475,13 +452,6 @@ wire pair_h2_1_capture_evt = ctlt2_capture_cen &&
                              pair_ctlt2_first_phase;
 wire pair_h2_0_transfer_evt = ctlt2_capture_cen &&
                               pair_ctlt2_second_phase;
-// The active-low FIRST/CTLT2 pulse begins before T3F rises. Retain its qualified
-// falling edge as an explicit replay-setup event for the asynchronous-ROM
-// timing contract. PAIR_READY currently publishes an isolated complete row
-// earlier; attribute old-Q transfer still occurs at the pulse's rising edge.
-wire pair_h2_1_replay_prime_evt = ctlt2_fall &&
-                                  h4_phase && !h8_phase &&
-                                  !pcb_hphase[1];
 // Only a registered PAIR_READY may affect the live attribute bus. Feeding a
 // combinational SDRAM/cache completion into this decision creates a path from
 // ROM OK through OBJ_HREV and the graphics address back to ROM OK. Cache hits
@@ -491,20 +461,20 @@ wire pair_pending_ready = pair_fetch_state == PAIR_READY;
 // The PCB primes the following descriptor pair while the current serializers
 // shift their final pixels. FIRST receives pending lane 1; SECND transfers it
 // and captures pending lane 0 after the old replay bank's last T3F_2 load.
-// Keep this overlap only within the live target line-bank epoch. The FPGA
-// replay boundary handles equal and mixed serializer directions separately,
-// so a flip change no longer needs a half-rate isolated-pair fallback.
+// Keep this overlap only within the live target line-bank epoch. Complete-bank
+// replay and load-aligned direction selection handle equal and mixed
+// serializer directions, so a flip change no longer needs a half-rate
+// isolated-pair fallback.
 assign pair_overlap_candidate = pair_render_active && pair_draw_started &&
                                 burst_active && pair_pending_ready &&
                                 pair_fill_writable &&
                                 (pair_line_bank[pair_fill_bank] ==
                                  pair_line_bank[pair_render_bank]);
-// Require lane 1's complete cached boundary word to be selected before
+// Require lane 1's complete cached word to be selected before
 // allowing FIRST/SECND to overlap the pair. A late cache completion falls
 // back to an isolated pair start instead of exposing a partially primed
-// serializer. pair_seam_primed retains its historical name; no word splice is
-// active.
-wire pair_overlap_eligible = pair_overlap_candidate && pair_seam_primed;
+// serializer.
+wire pair_overlap_eligible = pair_overlap_candidate && pair_lane1_primed;
 // FIRST primes pending lane 1.  Keep that same tagged descriptor on the
 // shared attribute bus through its phase-3 T3F_2 load; SECND then moves
 // the registered render bank and captures pending lane 0.  Limiting the mux
@@ -603,8 +573,7 @@ always @(posedge clk) begin
       pair_odd_arm           <= 1'b0;
       pair_draw_started      <= 1'b0;
       pair_draw_seen_active  <= 1'b0;
-      pair_seam_primed       <= 1'b0;
-      pair_replay_armed      <= 1'b0;
+      pair_lane1_primed      <= 1'b0;
       pair_fetch_discard     <= 1'b0;
       pair_deadline_passed   <= 1'b0;
       pair_current_bank_cleared <= 1'b0;
@@ -687,7 +656,6 @@ always @(posedge clk) begin
                // still feeding PD. A delayed line-buffer tail no longer owns
                // the replay row, so it must not add a 16-pixel dead slot.
                if (!pair_render_active && !burst_active &&
-                   !even_wren_active && !odd_wren_active &&
                    pair_fill_writable) begin
                   pair_render_active   <= 1'b1;
                   pair_render_bank     <= pair_fill_bank;
@@ -697,13 +665,12 @@ always @(posedge clk) begin
                   pair_odd_arm         <= 1'b0;
                   pair_draw_started    <= 1'b0;
                   pair_draw_seen_active <= 1'b0;
-                  pair_seam_primed     <= 1'b0;
+                  pair_lane1_primed    <= 1'b0;
                   // Both cached rows are complete before PAIR_READY. Publish
                   // the isolated bank immediately so its serializers can
                   // pre-load before FIRST/SECND, matching the setup already
                   // provided by asynchronous mask ROM on the PCB. No line-RAM
                   // write is armed until the physical attribute/X edges.
-                  pair_replay_armed    <= 1'b1;
                   pair_next_bank       <= ~pair_fill_bank;
                   pair_fetch_state     <= PAIR_IDLE;
                end
@@ -718,20 +685,16 @@ always @(posedge clk) begin
       // FIRST at normalized H=3/raw H=5 primes delayed OBJ1/lane 1. SECND at
       // normalized H=5/raw H=7 transfers it through U165 and captures direct
       // OBJ2/lane 0 through U169. Only then may the shared write burst start.
-      if (pair_render_active && pair_h2_1_replay_prime_evt)
-         pair_replay_armed <= 1'b1;
-
       if (pair_render_active && pair_h2_1_capture_evt)
          pair_attr_first_seen <= 1'b1;
 
       // The delayed lane's critical complete-bank word loads at phase 3.
       // Remember that setup completed so the later FIRST/SECND handoff may
-      // proceed safely. row_replay_seam_word is only the retained word-index
-      // expression; the replay splice itself is disabled.
+      // proceed safely.
       if (pair_overlap_candidate && OBJ_N6M &&
           (draw_hphase == 2'b11) &&
-          (render_word == row_replay_seam_word))
-         pair_seam_primed <= 1'b1;
+          (render_word == row_replay_prime_word))
+         pair_lane1_primed <= 1'b1;
 
       // Dense lists require one pair every 16 pixels. At SECND the old bank
       // has supplied its final delayed serializer load, while U165/U169 see
@@ -746,7 +709,7 @@ always @(posedge clk) begin
          pair_odd_arm           <= pair_line_bank[pair_fill_bank];
          pair_draw_started      <= 1'b0;
          pair_draw_seen_active  <= 1'b0;
-         pair_seam_primed       <= 1'b0;
+         pair_lane1_primed      <= 1'b0;
          pair_attr_first_seen   <= 1'b0;
       end else if (pair_render_active && pair_h2_0_transfer_evt &&
           pair_attr_first_seen && !pair_row_ready &&
@@ -777,8 +740,7 @@ always @(posedge clk) begin
          pair_draw_started <= 1'b0;
          pair_draw_seen_active <= 1'b0;
          pair_attr_first_seen <= 1'b0;
-         pair_seam_primed <= 1'b0;
-         pair_replay_armed <= 1'b0;
+         pair_lane1_primed <= 1'b0;
       end
 
       // HBLB's following rising edge, rather than raw V1B, is the physical
@@ -843,8 +805,7 @@ always @(posedge clk) begin
          pair_odd_arm            <= 1'b0;
          pair_draw_started       <= 1'b0;
          pair_draw_seen_active   <= 1'b0;
-         pair_seam_primed        <= 1'b0;
-         pair_replay_armed       <= 1'b0;
+         pair_lane1_primed       <= 1'b0;
       end
    end
 end

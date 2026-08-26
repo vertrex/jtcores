@@ -81,22 +81,35 @@ obj_secondary_list_bridge u_list_bridge (
 // Physical U151/U152 are SIS6091B packages with a common address bus and no
 // externally visible FPGA-style read-latency register. Inferred block RAM adds
 // that register, so use a policy-free storage backend and keep tuple/valid
-// timing in the explicit bridge above. XOBDIR is the physical output-enable
-// path; the internal FPGA consumer remains driven and NOOBJ masks invalid q.
-obj_secondary_list_ram_fpga u_151 (
-  .clk(clk),
-  .write_req(even_write_req),
-  .addr(DMA2_EA),
+// timing in the explicit bridge above. Each physical location remains named
+// U151/U152 here; jtframe_ram is the policy-free registered-storage backend,
+// so a Toki-specific wrapper adds no separate behavior. XOBDIR is the
+// physical output-enable path; the internal FPGA consumer remains driven and
+// NOOBJ masks invalid q.
+jtframe_ram #(
+  .DW(16),
+  .AW(6),
+  .CEN_RD(0)
+) u_151 (
+  .clk (clk),
+  .cen (1'b1),
   .data(list_data),
-  .q(q_even)
+  .addr(DMA2_EA),
+  .we  (even_write_req),
+  .q   (q_even)
 );
 
-obj_secondary_list_ram_fpga u_152 (
-  .clk(clk),
-  .write_req(odd_write_req),
-  .addr(DMA2_OA),
+jtframe_ram #(
+  .DW(16),
+  .AW(6),
+  .CEN_RD(0)
+) u_152 (
+  .clk (clk),
+  .cen (1'b1),
   .data(list_data),
-  .q(q_odd)
+  .addr(DMA2_OA),
+  .we  (odd_write_req),
+  .q   (q_odd)
 );
 
 // D1V_2 is sheet-5 U5A Q: V1B sampled on the literal raw-H2 rising edge.

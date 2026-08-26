@@ -626,8 +626,8 @@ always @(posedge clk) begin
   if (frame_counter == DUMP_START_FRAME && !dump_done) begin
      $display("DUMPING");
 
-     `dump_ram16("scnddma_u151.bin", 64, obj_u.scnddma_u.u_151.u_ram.mem)
-     `dump_ram16("scnddma_u152.bin", 64, obj_u.scnddma_u.u_152.u_ram.mem)
+     `dump_ram16("scnddma_u151.bin", 64, obj_u.scnddma_u.u_151.mem)
+     `dump_ram16("scnddma_u152.bin", 64, obj_u.scnddma_u.u_152.mem)
      `dump_ram8("scnddma_u151_used.bin", 64, obj_u.scnddma_u.u_list_bridge.even_valid)
      `dump_ram8("scnddma_u152_used.bin", 64, obj_u.scnddma_u.u_list_bridge.odd_valid)
      `dump_ram16_split("scnddma_u153.bin", 1024, obj_u.scnddma_u.u_153)

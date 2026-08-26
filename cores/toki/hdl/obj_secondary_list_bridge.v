@@ -66,11 +66,7 @@ wire [15:0] list_data_held = {
 assign list_data = RDCLK ? list_data_live :
                    list_data_valid ? list_data_held : list_data_live;
 
-wire even_write_active = !EVNWR2;
-wire odd_write_active = !ODDWR2;
 reg d1v2_d = 1'b0;
-reg even_write_d = 1'b0;
-reg odd_write_d = 1'b0;
 reg [63:0] even_valid = 64'b0;
 reg [63:0] odd_valid = 64'b0;
 reg even_build_started = 1'b0;
@@ -78,16 +74,17 @@ reg odd_build_started = 1'b0;
 
 wire d1v2_rise = !d1v2_d && D1V_2;
 wire d1v2_fall = d1v2_d && !D1V_2;
-wire even_write_rise = !even_write_d && even_write_active;
-wire odd_write_rise = !odd_write_d && odd_write_active;
 wire even_addr_legal = (DMA2_EA >= 6'd16);
 wire odd_addr_legal = (DMA2_OA >= 6'd16);
 
 // Normalize each active-low package WR2 assertion into exactly one FPGA RAM
 // write. The physical SORT48 window is 16..63; rows 0..15 are never admitted
 // into either storage or validity, including during the raw-counter gap.
-assign even_write_req = even_write_rise && even_addr_legal;
-assign odd_write_req  = odd_write_rise  && odd_addr_legal;
+// The falling-edge detectors above already retain the previous active-low
+// WR2 levels for the tuple hold. Reuse those exact events for the RAM writes;
+// a second pair of complementary history registers has identical state.
+assign even_write_req = evnwr2_hold_fall && even_addr_legal;
+assign odd_write_req  = oddwr2_hold_fall && odd_addr_legal;
 
 reg even_valid_q = 1'b0;
 reg odd_valid_q = 1'b0;
@@ -98,8 +95,6 @@ reg odd_valid_q = 1'b0;
 // not arm the following build epoch.
 always @(posedge clk) begin
     d1v2_d         <= D1V_2;
-    even_write_d   <= even_write_active;
-    odd_write_d    <= odd_write_active;
     // The storage backend registers q from these same live address buses on
     // this edge. Register the corresponding validity lookup here so payload
     // and presence remain aligned through the unavoidable BRAM read cycle.

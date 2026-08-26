@@ -280,9 +280,13 @@ wire Q_148;
 // Cyclone V cannot map both independent asynchronous controls into one native
 // flip-flop. Quartus turns that literal block into an untimed latch loop with
 // undefined power-up state. Q_144/Q_145 are master-clock-domain levels, so the
-// separate facade preserves their live set/clear effect and stores the result
-// in a reset-defined FPGA register without changing the shared LS74 model.
-toki_objdma_u148_fpga u148_fpga (
+// reusable FPGA primitive preserves their live set/clear effect and stores the
+// result in a reset-defined register without changing the shared LS74 model.
+// Keeping the physical reference in the instance name leaves U148 explicit
+// without a Toki-only wrapper around this otherwise generic accommodation.
+fpga_async_set_clear #(
+    .RESET_Q(1'b0)
+) u148_fpga (
     .clk  (clk),
     .rst  (rst),
     .PRE_N(Q_144),
