@@ -34,19 +34,10 @@ module LINEBUF(
     output reg        PRIOR_D   // shared SIS pin 53
 );
 
-wire [15:0] Q_EVN1;
-wire [15:0] Q_EVN2;
-wire [15:0] Q_ODD1;
-wire [15:0] Q_ODD2;
-
-wire [5:0] even_obj1_tag;
-wire [5:0] even_obj2_tag;
-wire [5:0] odd_obj1_tag;
-wire [5:0] odd_obj2_tag;
-wire       even_selected_find;
-wire       odd_selected_find;
-wire [9:0] even_selected_data;
-wire [9:0] odd_selected_data;
+wire [9:0] Q_EVN1;
+wire [9:0] Q_EVN2;
+wire [9:0] Q_ODD1;
+wire [9:0] Q_ODD2;
 
 // Only write active, non-transparent sprite pixels. OBJ1_Z carries U164A's
 // qualification through U166's two physical delay stages; OBJ2_Z directly
@@ -81,41 +72,12 @@ wire odd_clear_cmd    =  oddclr_d && !ODDCLR;
 // connect to the pulled-up OOD/PRIOR nets. D1V parity leaves one two-lane bank
 // driving those shared nets. Its simultaneous-FIND behavior is opaque, while
 // CPU/MAME ordering and the validated single-lane compositor establish global
-// first-object-wins priority. The physical SORT48 scan presents entry n on
-// delayed OBJ1/H2=1 and entry 24+n on direct OBJ2/H2=0. Keep that two-half
-// order as a tag in the six FPGA RAM bits which sheet 18 leaves unconnected,
-// then resolve simultaneous FINDs by the lower tag. This is an FPGA
-// representation of the shared-bus result, not a claim that the original
-// SIS6091B stores these tag bits.
-obj_line_pair_priority even_pair_priority_u(
-    .clk(clk),
-    .clear_n(EVNCLR),
-    .write_clock(OBJ_N6M),
-    .write_enable_n(EVNWREN),
-    .earlier_find(E2FIND),       // direct OBJ2: physical entry 24+n
-    .later_find(E1FIND),         // delayed OBJ1: physical entry n
-    .earlier_word(Q_EVN2),
-    .later_word(Q_EVN1),
-    .earlier_write_tag(even_obj2_tag), // serializer earlier, list later
-    .later_write_tag(even_obj1_tag),   // serializer later, list earlier
-    .selected_find(even_selected_find),
-    .selected_data(even_selected_data)
-);
-
-obj_line_pair_priority odd_pair_priority_u(
-    .clk(clk),
-    .clear_n(ODDCLR),
-    .write_clock(OBJ_N6M),
-    .write_enable_n(ODDWREN),
-    .earlier_find(O2FIND),       // direct OBJ2: physical entry 24+n
-    .later_find(O1FIND),         // delayed OBJ1: physical entry n
-    .earlier_word(Q_ODD2),
-    .later_word(Q_ODD1),
-    .earlier_write_tag(odd_obj2_tag), // serializer earlier, list later
-    .later_write_tag(odd_obj1_tag),   // serializer later, list earlier
-    .selected_find(odd_selected_find),
-    .selected_data(odd_selected_data)
-);
+// first-object-wins priority. The recovered physical SORT48 scan presents
+// entry n (0..23) on delayed OBJ1/H2=1 and entry 24+n on direct OBJ2/H2=0.
+// Consequently OBJ1 is always earlier whenever both physical lanes FIND at
+// one X. Resolve that fixed sheet-15 ordering directly below; the former FPGA
+// chronology tags, counters and 16-bit line words only re-encoded this already
+// guaranteed relation and had no PCB counterpart.
 
 // Physical U181-U184 are SIS6091B/FIND devices.  Their exact collision and
 // clear implementation remains unrecovered; these explicit FPGA backends
@@ -123,54 +85,54 @@ obj_line_pair_priority odd_pair_priority_u(
 // FIND-clear result without claiming those mechanisms are SIS internals.
 sis6091B_atomic #(
     .ADDR_W(9),
-    .DATA_W(16)
+    .DATA_W(10)
 ) u_181(
   .clk(clk),             // FPGA master clock; no package-pin equivalent
   .clear_cmd(even_clear_cmd), // normalized U181 pin-34 EVNCLR event
   .write_req(line_write_phase && ~EVNWREN && obj1_pix_valid), // pins 31/30
-  .write_data({even_obj1_tag, OBJ1[9:0]}), // OBJ pins + FPGA priority tag
+  .write_data(OBJ1[9:0]), // physical OBJ pins 6,7,8,10,12-17
   .addr(E1A),            // package address pins 62-70
   .read_valid(E1FIND),   // package pin 60 FIND
-  .read_data(Q_EVN1)     // package OOD/PRIOR pins + FPGA priority tag
+  .read_data(Q_EVN1)     // package OOD/PRIOR pins
 );
 
 sis6091B_atomic #(
     .ADDR_W(9),
-    .DATA_W(16)
+    .DATA_W(10)
 ) u_182(
   .clk(clk),             // FPGA master clock; no package-pin equivalent
   .clear_cmd(even_clear_cmd), // normalized U182 pin-34 EVNCLR event
   .write_req(line_write_phase && ~EVNWREN && obj2_pix_valid), // pins 31/30
-  .write_data({even_obj2_tag, OBJ2[9:0]}), // OBJ pins + FPGA priority tag
+  .write_data(OBJ2[9:0]), // physical OBJ pins 6,7,8,10,12-17
   .addr(E2A),            // package address pins 62-70
   .read_valid(E2FIND),   // package pin 60 FIND
-  .read_data(Q_EVN2)     // package OOD/PRIOR pins + FPGA priority tag
+  .read_data(Q_EVN2)     // package OOD/PRIOR pins
 );
 
 sis6091B_atomic #(
     .ADDR_W(9),
-    .DATA_W(16)
+    .DATA_W(10)
 ) u_183(
   .clk(clk),             // FPGA master clock; no package-pin equivalent
   .clear_cmd(odd_clear_cmd), // normalized U183 pin-34 ODDCLR event
   .write_req(line_write_phase && ~ODDWREN && obj1_pix_valid), // pins 31/30
-  .write_data({odd_obj1_tag, OBJ1[9:0]}), // OBJ pins + FPGA priority tag
+  .write_data(OBJ1[9:0]), // physical OBJ pins 6,7,8,10,12-17
   .addr(O1A),            // package address pins 62-70
   .read_valid(O1FIND),   // package pin 60 FIND
-  .read_data(Q_ODD1)     // package OOD/PRIOR pins + FPGA priority tag
+  .read_data(Q_ODD1)     // package OOD/PRIOR pins
 );
 
 sis6091B_atomic #(
     .ADDR_W(9),
-    .DATA_W(16)
+    .DATA_W(10)
 ) u_184(
   .clk(clk),             // FPGA master clock; no package-pin equivalent
   .clear_cmd(odd_clear_cmd), // normalized U184 pin-34 ODDCLR event
   .write_req(line_write_phase && ~ODDWREN && obj2_pix_valid), // pins 31/30
-  .write_data({odd_obj2_tag, OBJ2[9:0]}), // OBJ pins + FPGA priority tag
+  .write_data(OBJ2[9:0]), // physical OBJ pins 6,7,8,10,12-17
   .addr(O2A),            // package address pins 62-70
   .read_valid(O2FIND),   // package pin 60 FIND
-  .read_data(Q_ODD2)     // package OOD/PRIOR pins + FPGA priority tag
+  .read_data(Q_ODD2)     // package OOD/PRIOR pins
 );
 
 
@@ -183,13 +145,17 @@ sis6091B_atomic #(
 // (V1B=0 -> EA is the beam, V1B=1 -> OA is the beam).
 always @(posedge clk) begin
   if (!D1V_7P) begin
-    if (even_selected_find)
-      { PRIOR_D, PRIOR_C, OOD[7:0] } <= even_selected_data;
+    if (E1FIND)
+      { PRIOR_D, PRIOR_C, OOD[7:0] } <= Q_EVN1;
+    else if (E2FIND)
+      { PRIOR_D, PRIOR_C, OOD[7:0] } <= Q_EVN2;
     else
       { PRIOR_D, PRIOR_C, OOD[7:0] } <= 10'b11_1111_1111;
   end else begin
-    if (odd_selected_find)
-      { PRIOR_D, PRIOR_C, OOD[7:0] } <= odd_selected_data;
+    if (O1FIND)
+      { PRIOR_D, PRIOR_C, OOD[7:0] } <= Q_ODD1;
+    else if (O2FIND)
+      { PRIOR_D, PRIOR_C, OOD[7:0] } <= Q_ODD2;
     else
       { PRIOR_D, PRIOR_C, OOD[7:0] } <= 10'b11_1111_1111;
   end

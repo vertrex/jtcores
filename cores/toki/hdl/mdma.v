@@ -67,17 +67,20 @@ wire       dma_retire = dma_active && N6M && copy_end;
 wire q_6k1 = ~dma_active; // active-low enable used by PCB decoder U7L
 wire mdmarq_rise = MDMARQ && !mdmarq_d;
 
-// U654A uses only asynchronous set/clear on the PCB.  The separate facade
-// documents the one necessary FPGA substitution while preserving the live
-// grant path into U655B on a coincident N6M edge.
+// U654A uses only asynchronous /PRE and /CLR on the PCB; D and CLK are
+// inactive. Cyclone V cannot map both controls into one native flip-flop, so
+// use the shared FPGA retained-state primitive. PRE_N is the sheet-6
+// MBUSRQ|BUSAK equation and CLR_N is the terminal-count retirement. Its live
+// Q preserves the physical preset visibility into U655B on a coincident N6M
+// edge without a Toki-specific transport facade.
 wire grant_now;
-toki_mdma_u654a_fpga u654a_fpga(
-    .clk          (clk),
-    .rst          (rst),
-    .SET_LEVEL    (!MBUSRQ && !BUSAK),
-    .RETIRE       (dma_retire),
-    .Q            (),
-    .Q_FOR_SAMPLE (grant_now)
+fpga_async_set_clear u654a_fpga(
+    .clk   (clk),
+    .rst   (rst),
+    .PRE_N (MBUSRQ | BUSAK),
+    .CLR_N (!dma_retire),
+    .Q     (grant_now),
+    .QN    ()
 );
 
 wire start_dma = !dma_active && N6M && grant_now && grant_first_n6m;

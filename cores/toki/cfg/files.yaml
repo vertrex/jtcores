@@ -47,13 +47,11 @@ toki:
       - linecunt.v
       - linebuf.v
       # FPGA-only transport/facade helpers. These have no direct PCB IC.
-      - toki_mdma_u654a_fpga.v
       - toki_bk_sdram_adapter.v
       - jtframe_rom_pair_cache.v
       - fpga_level_timeout.v
       - fpga_async_set_clear.v
       - sis6091B_atomic.v
-      - obj_line_pair_priority.v
       - obj_load_aligned_reverse.v
       - obj_rom_row_bridge.v
       - obj_rom_row_cache.v

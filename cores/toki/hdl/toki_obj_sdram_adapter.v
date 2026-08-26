@@ -88,7 +88,6 @@ localparam [2:0] PAIR_WAIT1 = 3'd4;
 localparam [2:0] PAIR_READY = 3'd5;
 
 reg  [2:0] pair_fetch_state;
-reg [80:0] pair_fetch_context;
 reg        pair_fill_bank;
 reg        pair_next_bank;
 reg [39:0] pair_lane0_ctx [0:1];
@@ -132,8 +131,12 @@ wire       pair_overlap_candidate;
 reg        fetch_v1b_d;
 wire       fetch_v1b_change = fetch_v1b_d != V1B;
 
-wire [39:0] pair_fetch_lane0 = pair_fetch_context[39:0];
-wire [39:0] pair_fetch_lane1 = pair_fetch_context[79:40];
+// pair_fill_bank owns the admitted request until its FSM returns to IDLE.
+// The per-bank contexts are captured on the same admission edge and cannot be
+// overwritten during that lifetime, so they are also the fetch context. Keep
+// one authoritative copy instead of an additional 81-bit transport register.
+wire [39:0] pair_fetch_lane0 = pair_lane0_ctx[pair_fill_bank];
+wire [39:0] pair_fetch_lane1 = pair_lane1_ctx[pair_fill_bank];
 wire        pair_push_lane = pair_fetch_state == PAIR_PUSH1;
 wire [39:0] pair_push_desc = pair_push_lane ?
                               pair_fetch_lane1 : pair_fetch_lane0;
@@ -380,7 +383,7 @@ wire pair_deadline_window = !fetch_v1b_change &&
                             (pair_deadline_passed || hblb_rise);
 wire desc_pair_stale = pair_deadline_window && desc_pair_valid &&
                        (desc_pair_context[80] != V1B);
-wire pair_fetch_stale = pair_fetch_context[80] != V1B;
+wire pair_fetch_stale = pair_line_bank[pair_fill_bank] != V1B;
 wire pair_render_stale = pair_render_active &&
                          (pair_line_bank[pair_render_bank] != V1B);
 // During the V1B-to-HBLB-rise grace, preceding/opposite-tag work may finish.
@@ -562,7 +565,6 @@ integer pair_bank_index;
 always @(posedge clk) begin
    if (RESETA) begin
       pair_fetch_state       <= PAIR_IDLE;
-      pair_fetch_context     <= 81'b0;
       pair_fill_bank         <= 1'b0;
       pair_next_bank         <= 1'b0;
       pair_render_active     <= 1'b0;
@@ -598,7 +600,6 @@ always @(posedge clk) begin
          pair_current_bank_cleared <= 1'b1;
 
       if (desc_pair_valid && desc_pair_ready && !desc_pair_stale) begin
-         pair_fetch_context <= desc_pair_context;
          pair_fill_bank     <= pair_next_bank;
          pair_lane0_ctx[pair_next_bank] <= desc_pair_context[39:0];
          pair_lane1_ctx[pair_next_bank] <= desc_pair_context[79:40];

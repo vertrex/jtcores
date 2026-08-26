@@ -18,7 +18,6 @@ module obj_rom_row_bridge #(
     parameter AW = 18,
     parameter DW = 16,
     parameter CTX_W = 1,
-    parameter [7:0] STALE_OK_CYCLES = 8'd1,
     parameter [AW-1:0] WORD1_MASK = {{(AW-1){1'b0}}, 1'b1},
     parameter [AW-1:0] WORD2_MASK = {{(AW-6){1'b0}}, 6'b100000},
     parameter [AW-1:0] WORD3_MASK = {{(AW-6){1'b0}}, 6'b100001}
@@ -49,13 +48,21 @@ reg                  busy_r;
 reg [AW-1:0]         base_r;
 reg [CTX_W-1:0]      ctx_r;
 reg [1:0]            word_r;
-reg [7:0]            settle_r;
+reg                  stale_guard;
 reg [DW-1:0]         word_0;
 reg [DW-1:0]         word_1;
 reg [DW-1:0]         word_2;
 
 wire req_fire = req_valid && req_ready;
-wire accept_word = busy_r && (settle_r == 8'd0) && rom_ok;
+wire accept_word = busy_r && !stale_guard && rom_ok;
+
+// Waveform-compatible observation alias. JTFrame's acknowledged ROM can
+// expose the preceding word for exactly the first master clock after each
+// address change, so the implemented state is one bit rather than a generic
+// eight-bit delay counter.
+`ifdef SIMULATION
+wire [7:0] settle_r = {7'b0, stale_guard};
+`endif
 
 assign req_ready = !busy_r;
 assign busy      = busy_r;
@@ -75,7 +82,7 @@ always @(posedge clk) begin
         base_r   <= {AW{1'b0}};
         ctx_r    <= {CTX_W{1'b0}};
         word_r   <= 2'd0;
-        settle_r <= 8'd0;
+        stale_guard <= 1'b0;
         word_0   <= {DW{1'b1}};
         word_1   <= {DW{1'b1}};
         word_2   <= {DW{1'b1}};
@@ -91,10 +98,10 @@ always @(posedge clk) begin
         base_r   <= req_base;
         ctx_r    <= req_ctx;
         word_r   <= 2'd0;
-        settle_r <= STALE_OK_CYCLES;
+        stale_guard <= 1'b1;
     end else if (busy_r) begin
-        if (settle_r != 8'd0) begin
-            settle_r <= settle_r - 8'd1;
+        if (stale_guard) begin
+            stale_guard <= 1'b0;
         end else if (rom_ok) begin
             case (word_r)
                 2'd0: word_0 <= rom_data;
@@ -104,8 +111,8 @@ always @(posedge clk) begin
             endcase
 
             if (word_r != 2'd3) begin
-                word_r   <= word_r + 2'd1;
-                settle_r <= STALE_OK_CYCLES;
+                word_r      <= word_r + 2'd1;
+                stale_guard <= 1'b1;
             end
         end
     end

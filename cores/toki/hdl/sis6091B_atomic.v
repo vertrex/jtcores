@@ -20,7 +20,7 @@
 // the registered M10K contract used by Toki's non-displayed write bank.
 module sis6091B_atomic #(
     parameter integer ADDR_W = 9,  // Sheet 18 uses pins A1-A9 (512 entries).
-    parameter integer DATA_W = 16  // Ten PCB OBJ bits plus six FPGA tag bits.
+    parameter integer DATA_W = 10  // Physical OBJ data/attribute word width.
 )(
     // FPGA 48 MHz master clock; this is not a SIS6091B package pin.
     input  wire                   clk,
@@ -33,9 +33,7 @@ module sis6091B_atomic #(
     // by active-low pin 30 WREN, OBJPS drive-valid and transparent-pen checks.
     input  wire                   write_req,
 
-    // Physical pins 6,7,8,10,12-17 carry OBJ[9:0]. Sheet-18 pins
-    // 18,19,22-25 are unused; the FPGA uses those six stored bits only for
-    // physical-list chronology tags needed to resolve the unrecovered shared bus.
+    // Physical pins 6,7,8,10,12-17 carry OBJ[9:0].
     input  wire [DATA_W-1:0]      write_data,
 
     // Physical address pins 62-70. Package pin 71 is grounded on sheet 18.
@@ -45,7 +43,7 @@ module sis6091B_atomic #(
     output wire                   read_valid,
 
     // Stored word corresponding to physical OOD pins 42-49, PRIOR_C pin 51
-    // and PRIOR_D pin 53, plus six FPGA-only priority-tag bits.
+    // and PRIOR_D pin 53.
     output wire [DATA_W-1:0]      read_data
 );
 
