@@ -52,11 +52,16 @@ module sg0140_absel(
 reg [3:0] COL_A_LATCH;
 reg [3:0] COL_B_LATCH;
 
-// Sheet 10 presents each layer's color nibble before its CLLT capture phase.
-// On that phase the same pixel must therefore use the nibble being captured.
-// Reading only the nonblocking latch value below would retain the preceding
-// tile's palette for one pixel in a synchronous FPGA implementation.
-wire [3:0] COL_A_PIXEL = COL_A_EN ? COL_A : COL_A_LATCH;
+// The two sheet-10 color-latch inputs have different producer boundaries.
+// S1 presents the following descriptor code on its CLLT prefetch edge while
+// SEI0010 still publishes the old tile's final pixel. Q must use the old A
+// latch on that edge, while the latch captures COL_A for the following pixel.
+// A stock title trace proves the otherwise-visible hybrid at X=255: old S1
+// pixel plus the off-screen tile's palette code.
+//
+// SCR4 presents its new code and first new pixel together on T8H/S4CLLT, so B
+// retains the live-code bypass on the capture pixel. Using only its old latch
+// would restore the formerly observed wrong first column of SCR4 text.
 wire [3:0] COL_B_PIXEL = COL_B_EN ? COL_B : COL_B_LATCH;
 
 // Keep the current-pixel opacity terms separate from the registered ON pins.
@@ -86,7 +91,7 @@ always @(posedge clk) begin
     Q[7:0] <= B_OPAQUE ?
                  {COL_B_PIXEL[3:0], PIC_B[3:0]} :
                A_OPAQUE ?
-                 {COL_A_PIXEL[3:0], PIC_A[3:0]} :
+                 {COL_A_LATCH[3:0], PIC_A[3:0]} :
                  8'hff;
   end
 end

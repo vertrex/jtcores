@@ -24,8 +24,7 @@ module OBJDMA(
     input             ODMARQ,
     input             OBUSAK,
     input             VORIGIN,
-    // Pocket-tested normalized object-scheduling coordinate. Sheet 14 uses
-    // literal SEI0050 H; restoring that requires a coupled object-path migration.
+    // Retained wrapper name; literal sheet-14 SEI0050 H counter pins.
     input       [8:0] H_POS,
     input             VREV,
     input             NV256,
@@ -427,10 +426,8 @@ wire OVER48;
 
 // Current trace/schematic conclusion: this SG0140 mode has no V counter bus
 // input. It reconstructs the scan line internally from physical VCLK,
-// VORIGIN, NV256 and the list/DMA cadence. Physical pin 38 is raw H2, but the
-// current hardware-tested object scheduling island supplies normalized H_POS;
-// VCHECK does not yet infer a function for H2 and SORT48 consumes that same
-// compatibility phase. Do not migrate either input in isolation.
+// VORIGIN, NV256 and the list/DMA cadence. Pin 38 receives literal raw H2;
+// its exact internal function remains unrecovered.
 
 sg0140_vcheck u1411_sg0140_vcheck(
   .clk(clk),
@@ -444,7 +441,7 @@ sg0140_vcheck u1411_sg0140_vcheck(
   .OVER48(OVER48),
   .VREVD_2(VREVD_2), // vertical-reverse descriptor bit
   .OBJEN_3(OBJEN_3), // active-high eligibility: ~INSCRN & ~OBJEN_2
-  .H2(H_POS[1]), // normalized compatibility phase; physical pin 38 is raw H2
+  .H2(H_POS[1]), // physical pin 38: literal raw H2
   //.SW(1'b0),
   .RDCLK(RDCLK),
   .VCLK(VCLK),
@@ -470,9 +467,9 @@ sg0140_vcheck u1411_sg0140_vcheck(
 // Both nets are non-inverting U1413 outputs driven by the same VCHECK pin 7.
 assign OBUSDIR = OIBDIR;
 
-// All H-derived inputs below currently share normalized H_POS compatibility
-// coordinates. The PCB uses raw SEI0050 H nets; VCHECK, SORT48, SCNDDMA and
-// their list-address/lane contracts must migrate together, never pin by pin.
+// SORT48's package receives these literal sheet-14 SEI0050 pins. The custom
+// model now exposes the captured 16..63/two-half physical address protocol;
+// FPGA registered-read compensation remains outside it in SCNDDMA.
 sg0140_sort48 u1412_sg0140_sort48(
   .clk(clk),
   .rst(rst),

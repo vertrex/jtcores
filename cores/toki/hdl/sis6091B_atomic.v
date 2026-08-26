@@ -35,7 +35,7 @@ module sis6091B_atomic #(
 
     // Physical pins 6,7,8,10,12-17 carry OBJ[9:0]. Sheet-18 pins
     // 18,19,22-25 are unused; the FPGA uses those six stored bits only for
-    // compact-list priority tags needed to resolve the unrecovered shared bus.
+    // physical-list chronology tags needed to resolve the unrecovered shared bus.
     input  wire [DATA_W-1:0]      write_data,
 
     // Physical address pins 62-70. Package pin 71 is grounded on sheet 18.

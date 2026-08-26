@@ -3,18 +3,16 @@
 
 `timescale 1ns/1ps
 
-// FPGA-side capture FIFO for the two object descriptors in one 16-pixel raster
-// bucket. The active compact compatibility protocol maps lane 0/direct OBJ2 to
-// entry 2n and lane 1/delayed OBJ1 to entry 2n+1. That is the hardware-good
-// FPGA schedule, not a claim about the unrecovered physical SORT48 pin
-// permutation. This is not a model of a PCB custom IC: it isolates one-cycle
-// registered U153 read latency from later acknowledged-ROM work without
-// applying backpressure to the raster scan.
+// FPGA-side capture FIFO for the two object descriptors in one 16-pixel raw-H
+// bucket. PCB SORT48 captures establish two physical 24-entry halves:
+// lane 1/H2=1/delayed OBJ1 carries entry n, while lane 0/H2=0/direct OBJ2
+// carries entry 24+n. This is not a model of a PCB custom IC: it isolates
+// one-cycle registered U153 read latency from later acknowledged-ROM work
+// without applying backpressure to the raster scan.
 //
 // cap_char/cap_hpos are request pulses. The corresponding OVD word is sampled
 // one clk later, after the synchronous RAM output has settled. cap_lane is the
-// caller's normalized compatibility classifier for the current compact H2
-// role, not necessarily the literal SG0140 pin:
+// caller's literal SG0140 H2 classifier for the current raw bucket:
 //   lane 0 = direct U168 / OBJ2 / U1712
 //   lane 1 = delayed U162 / OBJ1 / U1711
 // HPOS row/flip/priority/bank sidebands are saved on the request edge because
@@ -30,14 +28,17 @@
 // A pair is considered complete only after both CHAR and HPOS responses have
 // arrived for both lanes. One absent descriptor still completes its lane and
 // is replayed as a transparent row. A pair with both descriptors absent is
-// discarded as an FPGA bandwidth optimization: the PCB still scans the fixed
-// slot, but it cannot emit a visible sprite pixel and needs no acknowledged
-// SDRAM/replay work.
+// discarded as an FPGA bandwidth optimization: the PCB still scans both fixed
+// entries, but neither can emit a visible sprite pixel and they need no
+// acknowledged SDRAM/replay work. Dropping such a bucket cannot reorder any
+// surviving descriptor. LINEBUF retains monotonic surviving-bucket order
+// within each lane and separates OBJ1/OBJ2 priority by the physical 24-entry
+// half boundary.
 //
 // Packed output context, 81 bits total:
 //   [80]    pair line-bank/parity tag
-//   [79:40] lane 1 descriptor (H2=1, delayed OBJ1/FH path)
-//   [39:0]  lane 0 descriptor (H2=0, direct OBJ2/OH path)
+//   [79:40] lane 1 descriptor (H2=1, delayed OBJ1/FH, entry n)
+//   [39:0]  lane 0 descriptor (H2=0, direct OBJ2/OH, entry 24+n)
 // Descriptor payload, relative to each 40-bit lane:
 //   [39]    present
 //   [38]    horizontal flip
@@ -57,9 +58,9 @@ module obj_desc_pair_fifo(
     input             rst,
     // Explicit caller abort, deliberately separate from reset so sticky
     // diagnostics survive. Production does not connect this to raw V1B: the
-    // compact 48-slot compatibility stream crosses that edge, so the adapter
-    // uses per-pair bank tags and selectively retires only work which reaches
-    // the following HBLB-rise deadline.
+    // final old-bank physical pair {entry 23, entry 47} may cross that edge,
+    // so the adapter uses per-pair bank tags and selectively retires only work
+    // which reaches the following HBLB-rise deadline.
     input             flush,
 
     input             cap_char,
@@ -163,6 +164,11 @@ wire [39:0] lane1_desc = {
 };
 wire [80:0] completed_context = {lane0_bank, lane1_desc, lane0_desc};
 wire        pair_any_present = lane0_present || lane1_present;
+
+// Lane identity is positional, never arrival-order based. This matters when
+// registered U153 responses for one raw bucket reach the assembler in a
+// different request order: the first list half must remain the upper OBJ1
+// descriptor and the second list half the lower OBJ2 descriptor.
 
 assign out_valid   = fifo_count != 6'd0;
 assign out_context = fifo_mem[rd_ptr];

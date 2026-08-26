@@ -228,11 +228,11 @@ end
 // final character when the physical H/V counters wrap eight active pixels
 // before HBLB falls.
 wire       t8h_rise_cen = N6M && (H[2:0] == 3'b111);
-// FPGA compatibility event used by the last Pocket-hardware-good object
-// pipeline. It changes U5A once on the normalized H2 edge. The literal raw-H2
-// migration moved this coupled object-scheduling island by two pixels and is
-// being kept out of the live path until its fitted-hardware failure is traced.
-wire       u5a_h2_compat_cen = N6M && (hpos[1:0] == 2'b01);
+// Sheet 5 U5A is clocked by the rising edge of the literal H2 pin. With every
+// TTL part represented on clk, qualify the N6M count which advances raw
+// H[1:0] from 01 to 10. The downstream SORT48 path now retains that literal
+// phase and the captured physical two-half descriptor order.
+wire       u5a_h2_rise_cen = N6M && (H[1:0] == 2'b01);
 wire [5:0] u518_q;
 
 LS174 u518(
@@ -382,19 +382,18 @@ reg   [8:0] obj_line_buffer_addr;
 
 wire FIRST_LD, SECND_LD, CTLT1, CTLT2, EVN_LD, ODD_LD, NV256;
 
-// FPGA object scheduling retains the Pocket-hardware-good normalized phase.
-// Raw H/V remain on the literal SCR4/background paths above. The PCB wires
-// PLD22 to raw pins, but the coupled raw object migration (U5A, PLD22,
-// VH4/VH8, SORT48 and LINECUNT) regressed descriptor/flip behavior on Pocket.
+// Sheet 5 connects PLD22 directly to the literal SEI0050 H/V counter pins.
+// No normalized-coordinate mapper remains in this schematic-facing object
+// timing boundary.
 PLD22 pld22_u(
     .N6M(N6M),
-    .H1(hpos[0]),
-    .H2(hpos[1]),
-    .H4(hpos[2]),
-    .H8(hpos[3]),
+    .H1(H[0]),
+    .H2(H[1]),
+    .H4(H[2]),
+    .H8(H[3]),
     .V1B(V1B),
     .OBJT1(OBJT1),
-    .V256(~vpos[8]),
+    .V256(V[8]),
 
     .FIRST_LD(FIRST_LD),
     .SECND_LD(SECND_LD),
@@ -412,12 +411,12 @@ wire PRIOR_C, PRIOR_D;
 wire D1V_2;
 
 
-// Keep U5A on the proven one-shot compatibility phase. A level enable would
-// repeatedly sample V1B; the raw-H2 event exposes the next list bank two
-// pixels earlier than this FPGA scheduling contract.
+// A level enable would repeatedly sample V1B while physical H2 is high. The
+// single common-clock event above models only U5A's rising clock edge and
+// preserves old-D ordering at the VCLK seam.
 LS74 u_5a(
   .CLK(clk),
-  .CEN(u5a_h2_compat_cen),
+  .CEN(u5a_h2_rise_cen),
   .D(V1B),
   .PRE(1'b1),
   .CLR(1'b1),
@@ -427,8 +426,9 @@ LS74 u_5a(
 
 wire OBJ_HREV;
 wire OPSREV = HREV ^ OBJ_HREV;
-wire VH4 = ~hpos[2] ^ OPSREV;
-wire VH8 = hpos[3] ^ ~hpos[2] ^ OPSREV;
+// Sheets 16/17 derive the shared object-ROM word selects from raw H4/H8.
+wire VH4 = ~H[2] ^ OPSREV;
+wire VH8 = H[3] ^ ~H[2] ^ OPSREV;
 
 obj obj_u(
   .clk(clk),
@@ -439,7 +439,7 @@ obj obj_u(
   .STARTV(STARTV),
   .ODMARQ(ODMARQ),
   .VORIGIN(VORIGIN),
-  .H_POS(hpos[8:0]),
+  .H_POS(H[8:0]),
   .VREV(VREV),
   .HBLB(HBLB),
   .T3F(T3F),
@@ -613,19 +613,6 @@ begin \
     $fclose(fd); \
 end
 
-// sis6091B packs the "used" flag as bit 16 of a 17-bit mem word
-`define dump_sis6091b_used(FILE_NAME, SIZE, MEM_PATH) \
-begin \
-    integer fd; \
-    integer i; \
-    $display("Snapshot: Dumping %s (Size: %0d)", FILE_NAME, SIZE); \
-    fd = $fopen(FILE_NAME, "wb"); \
-    for (i = 0; i < SIZE; i = i + 1) begin \
-       $fwrite(fd, "%c", MEM_PATH[i][16]); \
-    end \
-    $fclose(fd); \
-end
-
 parameter DUMP_START_FRAME = 38;
 
 integer  frame_counter = 0;
@@ -639,10 +626,10 @@ always @(posedge clk) begin
   if (frame_counter == DUMP_START_FRAME && !dump_done) begin
      $display("DUMPING");
 
-     `dump_ram16("scnddma_u151.bin", 64, obj_u.scnddma_u.u_151.mem)
-     `dump_ram16("scnddma_u152.bin", 64, obj_u.scnddma_u.u_152.mem)
-     `dump_sis6091b_used("scnddma_u151_used.bin", 64, obj_u.scnddma_u.u_151.mem)
-     `dump_sis6091b_used("scnddma_u152_used.bin", 64, obj_u.scnddma_u.u_152.mem)
+     `dump_ram16("scnddma_u151.bin", 64, obj_u.scnddma_u.u_151.u_ram.mem)
+     `dump_ram16("scnddma_u152.bin", 64, obj_u.scnddma_u.u_152.u_ram.mem)
+     `dump_ram8("scnddma_u151_used.bin", 64, obj_u.scnddma_u.u_list_bridge.even_valid)
+     `dump_ram8("scnddma_u152_used.bin", 64, obj_u.scnddma_u.u_list_bridge.odd_valid)
      `dump_ram16_split("scnddma_u153.bin", 1024, obj_u.scnddma_u.u_153)
      `dump_ram16_split("objdma_u141.bin", 1024, obj_u.objdma_u.u_141);
      `dump_linebuf_ram("linebuf_u181.bin", obj_u.linebuf_u.u_181.mem)

@@ -1,7 +1,8 @@
 // Sheet-15 secondary object-list RAMs (U151/U152) and attribute RAM U153.
 // FPGA FDA/tuple/write-phase compensation and retentive-list validity live in
 // obj_secondary_list_bridge; they are not claimed SIS6091 internals. The three
-// schematic RAM instances and their direct pin-level topology remain here.
+// sheet positions and their direct pin-level topology remain visible here;
+// U151/U152 storage is isolated behind an explicit synchronous FPGA backend.
 // Secondary DMA triggered by objdma when sprite match
 
 //Write sprite info to one line
@@ -22,7 +23,7 @@ module SCNDDMA(
     input          ODDWR2,  //Odd Wren 2
     input          RAM2VLD, // Ram 2
     input          RDCLK,   //R data clock
-    input          H1,     // normalized JTFrame hpos[0] compatibility phase
+    input          H1,     // literal SEI0050 H1 (equal to normalized hpos[0])
     input          OIBDIR, // Object IB direction
     input    [8:0] ND2,
     input   [15:9] OBJ_DB,//Object Data bus
@@ -41,17 +42,11 @@ module SCNDDMA(
 wire [8:1] CTA;
 wire [15:0] q_even;
 wire [15:0] q_odd;
-wire        find_even;
-wire        find_odd;
 wire [15:0] list_data;
 wire        slot_valid;
 wire        u153_wr_edge;
-// The reduced SIS6091B FPGA facade accepts a normalized rising write phase.
-// Sheet 15 connects the active-low WR2 nets directly to bubbled package pin
-// 31; invert them here solely to preserve the tested falling-edge write event.
-// This is not a claim about the unrecovered physical pin-31 truth table.
-wire        u151_wr_phase = ~EVNWR2;
-wire        u152_wr_phase = ~ODDWR2;
+wire        even_write_req;
+wire        odd_write_req;
 
 // Registered/retentive FPGA memories need tuple, epoch and write-phase
 // compensation which has no sheet-15 counterpart. Keep all of that policy in
@@ -72,58 +67,42 @@ obj_secondary_list_bridge u_list_bridge (
     .SPR1_2(SPR1_2),
     .MATCHV(MATCHV),
     .list_data(list_data),
+    .even_write_req(even_write_req),
+    .odd_write_req(odd_write_req),
     .slot_valid(slot_valid),
     .u153_wr_edge(u153_wr_edge)
 );
 
-// Sheet 15 is a direct net contract: U151 receives EVNWR2 and 2DMA_EA,
-// while U152 receives ODDWR2 and 2DMA_OA. SORT48 places its physical 16..63
-// write pointer on the corresponding bus and the physical display slot on
-// the opposite bus. Do not reroute addresses based on raster parity.
-
-// XXX IT'S a 6091 B pin are different than 6091
-// 64 obj EVEN
-sis6091B #(
-  .ADDR_W(6)
-) u_151(
+// Sheet 15 is a direct net contract: U151 receives EVNWR2 and 2DMA_EA, while
+// U152 receives ODDWR2 and 2DMA_OA. SORT48 supplies the literal physical
+// 16..63 write/read addresses. Do not reroute these buses based on raster
+// parity: V1B already exchanges their build and display roles inside SORT48.
+//
+// Physical U151/U152 are SIS6091B packages with a common address bus and no
+// externally visible FPGA-style read-latency register. Inferred block RAM adds
+// that register, so use a policy-free storage backend and keep tuple/valid
+// timing in the explicit bridge above. XOBDIR is the physical output-enable
+// path; the internal FPGA consumer remains driven and NOOBJ masks invalid q.
+obj_secondary_list_ram_fpga u_151 (
   .clk(clk),
-  // PCB connection before FPGA write-phase normalization:
-  // .wr_cen(EVNWR2), // active-low WR2 on sheet-15 package pin 31
-  .wr_cen(u151_wr_phase),
-  .we(1'b1), //30 // &RDCLK
-  .clr_n(1'b1),
-  // PCB tuple before registered-U141/FDA timing compensation:
-  // .data({SPR2_2, SPR1_2, ODH, MATCHV, VMT[3:0], FDA[10:3]}),
-  .data(list_data), //6,7,8,10,12-19,22-25
-  .addr({4'b0, DMA2_EA[5:0]}),                           // 62-71
-  .rd_cen(~XOBDIR), //73
-  //.q({SPR2_3,SPR1_3, ODHREV, NOOBJ,VA[3:0], CTA[8:1]}) //42-56
-  .find(find_even),
-  .q(q_even)//42-56
+  .write_req(even_write_req),
+  .addr(DMA2_EA),
+  .data(list_data),
+  .q(q_even)
 );
 
-//64 obj ODD
-sis6091B #(
-  .ADDR_W(6)
-) u_152(
+obj_secondary_list_ram_fpga u_152 (
   .clk(clk),
-  // PCB connection before FPGA write-phase normalization:
-  // .wr_cen(ODDWR2), // active-low WR2 on sheet-15 package pin 31
-  .wr_cen(u152_wr_phase),
-  .we(1'b1),
-  .clr_n(1'b1),
-  // PCB tuple before registered-U141/FDA timing compensation:
-  // .data({SPR2_2, SPR1_2, ODH, MATCHV, VMT[3:0], FDA[10:3]}),
+  .write_req(odd_write_req),
+  .addr(DMA2_OA),
   .data(list_data),
-  .addr({4'b0, DMA2_OA[5:0]}),
-  .rd_cen(~XOBDIR),
-//  .q1({SPR2_3,SPR1_3, ODHREV, NOOBJ,VA[3:0], CTA[8:1]}) //42-56
-  .find(find_odd),
   .q(q_odd)
 );
 
-// D1V_2 is the U5A-compatible bank phase. video.v currently samples V1B with
-// a normalized hpos compatibility event, not with the literal raw-H2 edge.
+// D1V_2 is sheet-5 U5A Q: V1B sampled on the literal raw-H2 rising edge.
+// q_even/q_odd and slot_valid are all registered from the same live address
+// buses one clock earlier, so this mux cannot combine a new valid bit with an
+// old descriptor word.
 wire [15:0] q_sel = D1V_2 ? q_even : q_odd;
 
 // Keep the sheet-15 output-word packing visible. The physical stored MATCHV

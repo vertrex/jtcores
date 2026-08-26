@@ -6,18 +6,19 @@
 // Sheet 18 ties the two SIS6091B outputs in each line bank to one shared
 // OOD/PRIOR bus.  The opaque devices' simultaneous-FIND behavior is not
 // recovered. Software/reference rendering and the board's ascending scan
-// require the visible result to give compact-list slot 0 priority over slot 1,
-// slot 1 over slot 2, and so on. The working compact scheduler consumes two
-// adjacent slots in parallel:
+// require the visible result to give list entry 0 priority over entry 1, entry
+// 1 over entry 2, and so on. PCB SORT48 captures recover two 24-entry halves
+// rather than adjacent pairs:
 //
-//   earlier serializer lane (OBJ2) = slot 2n
-//   later   serializer lane (OBJ1) = slot 2n+1
+//   earlier serializer lane (OBJ2/direct, H2=0) = entry 24+n
+//   later   serializer lane (OBJ1/delayed, H2=1) = entry n
 //
 // Store that six-bit chronological tag in the otherwise unused upper bits of
 // each FPGA line-RAM word.  When both physical lanes report FIND at one X,
 // selecting the lower tag reproduces global list order across pair boundaries.
 // This helper adds no sprite scheduling or storage; it only tags the existing
-// 16 write beats and resolves two already-read words.
+// 16 write beats and resolves two already-read words. The earlier/later port
+// names describe serializer timing, not list priority; OBJ1's tag is lower.
 module obj_line_pair_priority #(
     parameter integer DATA_W = 10,
     parameter integer TAG_W  = 6
@@ -49,8 +50,13 @@ wire clear_cmd = clear_n_d && !clear_n;
 wire write_stb = !write_clock_d && write_clock;
 wire pair_write_stb = write_stb && !write_enable_n;
 
-assign earlier_write_tag = {pair_order, 1'b0};
-assign later_write_tag   = {pair_order, 1'b1};
+// `pair_order` is the monotonic rank of the emitted raw-H bucket. A pair with
+// both entries absent is compressed before LINEBUF and therefore consumes no
+// rank here. That is order-safe: it writes neither lane, every surviving rank
+// stays monotonic, and the 24-entry offset keeps every OBJ1/first-half word
+// ahead of every OBJ2/second-half word.
+assign earlier_write_tag = {1'b0, pair_order} + 6'd24;
+assign later_write_tag   = {1'b0, pair_order};
 
 always @(posedge clk) begin
     clear_n_d     <= clear_n;

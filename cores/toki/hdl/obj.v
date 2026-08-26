@@ -16,9 +16,9 @@ module obj(
   input         STARTV,
   input         ODMARQ,
   input         VORIGIN,
-  // Retained wrapper name; currently carries the Pocket-tested normalized
-  // object-scheduling coordinate. A future raw-H conversion must migrate the
-  // coupled PLD22/U5A/VCHECK/SORT48/SCNDDMA list-address and lane contract.
+  // Retained wrapper name; carries the literal sheet-14 SEI0050 H bus directly
+  // to the SG0140-facing blocks. Only synchronous-FPGA storage compensation
+  // remains outside the custom-IC models.
   input  [8:0]  H_POS,
   input         VREV,  //reverse Y axis
   input         HBLB,
@@ -37,7 +37,7 @@ module obj(
   input         OBJ_N6M,
   input         RDCLK,
   input         V1B,
-  // U5A-compatible V1B sample; video.v currently uses the normalized H2 phase.
+  // Sheet-5 U5A V1B sample clocked by the literal raw-H2 rising edge.
   input         D1V_2,
   input         OBJMASK,
   input         HREV,

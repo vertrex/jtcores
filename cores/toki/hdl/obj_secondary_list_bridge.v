@@ -1,11 +1,13 @@
 // FPGA-only synchronous-memory bridge around the sheet-15 object lists.
 //
-// Physical U141 is instantiated in OBJDMA; U151/U152/U153 remain instantiated
-// in SCNDDMA. This helper contains only the timing and stale-validity adaptation
+// Physical U141 and U153 remain instantiated in OBJDMA/SCNDDMA; U151/U152 keep
+// their sheet addresses around explicit FPGA storage in SCNDDMA. This helper
+// contains only the timing and stale-validity adaptation
 // required when those local opaque RAMs use registered/retentive FPGA storage:
-// the pre-advance U141 tuple, FDA-1 pointer, two compact-list validity epochs,
-// and the one-write U153 phase enable. It does not own SORT48 addressing,
-// object priority, visibility or any claimed SIS6091 internal behavior.
+// the pre-advance U141 tuple, FDA-1 pointer, physical-list validity epochs,
+// one-cycle list write requests and the one-write U153 phase enable. It does
+// not own SORT48 address equations, object priority, visibility or any claimed
+// SIS6091 internal behavior.
 // SCNDDMA has no reset pin in the mapped interface, so declaration-time
 // initialization deliberately preserves the previous FPGA power-up contract.
 module obj_secondary_list_bridge (
@@ -25,6 +27,8 @@ module obj_secondary_list_bridge (
     input          MATCHV,
 
     output  [15:0] list_data,
+    output         even_write_req,
+    output         odd_write_req,
     output         slot_valid,
     output reg     u153_wr_edge = 1'b0
 );
@@ -76,8 +80,19 @@ wire d1v2_rise = !d1v2_d && D1V_2;
 wire d1v2_fall = d1v2_d && !D1V_2;
 wire even_write_rise = !even_write_d && even_write_active;
 wire odd_write_rise = !odd_write_d && odd_write_active;
+wire even_addr_legal = (DMA2_EA >= 6'd16);
+wire odd_addr_legal = (DMA2_OA >= 6'd16);
 
-// Each compact-list bank keeps an FPGA-only validity epoch. Statement order
+// Normalize each active-low package WR2 assertion into exactly one FPGA RAM
+// write. The physical SORT48 window is 16..63; rows 0..15 are never admitted
+// into either storage or validity, including during the raw-counter gap.
+assign even_write_req = even_write_rise && even_addr_legal;
+assign odd_write_req  = odd_write_rise  && odd_addr_legal;
+
+reg even_valid_q = 1'b0;
+reg odd_valid_q = 1'b0;
+
+// Each physical-list bank keeps an FPGA-only validity epoch. Statement order
 // intentionally preserves the boundary-write precedence of the inline
 // implementation: a write on the D1V transition retains its slot but does
 // not arm the following build epoch.
@@ -85,6 +100,11 @@ always @(posedge clk) begin
     d1v2_d         <= D1V_2;
     even_write_d   <= even_write_active;
     odd_write_d    <= odd_write_active;
+    // The storage backend registers q from these same live address buses on
+    // this edge. Register the corresponding validity lookup here so payload
+    // and presence remain aligned through the unavoidable BRAM read cycle.
+    even_valid_q   <= even_addr_legal && even_valid[DMA2_EA];
+    odd_valid_q    <= odd_addr_legal  && odd_valid[DMA2_OA];
 
     if (d1v2_rise) begin
         if (!even_build_started)
@@ -98,7 +118,7 @@ always @(posedge clk) begin
         odd_build_started <= 1'b0;
     end
 
-    if (odd_write_rise) begin
+    if (odd_write_req) begin
         if (odd_build_started)
             odd_valid <= odd_valid | (64'b1 << DMA2_OA);
         else
@@ -106,7 +126,7 @@ always @(posedge clk) begin
         odd_build_started <= d1v2_fall ? 1'b0 : 1'b1;
     end
 
-    if (even_write_rise) begin
+    if (even_write_req) begin
         if (even_build_started)
             even_valid <= even_valid | (64'b1 << DMA2_EA);
         else
@@ -115,7 +135,7 @@ always @(posedge clk) begin
     end
 end
 
-assign slot_valid = D1V_2 ? even_valid[DMA2_EA] : odd_valid[DMA2_OA];
+assign slot_valid = D1V_2 ? even_valid_q : odd_valid_q;
 
 // U153 is physically enabled through the active-low RDCLK phase. Convert the
 // first combined valid phase into the same delayed single BRAM write formerly

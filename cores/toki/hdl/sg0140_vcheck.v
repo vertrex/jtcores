@@ -4,11 +4,11 @@
 //
 // PCB captures prove that the selected physical list receives exactly 48 WR2
 // transfers per line: visible descriptors first, followed by invalid padding
-// until SORT48 reaches OVER48.  This RTL instead emits one active-low VFIND/WR2
-// pulse for each admitted descriptor and stores a compact 0..47 list.  The
-// synchronous-memory aperture and stale-slot validity needed by that FPGA
-// representation live in obj_secondary_list_bridge.v.  The two models must be
-// migrated together; the pulse protocol below is not claimed as SG0140 logic.
+// until SORT48 reaches OVER48. This behavioral model instead emits one
+// active-low VFIND/WR2 pulse for each admitted descriptor. SORT48 still exposes
+// the recovered physical 16..63 address window; unwritten rows are suppressed
+// by the FPGA validity epoch in obj_secondary_list_bridge.v. The sparse pulse
+// protocol below is not claimed as recovered SG0140 logic.
 //
 // The 48 MHz clk, edge detectors, registered-U141 phase compensation and
 // fpga_level_timeout recovery are FPGA infrastructure.  Pin 39 is selected by
@@ -41,7 +41,7 @@ module sg0140_vcheck(
   output reg        ODDWR2, // pin 24: active-low odd-list write control
   output reg        OIBDIR, // pin 7 via U1413: active-low object-bus ownership/direction
   output reg        OBUSRQ, // pin 6 via U1413: active-low CPU bus request
-  output reg        VFIND   // pin 5: physical active-low level; compact RTL uses a pulse
+  output reg        VFIND   // pin 5: physical active-low level; behavioral RTL uses a pulse
 );
 
     // -------------------------------------------------------------------------
@@ -148,13 +148,24 @@ module sg0140_vcheck(
     // Extended Y to 9 bits for calculation logic
     wire [8:0] sprite_y = {1'b0, VPD};
 
-    // current_y names the N+1 secondary-list bank being assembled. Sheets
-    // 16-18 add the second ping-pong stage: that list is consumed into the
-    // object line RAM and becomes visible on N+2. Visibility and VMT must
-    // therefore describe current_y+1. Keep the WR2 bank choice below on
-    // current_y[0]; using display_y parity there would write the live bank.
-    wire [8:0] display_y = current_y + 9'd1;
-    wire [8:0] diff_y = display_y - sprite_y;
+    // Global/cocktail reverse must move the 16x16 object's top-left origin as
+    // well as reverse its row order.  The external board-compatible relation
+    // is y' = 240-y: 240 is the last possible top-left coordinate of a
+    // 16-pixel object on a 256-line raster.  This relation is corroborated by
+    // the game behavior/MAME renderer; it is not claimed as a recovered
+    // internal SG0140 gate equation because no sustained-VREV PCB capture is
+    // available yet.
+    wire [8:0] sprite_y_eff = VREV ? (9'd240 - sprite_y) : sprite_y;
+
+    // current_y names the physical secondary-list bank being assembled.
+    // With WR2 routed to the literal even/odd RAM (rather than the former
+    // normalized-phase opposite bank), the descriptor crosses two physical
+    // line boundaries: U151/U152 secondary-list build-to-read, followed by
+    // U181-U184 pixel-line write-to-display. Visibility and VMT must therefore
+    // describe current_y+2. Keep the WR2 bank choice below on current_y[0];
+    // using display_y parity there would write through SORT48's live address.
+    wire [8:0] display_y = current_y + 9'd2;
+    wire [8:0] diff_y = display_y - sprite_y_eff;
     
     // VPD!=0 is a non-PCB compatibility heuristic: the FPGA epoch-valid gate
     // rejects stale/unwritten U141 entries, but a freshly copied all-zero CPU
@@ -174,7 +185,7 @@ module sg0140_vcheck(
     reg over256_d;
     wire rdclk_fall = (rdclk_d == 1'b1) && (RDCLK == 1'b0);
 
-    // Current compact-list build gate.  It is not the physical WR2 padding
+    // Current sparse-admission build gate. It is not the physical WR2 padding
     // protocol: PCB captures also show WR2 transfers in the terminal/padding
     // interval. U141's registered FPGA read output trails the FDA/OVER256 chain
     // by one system clock, so delay only this gate to suppress the priming tuple
@@ -206,14 +217,18 @@ module sg0140_vcheck(
                     VFIND <= 1'b0;
                     VMT   <= screen_flip ? ~diff_y[3:0] : diff_y[3:0];
 
-                    // The list RAM being built is opposite the bank currently
-                    // displayed. Sheet 15 hard-wires EVNWR2 to U151/EA and
-                    // ODDWR2 to U152/OA; SORT48 applies the matching address
-                    // mux. current_y is the next raster row being assembled.
+                    // current_y is the next physical raster row being
+                    // assembled. Sheet 15 hard-wires EVNWR2 to U151/EA and
+                    // ODDWR2 to U152/OA; SORT48 puts its sequential build
+                    // address on EA for an even row and OA for an odd row.
+                    // The former opposite selection only worked with the
+                    // normalized-H/V compatibility phase: under literal V1B
+                    // it wrote through SORT48's display/read address and
+                    // collapsed many matches onto the same few RAM slots.
                     if (current_y[0]) begin
-                        EVNWR2 <= 1'b0;
-                    end else begin
                         ODDWR2 <= 1'b0;
+                    end else begin
+                        EVNWR2 <= 1'b0;
                     end
                 end else begin
                     VFIND <= 1'b1;

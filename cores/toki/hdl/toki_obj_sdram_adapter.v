@@ -5,7 +5,7 @@
 // renderer and JTFrame's acknowledged SDRAM ports.
 //
 // This module is deliberately Toki-specific. Descriptor pairing, CTLT/H2
-// ownership, V1B epochs, dense-pair seams and the fixed write lifetime all
+// ownership, V1B epochs, dense-pair handoffs and the fixed write lifetime all
 // reflect this PCB. The schematic TTL/custom-IC shell remains in LINECUNT.
 module toki_obj_sdram_adapter(
     input         clk,
@@ -75,7 +75,9 @@ wire [80:0] desc_pair_context;
 wire  [5:0] desc_pair_occupancy;
 wire        desc_pair_overflow;
 wire        desc_pair_protocol_error;
-wire        desc_pair_cap_char;
+wire        desc_pair_cap_char_raw;
+reg         desc_pair_cap_char;
+reg         desc_pair_cap_char_lane;
 wire        desc_pair_cap_hpos;
 
 localparam [2:0] PAIR_IDLE  = 3'd0;
@@ -111,19 +113,26 @@ reg        pair_replay_armed;
 // it.  The PCB's local ROM cannot do that; this flag retires the completed
 // transport response without ever publishing it to the physical serializers.
 reg        pair_fetch_discard;
-// V1B exchanges list banks near the raster wrap. In the active compact SORT48
-// protocol the final old-bank pair is lane 0/slot 46 plus lane 1/slot 47; its
-// serializers can still have a legitimate tail after that exchange. They may
-// drain through horizontal blank; only the following HBLB rising edge is the
-// hard FPGA deadline, when the tagged line RAM becomes visible.
+// V1B exchanges list banks near the raster wrap. In the physical two-half
+// SORT48 protocol the final old-bank bucket pairs lane 1/entry 23 with lane
+// 0/entry 47; its serializers can still have a legitimate tail after that
+// exchange. They may drain through horizontal blank; only the following HBLB
+// rising edge is the hard FPGA deadline, when the tagged line RAM becomes
+// visible.
 reg        pair_deadline_passed;
 // The FPGA line-RAM facade performs an immediate whole-bank clear on the
 // physical clear edge. Remember that the current V1B target has seen that
 // edge; new-tag rows may then refill it during the remainder of blanking even
 // while the schematic active-low clear level stays asserted.
 reg        pair_current_bank_cleared;
-// Proven normalized FPGA object-scheduling phase. It classifies descriptor
-// lanes and acknowledged-ROM replay together, as in the hardware-good build.
+// Two coordinate domains intentionally coexist at this FPGA boundary.
+// pcb_hphase follows literal SEI0050 H[1:0] and classifies the physical
+// CTLT/FIRST/SECND descriptor lanes. draw_hphase follows normalized JTFrame
+// phase only for acknowledged-ROM replay: physical T3F/T3F_2 already occur at
+// its phases 1/3. Raw FIRST/SECND supplies the lane displacement, so cached
+// rows stay in ROM order. After the T8H anchor the two phases differ by two
+// modulo four.
+reg  [1:0] pcb_hphase;
 reg  [1:0] draw_hphase;
 wire       pair_overlap_candidate;
 reg        fetch_v1b_d;
@@ -153,7 +162,7 @@ wire [39:0] pair_attr_lane1 = pair_lane1_ctx[pair_attr_bank];
 // Serializer ROM/reverse selection is separate below: the corrected physical
 // T3F phase makes its load coincide with the decoded attribute edge in the
 // common-clock model, while the PCB resolves the two paths by propagation.
-wire        pair_phase_lane = draw_hphase[1] ^ draw_hphase[0];
+wire        pair_phase_lane = pcb_hphase[1] ^ pcb_hphase[0];
 wire [39:0] pair_phase_desc = pair_phase_lane ?
                               pair_attr_lane1 : pair_attr_lane0;
 
@@ -186,15 +195,17 @@ wire [17:0] row_replay_base = pair_push_base;
 // delayed T3F_2 at phase 3. Bit 1 still distinguishes direct lane 0 from
 // delayed lane 1 independently of the attribute old-Q selector above.
 wire row_replay_lane_out = draw_hphase[1];
-// During a dense-pair handoff the delayed U162 serializer loads the following
-// pair at phase 3 as SECND transfers registered ownership.
-// Select the completed fill bank for that early lane-1 load; all other loads
-// retain the render bank. pair_use_pending_attrs is based only on registered
-// PAIR_READY state and decoded PCB edges, avoiding a ROM-OK -> flip/address
-// combinational loop.
-wire row_replay_early_lane1 = pair_use_pending_attrs &&
-                              (draw_hphase == 2'b11);
-wire row_replay_active_bank = row_replay_early_lane1 ?
+// During a dense-pair handoff raw FIRST and SECND coincide with the delayed
+// U162 and direct U168 loads respectively (draw phases 3 and 1). Select the
+// completed fill bank on both physical load phases. The former normalized
+// FIRST arrived after the delayed load and therefore selected only lane 1
+// early; keeping that exception on the raw cadence leaves U168 loading the old
+// pair's word 0. Hold the fill bank throughout the short FIRST-to-SECND
+// ownership interval so both ROM data and its reverse tag settle before their
+// load edges. pair_use_pending_attrs depends only on registered PAIR_READY
+// state and decoded PCB edges, avoiding a ROM-OK -> flip/address loop.
+wire row_replay_pending_bank = pair_use_pending_attrs;
+wire row_replay_active_bank = row_replay_pending_bank ?
                               pair_fill_bank : pair_render_bank;
 wire [39:0] pair_replay_lane0 =
     pair_lane0_ctx[row_replay_active_bank];
@@ -202,26 +213,35 @@ wire [39:0] pair_replay_lane1 =
     pair_lane1_ctx[row_replay_active_bank];
 wire [39:0] pair_replay_desc = row_replay_lane_out ?
                                pair_replay_lane1 : pair_replay_lane0;
-wire row_replay_seam_valid = pair_overlap_candidate;
+// The former normalized PLD22 schedule reached FIRST two pixels after the
+// delayed T3F_2 load, so FPGA replay had to splice one cached word across two
+// pair banks. Literal raw FIRST now coincides with that load: early_lane1 can
+// select the complete new bank directly, just as the PCB ROM bus changes with
+// the descriptor. Keep the pre-load readiness qualification below, but do not
+// replace either complete cached word with the obsolete 2-old/2-new splice.
+wire row_replay_seam_valid = 1'b0;
 wire row_replay_seam_old_bank = pair_render_bank;
 wire row_replay_seam_new_bank = pair_fill_bank;
 wire row_replay_seam_reverse = row_replay_lane_out ?
                                (pair_render_lane1[38] ^ HREV) :
                                (pair_render_lane0[38] ^ HREV);
-// Lane 0 crosses at word 0 forward / word 3 reverse. Lane 1 crosses at
-// word 3 forward / word 0 reverse. The XOR captures both mappings.
+// Retained inactive compatibility inputs of obj_dual_row_replay. If the old
+// splice were enabled, lane 0 would cross at word 0 forward / word 3 reverse
+// and lane 1 at word 3 forward / word 0 reverse. seam_valid is tied low above.
 wire [1:0] row_replay_seam_word =
     (row_replay_lane_out ^ row_replay_seam_reverse) ? 2'd3 : 2'd0;
 wire row_replay_fire = row_replay_req && row_replay_ready;
 
-// Cached rows enter two different physical serializer cadences. With the
-// trace-backed SEI0050 T3F phase, replay-to-SIS6091 writes are +2 pixels for
-// direct U168/OBJ2 (lane 0) and -2 pixels for delayed U162/U166/OBJ1 (lane 1).
-// Pre-rotate by the inverse at this FPGA transport boundary; the
-// schematic-mapped OBJPS logic stays exact.
+// Literal raw FIRST/SECND timing supplies the two-pixel displacement between
+// the direct U168/OBJ2 and delayed U162/U166/OBJ1 serializers. The older
+// normalized PLD22 facade needed +2/-2 row pre-rotations here; retaining them
+// with raw CTLT timing double-shifts the lanes in opposite directions. Keep
+// cached row payloads in ROM order and select them with the raw word phase.
+// Complete replay banks switch at FIRST/SECND; no 2-old/2-new word splice is
+// active.
 obj_dual_row_replay #(
-    .LANE0_PHASE_SHIFT(2),
-    .LANE1_PHASE_SHIFT(14)
+    .LANE0_PHASE_SHIFT(0),
+    .LANE1_PHASE_SHIFT(0)
 ) row_replay_u(
     .clk(clk),
     .rst(RESETA),
@@ -289,7 +309,14 @@ assign obj_rom_2_addr[17:0] = row_replay_cs ? row_replay_addr : live_rom_addr;
 // directly. On the PCB U1716 instead captures the old OH bus at CTLT2 after the
 // OHMAX path. Waiting for that sequential chain here either copies the previous
 // high nibble or misses the acknowledged-ROM scheduling deadline.
-wire [8:0] hpos_cap = {HREV ? ~OVD[8:4] : OVD[8:4], OVD[3:0]};
+// This acknowledged-ROM facade retains the raw HPOS descriptor instead of
+// traversing the physical OHMAX/FH chain.  Under global/cocktail reverse it
+// must therefore reproduce the board-visible 16x16 top-left relation
+// x' = 240-x at both admission and the eventual counter load.  The relation
+// is corroborated by game behavior/MAME; it is not claimed as the recovered
+// internal OHMAX/SEI0060 equation because no HREV-high address capture exists.
+wire [8:0] hpos_raw = OVD[8:0];
+wire [8:0] hpos_cap = HREV ? (9'd240 - hpos_raw) : hpos_raw;
 assign fh_cap         = hpos_cap;
 // The physical ROM may be read for an off-screen descriptor with no visible
 // consequence.  On FPGA those reads consume shared SDRAM/cache service time.
@@ -310,42 +337,60 @@ reg hblb_d;
 reg ctlt2_d;
 reg even_wren_active;
 reg odd_wren_active;
-// The hardware-good FPGA object island uses normalized hpos for PLD22, VH4/VH8
-// and SORT48. T8H anchors the adapter's matching four-phase scheduler without
-// adding an H port to sheet-17 LINECUNT, which has none on the PCB. This is not
-// a claim that draw_hphase exposes the literal raw U52 counter pins.
+// LINECUNT has no H bus on sheet 17. Physical T8H anchors both reconstructed
+// four-phase domains without adding a non-PCB port to the schematic shell.
+// pcb_hphase names the literal raw U52 phase; draw_hphase exists only inside
+// the acknowledged-SDRAM replay facade.
 reg [3:0] even_wren_pix;
 reg [3:0] odd_wren_pix;
 wire hblb_rise   = (hblb_d == 1'b0) && (HBLB == 1'b1);
 wire ctlt2_fall  = (ctlt2_d == 1'b1) && (CTLT2 == 1'b0);
 wire burst_active   = even_wren_active || odd_wren_active;
-// Recover the compatibility H4/H8 classification from the normalized VH4/VH8
-// XOR buses. The first CTLT2 sample in each 16-pixel bucket is the stable
-// per-slot metadata point, including dense lists where NOOBJ never returns
-// high.
+// Recover raw H4/H8 from the sheet-16 VH4/VH8 XOR buses. The first CTLT2
+// sample in each 16-pixel bucket is the stable per-slot metadata point,
+// including dense lists where NOOBJ never returns high.
 wire opsrev_eff = HREV ^ OBJ_HREV;
 wire h4_phase = ~(VH4 ^ opsrev_eff);
 wire h8_phase = VH8 ^ ~h4_phase ^ opsrev_eff;
-// VH4/VH8 retain the sheet-16 shared-bus equations but are currently generated
-// from normalized hpos. They follow the attribute old-Q lane at FIRST/SECND,
-// while the acknowledged replay store may simultaneously feed the opposite
-// serializer lane. Recover the common H4/H8 classification above, then apply
-// the replay lane's own direction only at this FPGA ROM-address boundary.
-// This keeps the external sheet-16 OPSREV wiring literal while preventing a
-// mixed-flip row from addressing its neighbour's word order.
+// VH4/VH8 retain the literal sheet-16 raw-H equations. With FIRST/SECND and
+// cached-row packing both on that physical cadence, acknowledged replay must
+// select the same raw ROM word. Subtracting the normalized JTFrame offset here
+// adds a second compensation and tears each dense-pair boundary. Reconstruct
+// the common raw nibble without adding a non-PCB H port to LINECUNT.
+wire [3:0] raw_h_nibble = {h8_phase, h4_phase, pcb_hphase};
+wire replay_h4_phase = raw_h_nibble[2];
+wire replay_h8_phase = raw_h_nibble[3];
+
+// The attribute old-Q lane and acknowledged replay lane can carry different
+// per-object reverse bits during a dense mixed-flip pair. Apply the replay
+// descriptor's direction only at this FPGA cached-ROM boundary.
 wire replay_opsrev = HREV ^ pair_replay_desc[38];
-wire replay_vh4 = ~h4_phase ^ replay_opsrev;
-wire replay_vh8 = h8_phase ^ ~h4_phase ^ replay_opsrev;
+wire replay_vh4 = ~replay_h4_phase ^ replay_opsrev;
+wire replay_vh8 = replay_h8_phase ^ ~replay_h4_phase ^ replay_opsrev;
 assign render_word = {replay_vh8, replay_vh4};
 assign FPGA_REPLAY_REV = replay_opsrev;
 
-// U153 is a registered FPGA RAM. Start capture at the decoded CTLT falling
-// edge, then obj_desc_pair_fifo samples OVD one master clock later. Restrict
-// capture to the settled normalized H=4/5 (lane 0) and H=6/7 (lane 1) repeat
-// used by the hardware-good FPGA renderer; draw_hphase[1] selects the lane.
-assign desc_pair_cap_char = ctlt1_capture_d && !CTLT1 &&
-                            h4_phase && !h8_phase;
+// U151/U152 and U153 are both registered FPGA RAMs. At the first CHAR phase
+// after H2 changes, the selected list word has not yet reached U153; issuing
+// the FIFO request immediately would therefore join this lane's HPOS to the
+// opposite physical half's CHAR. Delay only that FPGA request and its literal
+// H2 tag by one 48-MHz clock. This remains inside the same raw pixel (eight
+// master clocks) and has no PCB-visible raster delay. HPOS already occurs one
+// raw pixel later and needs no compensation.
+assign desc_pair_cap_char_raw = ctlt1_capture_d && !CTLT1 &&
+                                h4_phase && !h8_phase;
 assign desc_pair_cap_hpos = ctlt2_fall && h4_phase && !h8_phase;
+
+always @(posedge clk) begin
+   if (RESETA) begin
+      desc_pair_cap_char      <= 1'b0;
+      desc_pair_cap_char_lane <= 1'b0;
+   end else begin
+      desc_pair_cap_char <= desc_pair_cap_char_raw;
+      if (desc_pair_cap_char_raw)
+         desc_pair_cap_char_lane <= pcb_hphase[1];
+   end
+end
 
 // Once active video begins, an opposite-bank head has missed the only blanking
 // interval in which it could finish. Pop it without publishing it to the ROM
@@ -381,14 +426,14 @@ assign desc_pair_ready = desc_pair_stale ||
 obj_desc_pair_fifo desc_pair_fifo_u(
    .clk(clk),
    .rst(RESETA),
-   // A consume epoch straddles V1B: the final old-bank compact {46,47} pair can
-   // drain in blanking while the first new-bank {0,1} pair queues behind it. A
-   // raw V1B flush therefore destroys valid work. Expiration is selective
-   // above.
+   // A consume epoch straddles V1B: the final old-bank physical {23,47} pair
+   // can drain in blanking while the first new-bank {0,24} pair queues behind
+   // it. A raw V1B flush therefore destroys valid work. Expiration is
+   // selective above.
    .flush(1'b0),
    .cap_char(desc_pair_cap_char),
    .cap_hpos(desc_pair_cap_hpos),
-   .cap_lane(draw_hphase[1]),
+   .cap_lane(desc_pair_cap_char ? desc_pair_cap_char_lane : pcb_hphase[1]),
    .cap_present(!NOOBJ && pair_cap_visible_h),
    .cap_row(VA),
    .cap_flip(ODHREV),
@@ -417,15 +462,15 @@ always @(posedge clk) begin
       pair_ctlt2_second_phase <= 1'b0;
    end else if (ctlt2_fall) begin
       pair_ctlt2_first_phase  <= h4_phase && !h8_phase &&
-                                 !draw_hphase[1];
+                                 !pcb_hphase[1];
       pair_ctlt2_second_phase <= h4_phase && !h8_phase &&
-                                  draw_hphase[1];
+                                  pcb_hphase[1];
    end
 end
 
-// At normalized scheduler phase H=5, the CTLT2/FIRST rising edge transfers the
-// preceding H2=1 descriptor. SG0140 and U176 still expose that old complete OH
-// bus on the RHS of this edge, the X context belonging to U162/U1711.
+// At raw scheduler phase H=5 (normalized phase 3), the CTLT2/FIRST rising edge
+// transfers the preceding H2=1 descriptor. SG0140 and U176 still expose that
+// old complete OH bus on the RHS of this edge, the U162/U1711 X context.
 wire pair_h2_1_capture_evt = ctlt2_capture_cen &&
                              pair_ctlt2_first_phase;
 wire pair_h2_0_transfer_evt = ctlt2_capture_cen &&
@@ -436,7 +481,7 @@ wire pair_h2_0_transfer_evt = ctlt2_capture_cen &&
 // earlier; attribute old-Q transfer still occurs at the pulse's rising edge.
 wire pair_h2_1_replay_prime_evt = ctlt2_fall &&
                                   h4_phase && !h8_phase &&
-                                  !draw_hphase[1];
+                                  !pcb_hphase[1];
 // Only a registered PAIR_READY may affect the live attribute bus. Feeding a
 // combinational SDRAM/cache completion into this decision creates a path from
 // ROM OK through OBJ_HREV and the graphics address back to ROM OK. Cache hits
@@ -454,10 +499,11 @@ assign pair_overlap_candidate = pair_render_active && pair_draw_started &&
                                 pair_fill_writable &&
                                 (pair_line_bank[pair_fill_bank] ==
                                  pair_line_bank[pair_render_bank]);
-// Lane 1's boundary word is consumed two pixels before FIRST. Require that
-// splice to have happened before allowing FIRST/SECND to overlap the pair.
-// A late cache completion falls back to an isolated pair start instead of
-// exposing a partially primed serializer.
+// Require lane 1's complete cached boundary word to be selected before
+// allowing FIRST/SECND to overlap the pair. A late cache completion falls
+// back to an isolated pair start instead of exposing a partially primed
+// serializer. pair_seam_primed retains its historical name; no word splice is
+// active.
 wire pair_overlap_eligible = pair_overlap_candidate && pair_seam_primed;
 // FIRST primes pending lane 1.  Keep that same tagged descriptor on the
 // shared attribute bus through its phase-3 T3F_2 load; SECND then moves
@@ -479,8 +525,14 @@ wire pair_counter_bank = pair_overlap_handoff ?
                          pair_fill_bank : pair_render_bank;
 wire [39:0] pair_counter_lane0 = pair_lane0_ctx[pair_counter_bank];
 wire [39:0] pair_counter_lane1 = pair_lane1_ctx[pair_counter_bank];
+wire [8:0] pair_counter_lane0_x = pair_counter_lane0[24:16];
+wire [8:0] pair_counter_lane1_x = pair_counter_lane1[24:16];
+wire [8:0] pair_counter_lane0_x_eff = HREV ?
+    (9'd240 - pair_counter_lane0_x) : pair_counter_lane0_x;
+wire [8:0] pair_counter_lane1_x_eff = HREV ?
+    (9'd240 - pair_counter_lane1_x) : pair_counter_lane1_x;
 wire [17:0] pair_counter_x = {
-    pair_counter_lane1[24:16], pair_counter_lane0[24:16]
+    pair_counter_lane1_x_eff, pair_counter_lane0_x_eff
 };
 wire pair_counter_line_bank = pair_line_bank[pair_counter_bank];
 // The descriptor's captured list-bank tag chooses the physical writer. V1B
@@ -663,18 +715,19 @@ always @(posedge clk) begin
          endcase
       end
 
-      // FIRST at normalized H=5 primes delayed OBJ1/lane 1. SECND at normalized
-      // H=7 transfers it through U165 and captures direct OBJ2/lane 0 through
-      // U169. Only after both old-Q edges may the shared write burst start.
+      // FIRST at normalized H=3/raw H=5 primes delayed OBJ1/lane 1. SECND at
+      // normalized H=5/raw H=7 transfers it through U165 and captures direct
+      // OBJ2/lane 0 through U169. Only then may the shared write burst start.
       if (pair_render_active && pair_h2_1_replay_prime_evt)
          pair_replay_armed <= 1'b1;
 
       if (pair_render_active && pair_h2_1_capture_evt)
          pair_attr_first_seen <= 1'b1;
 
-      // The delayed lane's critical boundary word loads at phase 3. The seam
-      // mux is already combinationally valid on this beat; remember that it
-      // completed so the later FIRST/SECND handoff may proceed safely.
+      // The delayed lane's critical complete-bank word loads at phase 3.
+      // Remember that setup completed so the later FIRST/SECND handoff may
+      // proceed safely. row_replay_seam_word is only the retained word-index
+      // expression; the replay splice itself is disabled.
       if (pair_overlap_candidate && OBJ_N6M &&
           (draw_hphase == 2'b11) &&
           (render_word == row_replay_seam_word))
@@ -802,15 +855,20 @@ always @(posedge clk) begin
    if (RESETA) begin
       even_wren_active <= 1'b0;
       odd_wren_active  <= 1'b0;
+      // SEI0050 resets raw H to 9'h102 while normalized hpos resets to zero.
+      pcb_hphase       <= 2'b10;
       draw_hphase      <= 2'b00;
       even_wren_pix    <= 4'd0;
       odd_wren_pix     <= 4'd0;
    end else begin
       if (OBJ_N6M) begin
-         if (T8H)
+         if (T8H) begin
+            pcb_hphase  <= 2'b01;
             draw_hphase <= 2'b11;
-         else
+         end else begin
+            pcb_hphase  <= pcb_hphase + 2'b01;
             draw_hphase <= draw_hphase + 2'b01;
+         end
       end
 
       // The counter load and serializer transfer occur at SECND. Commit the

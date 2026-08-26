@@ -74,7 +74,7 @@ module SEI0060BU(
             // ODD_LD to EVEN/EA. Separate PCB captures without ADDR cannot
             // establish that physical polarity directly, so do not change
             // this mapping apart from LINEBUF/OBJPS/WREN. Remember the decoded
-            // route independently of live V1B so the final compact-list slot
+            // route independently of live V1B so the final physical-list slot
             // can drain in horizontal blank after V1B has advanced. This
             // register is not a recovered internal SEI0060BU storage element.
             if (evn_ld_fall)

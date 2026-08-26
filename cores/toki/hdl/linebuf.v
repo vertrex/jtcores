@@ -52,8 +52,6 @@ wire [9:0] odd_selected_data;
 // qualification through U166's two physical delay stages; OBJ2_Z directly
 // represents U164B's output qualification.
 wire obj1_pix_valid = (~OBJ1_Z) & (OBJ1[3:0] != 4'hF);
-// The hardware-good compatibility schedule consumes adjacent compact slots:
-// H2=0 direct U168/OBJ2 is slot 2n; H2=1 delayed U162/OBJ1 is slot 2n+1.
 wire obj2_pix_valid = (~OBJ2_Z) & (OBJ2[3:0] != 4'hF);
 
 // FPGA phase adapter for the four physical sheet-18 SIS6091B line stores.
@@ -83,21 +81,23 @@ wire odd_clear_cmd    =  oddclr_d && !ODDCLR;
 // connect to the pulled-up OOD/PRIOR nets. D1V parity leaves one two-lane bank
 // driving those shared nets. Its simultaneous-FIND behavior is opaque, while
 // CPU/MAME ordering and the validated single-lane compositor establish global
-// first-object-wins priority. Keep a compact slot-order tag in the six FPGA
-// RAM bits which sheet 18 leaves unconnected, then resolve simultaneous FINDs
-// by that tag. This is an FPGA representation of the shared-bus result, not a
-// claim that the original SIS6091B stores these tag bits.
+// first-object-wins priority. The physical SORT48 scan presents entry n on
+// delayed OBJ1/H2=1 and entry 24+n on direct OBJ2/H2=0. Keep that two-half
+// order as a tag in the six FPGA RAM bits which sheet 18 leaves unconnected,
+// then resolve simultaneous FINDs by the lower tag. This is an FPGA
+// representation of the shared-bus result, not a claim that the original
+// SIS6091B stores these tag bits.
 obj_line_pair_priority even_pair_priority_u(
     .clk(clk),
     .clear_n(EVNCLR),
     .write_clock(OBJ_N6M),
     .write_enable_n(EVNWREN),
-    .earlier_find(E2FIND),
-    .later_find(E1FIND),
+    .earlier_find(E2FIND),       // direct OBJ2: physical entry 24+n
+    .later_find(E1FIND),         // delayed OBJ1: physical entry n
     .earlier_word(Q_EVN2),
     .later_word(Q_EVN1),
-    .earlier_write_tag(even_obj2_tag),
-    .later_write_tag(even_obj1_tag),
+    .earlier_write_tag(even_obj2_tag), // serializer earlier, list later
+    .later_write_tag(even_obj1_tag),   // serializer later, list earlier
     .selected_find(even_selected_find),
     .selected_data(even_selected_data)
 );
@@ -107,12 +107,12 @@ obj_line_pair_priority odd_pair_priority_u(
     .clear_n(ODDCLR),
     .write_clock(OBJ_N6M),
     .write_enable_n(ODDWREN),
-    .earlier_find(O2FIND),
-    .later_find(O1FIND),
+    .earlier_find(O2FIND),       // direct OBJ2: physical entry 24+n
+    .later_find(O1FIND),         // delayed OBJ1: physical entry n
     .earlier_word(Q_ODD2),
     .later_word(Q_ODD1),
-    .earlier_write_tag(odd_obj2_tag),
-    .later_write_tag(odd_obj1_tag),
+    .earlier_write_tag(odd_obj2_tag), // serializer earlier, list later
+    .later_write_tag(odd_obj1_tag),   // serializer later, list earlier
     .selected_find(odd_selected_find),
     .selected_data(odd_selected_data)
 );

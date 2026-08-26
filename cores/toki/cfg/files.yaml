@@ -53,6 +53,7 @@ toki:
       - fpga_level_timeout.v
       - fpga_async_set_clear.v
       - toki_objdma_u148_fpga.v
+      - obj_secondary_list_ram_fpga.v
       - sis6091B_atomic.v
       - obj_line_pair_priority.v
       - obj_load_aligned_reverse.v

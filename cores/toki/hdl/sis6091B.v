@@ -3,17 +3,18 @@
 *
 * See schematic for pin layout.
 *
-* Provisional fixed behavior for the reduced pin facade used by the sheet-15
-* compact object lists: direct read and qualified replacement write.  The
-* sheet-18 registered line storage, atomic FIND clearing and first-write
-* admission are FPGA implementation requirements and live in the separate
-* sis6091B_atomic backend rather than masquerading as IC mode flags.
+* Provisional fixed behavior for the reduced pin facade formerly used by the
+* sheet-15 object lists and retained for custom-IC review/other Seibu boards.
+* Toki production U151/U152 now use obj_secondary_list_ram_fpga because their
+* synchronous BRAM latency must be explicit outside this IC facade. Sheet-18
+* registered line storage, atomic FIND clearing and first-write admission are
+* FPGA implementation requirements in the separate sis6091B_atomic backend.
 *
 * A hidden used/FIND bit is packed with each word here for the external
 * contract.  It is not a claim that the die contains a seventeenth SRAM plane.
-* U151/U152 tie clr_n high and do not consume FIND.  The package's physical
-* clear and output-enable truth tables remain unrecovered, so this reduced
-* facade deliberately does not invent a sequential array-clear mechanism.
+* The package's physical clear and output-enable truth tables remain
+* unrecovered, so this reduced facade deliberately does not invent a
+* sequential array-clear mechanism.
 */
 
 module sis6091B #(
