@@ -2,7 +2,8 @@
 // Standard TTL parts and recovered PLD24 remain explicit; VCHECK/SORT48 are
 // inferred custom-IC modes. Physical U141 is replaced by registered FPGA BRAM,
 // so the common-clock edge/read phases are FPGA timing accommodations. The
-// separate validity plane is timeout-recovery policy, not recovered U141 logic.
+// former timeout/epoch-valid recovery experiment is removed: ownership now
+// follows the PCB contract until the complete 256-entry refresh terminates.
 // FDA traverses 1,024 16-bit source words = 256 descriptors x four words.
 // U149/U1418 select RAM word offsets 0x6c00..0x6fff; CPU-visible byte addresses
 // are 0x06d800..0x06dfff (CPU word addresses 0x36c00..0x36fff).
