@@ -80,18 +80,26 @@ sis6091 u_vram_ram(
 wire EXH4_BUF_N = ~EXH[2];
 wire [15:0] char_addr_next = {ram_out[11:0], EXV[2:0], EXH4_BUF_N};
 
-// U92/U93 are independent asynchronous byte ROMs on the PCB.  JTFrame backs
-// them with independently acknowledged SDRAM slots, so the FPGA-only bridge
-// holds and joins a complete pair, rejects stale latched OKs, and caches
-// repeated rows to meet the fixed four-pixel serializer deadline.  Keeping
-// that transport mechanism in its own reusable module leaves this file as the
-// sheet-9 VRAM/address/serializer shell.
+// U92/U93 are independent asynchronous byte ROMs on the PCB.  The top-level
+// FPGA facade packs them into one atomically acknowledged 16-bit SDRAM word;
+// split the word back into the two schematic byte lanes here.  The local
+// bridge rejects stale latched OKs and caches repeated rows to meet the fixed
+// four-pixel serializer deadline, while this module keeps its sheet-9 ports.
 wire [15:0] char_data_hold;
+wire [15:0] char_rom_addr;
+wire        char_rom_cs;
+wire [15:0] char_rom_data = {char_rom_2_data, char_rom_1_data};
+wire        char_rom_ok = char_rom_1_ok && char_rom_2_ok;
+
+assign char_rom_1_addr = char_rom_addr;
+assign char_rom_2_addr = char_rom_addr;
+assign char_rom_1_cs = char_rom_cs;
+assign char_rom_2_cs = char_rom_cs;
 
 jtframe_rom_pair_cache #(
   .ADDR_W (16),
-  .DATA_W (8),
-  .INDEX_W(12)
+  .DATA_W (16),
+  .INDEX_W(11)
 ) u_char_rom_bridge (
   .clk       (clk),
   .rst       (rst),
@@ -99,15 +107,10 @@ jtframe_rom_pair_cache #(
   .addr      (char_addr_next),
   .q         (char_data_hold),
 
-  .rom_0_data(char_rom_1_data),
-  .rom_0_ok  (char_rom_1_ok),
-  .rom_0_addr(char_rom_1_addr),
-  .rom_0_cs  (char_rom_1_cs),
-
-  .rom_1_data(char_rom_2_data),
-  .rom_1_ok  (char_rom_2_ok),
-  .rom_1_addr(char_rom_2_addr),
-  .rom_1_cs  (char_rom_2_cs)
+  .rom_data  (char_rom_data),
+  .rom_ok    (char_rom_ok),
+  .rom_addr  (char_rom_addr),
+  .rom_cs    (char_rom_cs)
 );
 
 wire [1:0] NC;

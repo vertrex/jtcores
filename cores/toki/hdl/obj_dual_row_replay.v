@@ -8,19 +8,19 @@
 // physical serializers while alternating between two caller-owned pair
 // banks. Lane numbers are deliberately opaque here: their H2/U162/U168
 // mapping belongs to the sheet-16 scheduler and must not be guessed in a
-// transport block. ROM requests are serialized through obj_rom_row_bridge so
+// transport block. ROM requests are serialized through jtframe_rom_cache4 so
 // sticky/stale OK behavior is handled once at the SDRAM boundary.
 //
 // Caller ownership contract:
 //   * push_pair_bank must name a bank that is not being replayed or otherwise
 //     retained by the caller;
 //   * this module deliberately does not reject writes to active_pair_bank;
-//   * each accepted push replaces the selected lane's readiness state;
 //   * push fields remain valid through an accepted push_valid/push_ready beat.
 //
-// pair_ready is for active_pair_bank only. Bit 0 is the direct lane and bit 1
-// is the delayed lane. A descriptor with push_present=0 completes immediately
-// with 16'hffff in all four words, matching transparent object data.
+// A descriptor with push_present=0 completes immediately with 16'hffff in all
+// four words, matching transparent object data. Completion and ownership are
+// reported through slot_done/slot_done_ctx; the former per-lane ready map was
+// not consumed by the production scheduler and has been removed.
 //
 // Literal raw FIRST/SECND timing now supplies the physical lane displacement in
 // the caller. Rows therefore remain in mask-ROM word order here; the obsolete
@@ -47,25 +47,24 @@ module obj_dual_row_replay(
     input             active_pair_bank,
     input             replay_lane,
     input      [1:0]  word_sel,
-    output     [1:0]  pair_ready,
-    output     [3:0]  ready_map,
     output     [15:0] replay_pd,
     // slot_done is the accepted completion beat. For a present descriptor it
     // is the bridge's final ROM-word cycle; an absent descriptor completes on
     // its accepted push beat. Capture slot_done_ctx on the closing clk edge.
     output            slot_done,
-    output     [1:0]  slot_done_ctx,
-    output            busy
+    output     [1:0]  slot_done_ctx
 );
 
 reg [63:0] rows [0:3];
-reg [3:0]  lane_ready;
 wire       row_cache_ready;
 wire       row_cache_done;
 wire [63:0] row_cache_data;
-wire [1:0] row_cache_ctx;
-wire       row_cache_busy;
+wire [2:0] row_cache_ctx;
+wire [2:0] row_rom_ctx;
 wire [1:0] push_ctx = {push_pair_bank, push_lane};
+wire [2:0] push_cache_ctx = {
+    push_rom_select, push_pair_bank, push_lane
+};
 wire [1:0] replay_ctx = {active_pair_bank, replay_lane};
 wire       push_fire = push_valid && push_ready;
 wire [63:0] replay_row = rows[replay_ctx];
@@ -95,16 +94,14 @@ wire [15:0] replay_word = select_word(replay_row, word_sel);
 // requests. This prevents a later response from an outstanding request from
 // overwriting a locally completed invalid descriptor in the same slot.
 assign push_ready = row_cache_ready;
-assign pair_ready = active_pair_bank ? lane_ready[3:2] : lane_ready[1:0];
-assign ready_map  = lane_ready;
 assign slot_done  = row_cache_done || (push_fire && !push_present);
-assign slot_done_ctx = row_cache_done ? row_cache_ctx : push_ctx;
-assign busy       = row_cache_busy;
+assign slot_done_ctx = row_cache_done ? row_cache_ctx[1:0] : push_ctx;
+assign rom_select = row_rom_ctx[2];
 
-obj_rom_row_cache #(
+jtframe_rom_cache4 #(
     .AW(18),
     .DW(16),
-    .CTX_W(2),
+    .CTX_W(3),
     .KEY_W(17),
     .INDEX_W(12)
 ) row_cache_u (
@@ -112,19 +109,18 @@ obj_rom_row_cache #(
     .rst(rst),
     .req_valid(push_valid && push_present),
     .req_ready(row_cache_ready),
-    .req_rom_select(push_rom_select),
     .req_base(push_row_base),
     .req_key(push_row_key),
-    .req_ctx(push_ctx),
+    .req_ctx(push_cache_ctx),
     .rom_cs(rom_cs),
-    .rom_select(rom_select),
     .rom_addr(rom_addr),
+    .rom_ctx(row_rom_ctx),
     .rom_data(rom_data),
     .rom_ok(rom_ok),
-    .row_done(row_cache_done),
-    .row_data(row_cache_data),
-    .row_ctx(row_cache_ctx),
-    .busy(row_cache_busy),
+    .rsp_valid(row_cache_done),
+    .rsp_data(row_cache_data),
+    .rsp_ctx(row_cache_ctx),
+    .busy(),
     .cache_hit()
 );
 
@@ -133,23 +129,14 @@ assign replay_pd = replay_word;
 integer row_index;
 always @(posedge clk) begin
     if (rst) begin
-        lane_ready <= 4'b0000;
         for (row_index = 0; row_index < 4; row_index = row_index + 1)
             rows[row_index] <= 64'hffff_ffff_ffff_ffff;
     end else begin
-        if (push_fire) begin
-            if (push_present) begin
-                lane_ready[push_ctx] <= 1'b0;
-            end else begin
-                rows[push_ctx]       <= 64'hffff_ffff_ffff_ffff;
-                lane_ready[push_ctx] <= 1'b1;
-            end
-        end
+        if (push_fire && !push_present)
+            rows[push_ctx] <= 64'hffff_ffff_ffff_ffff;
 
-        if (row_cache_done) begin
-            rows[row_cache_ctx]       <= row_cache_data;
-            lane_ready[row_cache_ctx] <= 1'b1;
-        end
+        if (row_cache_done)
+            rows[row_cache_ctx[1:0]] <= row_cache_data;
     end
 end
 

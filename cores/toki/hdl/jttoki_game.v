@@ -93,6 +93,31 @@ wire m68k_sound_cs_2, m68k_sound_cs_4, m68k_sound_cs_6;
 wire [15:0] m68k_sound_latch_0, m68k_sound_latch_1;
 wire [15:0] z80_sound_latch_0, z80_sound_latch_1, z80_sound_latch_2;
 
+// PCB sheet 9 has two byte-wide character mask ROMs sharing one address bus.
+// JTFrame stores that physical pair as one interleaved 16-bit ROM word. Keep
+// the schematic-facing byte lanes at the video boundary; this integration
+// facade adds no state and both lanes retain the proven SCR4 deadline cache.
+wire  [7:0] char_rom_1_data = char_rom_data[7:0];
+wire  [7:0] char_rom_2_data = char_rom_data[15:8];
+wire        char_rom_1_ok   = char_rom_ok;
+wire        char_rom_2_ok   = char_rom_ok;
+wire [15:0] char_rom_1_addr;
+wire [15:0] char_rom_2_addr;
+wire        char_rom_1_cs;
+wire        char_rom_2_cs;
+
+assign char_rom_addr = char_rom_1_addr;
+assign char_rom_cs   = char_rom_1_cs | char_rom_2_cs;
+
+`ifdef SIMULATION
+always @(posedge clk) begin
+  if (!rst && (char_rom_1_addr !== char_rom_2_addr))
+    $error("SCR4 physical ROM lanes requested different addresses");
+  if (!rst && (char_rom_1_cs !== char_rom_2_cs))
+    $error("SCR4 packed ROM lanes requested different cycles");
+end
+`endif
+
 
 //////// MAIN ////////////
 //
@@ -340,8 +365,10 @@ music1 u_music1(
   .pcm_rom_cs(pcm_rom_cs)
 );
 
-wire bank_rom_cs_n; 
-assign bank_rom_cs = ~bank_rom_cs_n;
+// PLD23 still produces the physical bank-ROM chip select inside MUSIC2. The
+// FPGA bank ROM is a boot-loaded local BRAM, so no external request/OK port is
+// needed at this integration boundary.
+wire bank_rom_cs_n;
 
 wire [7:0] SEI0100_MDB_IN;
 
@@ -384,7 +411,6 @@ music2 u_music2(
   .z80_rom_addr(z80_rom_addr),
 
   .bank_rom_data(bank_rom_data),
-  .bank_rom_ok(bank_rom_ok),
   .bank_rom_addr(bank_rom_addr),
   .bank_rom_cs_n(bank_rom_cs_n)
 );

@@ -205,29 +205,12 @@ sis6091 u_141(
   .rd_data({NC[1:0], OBJEN_2_RAM, SPR2_2, SPR1_2, VREVD_2, ODH, INSCRN ,VPD[7:0]})
 );
 
-// The physical and FPGA U141 memories both retain data. The difference is that
-// the FPGA VCHECK model has a recovery timeout which can return the CPU bus
-// after only part of the 256-entry refresh completed. Start an empty logical
-// epoch at ownership acquisition and expose only entries whose final-word phase
-// was reached in this refresh, so an untouched old tail cannot become a ghost.
-// A normal complete refresh marks every entry and sees no added delay.
-wire         dma_entry_valid_q;
-
-obj_snapshot_valid_plane #(
-    .ADDR_W(8)
-) u_snapshot_valid (
-    .clk(clk),
-    .rst(rst),
-    .epoch_active(~OIBDIR),
-    .mark_cen(!OIBDIR && !RD_VPOS),
-    .mark_addr(FDA[10:3]),
-    .read_cen(~RDCLK),
-    .read_addr(FDA[10:3]),
-    .read_valid(dma_entry_valid_q)
-);
-
-// OBJEN is active low at PLD24: force an invalid snapshot entry disabled.
-assign OBJEN_2 = dma_entry_valid_q ? OBJEN_2_RAM : 1'b1;
+// U141 is retentive and the PCB refresh runs to the 256-entry terminal count.
+// A former FPGA recovery experiment could terminate that DMA early, so it
+// paired U141 with an epoch-valid sideband to hide the untouched old tail.
+// VCHECK now follows the physical no-timeout ownership contract; expose the
+// registered U141 output directly and keep OBJEN's original active-low sense.
+assign OBJEN_2 = OBJEN_2_RAM;
 
 /**
 *  Obj DMA genreate FDA[10:3] addr to copy obj from cpu ram to sis6091

@@ -600,6 +600,21 @@ begin \
     $fclose(fd); \
 end
 
+// Dump the currently selected 512-entry FIND epoch from the FPGA line-store
+// backend. The physical pixel RAM remains separate, as on the previous
+// register-valid implementation; only the validity storage is now BRAM.
+`define dump_linebuf_valid(FILE_NAME, MEM_PATH, EPOCH_PATH) \
+begin \
+    integer fd; \
+    integer i; \
+    $display("Snapshot: Dumping %s (Size: %0d)", FILE_NAME, 512); \
+    fd = $fopen(FILE_NAME, "wb"); \
+    for (i = 0; i < 512; i = i + 1) begin \
+      $fwrite(fd, "%c", MEM_PATH[{EPOCH_PATH, i[8:0]}]); \
+    end \
+    $fclose(fd); \
+end
+
 // Macro pour dumper une RAM 8 bits (si jamais tu en as besoin pour le SIS6091 standard)
 `define dump_ram8(FILE_NAME, SIZE, MEM_PATH) \
 begin \
@@ -636,12 +651,12 @@ always @(posedge clk) begin
      `dump_linebuf_ram("linebuf_u182.bin", obj_u.linebuf_u.u_182.mem)
      `dump_linebuf_ram("linebuf_u183.bin", obj_u.linebuf_u.u_183.mem)
      `dump_linebuf_ram("linebuf_u184.bin", obj_u.linebuf_u.u_184.mem)
-     // The FPGA line-store backend clears its separate FIND/used plane in one
-     // edge while leaving BRAM data stale, so dump that plane independently.
-     `dump_ram8("linebuf_u181_used.bin", 512, obj_u.linebuf_u.u_181.used)
-     `dump_ram8("linebuf_u182_used.bin", 512, obj_u.linebuf_u.u_182.used)
-     `dump_ram8("linebuf_u183_used.bin", 512, obj_u.linebuf_u.u_183.used)
-     `dump_ram8("linebuf_u184_used.bin", 512, obj_u.linebuf_u.u_184.used)
+     // Atomic CLR swaps between two BRAM-backed FIND epochs while leaving
+     // pixel data stale, so dump the currently selected epoch independently.
+     `dump_linebuf_valid("linebuf_u181_used.bin", obj_u.linebuf_u.u_181.valid_mem, obj_u.linebuf_u.u_181.active_epoch)
+     `dump_linebuf_valid("linebuf_u182_used.bin", obj_u.linebuf_u.u_182.valid_mem, obj_u.linebuf_u.u_182.active_epoch)
+     `dump_linebuf_valid("linebuf_u183_used.bin", obj_u.linebuf_u.u_183.valid_mem, obj_u.linebuf_u.u_183.active_epoch)
+     `dump_linebuf_valid("linebuf_u184_used.bin", obj_u.linebuf_u.u_184.valid_mem, obj_u.linebuf_u.u_184.active_epoch)
 
      `dump_ram16_split("cpu_ram.bin", 32768, $root.game_test.u_game.u_game.u_main.u_cpu_ram)
 

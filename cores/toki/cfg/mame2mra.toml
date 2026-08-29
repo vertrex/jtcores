@@ -22,7 +22,10 @@ delete=[
 [ROM]
 regions=[
     { name="maincpu",  no_offset=true, width=16, reverse=true },
-    { name="chars",    no_offset=true },
+    # Pack PCB U92/U93 at the same address into one JTFrame 16-bit word.
+    # With the downloader's SWAB behavior, 1.c5 becomes data[7:0] and 2.c3
+    # becomes data[15:8]; do not add reverse=true here.
+    { name="chars",    no_offset=true, width=16 },
     { name="sprites",  no_offset=true },
     { name="bgtiles",  no_offset=true },
     { name="fgtiles",  no_offset=true },

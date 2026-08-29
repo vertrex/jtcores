@@ -50,7 +50,7 @@ module toki_bk_sdram_adapter #(
   // Acknowledged JTFrame mask-ROM port.
   input          [15:0] rom_data,
   input                 rom_ok,
-  output reg     [18:1] rom_addr,
+  output         [18:1] rom_addr,
   output                rom_cs,
 
   // Completed row word and its matching descriptor color code.
@@ -58,17 +58,21 @@ module toki_bk_sdram_adapter #(
   output                serializer_load,
   output reg      [3:0] render_code,
 
-  // Named coordinate/event outputs retain useful waveform and focused-bench
-  // observation points without placing transport state in scrn_bk.v.
-  output          [8:0] render_line_vpos,
-  output          [8:0] scrolled_hpos,
-  output          [8:0] next_line_vpos,
-  output          [8:0] next_raster_vpos,
-  output          [1:0] render_word,
-  output                tile_boundary,
-  output                line_descriptor,
-  output                scroll_flush
+  // The compensated horizontal coordinate is consumed by the caller's
+  // schematic-facing SG timing path. Other transport coordinates remain
+  // named internally so focused benches can observe them hierarchically.
+  output          [8:0] scrolled_hpos
 );
+
+// Internal transport coordinates/events remain named for waveform and
+// focused-bench observation without widening the production interface.
+wire [8:0] render_line_vpos;
+wire [8:0] next_line_vpos;
+wire [8:0] next_raster_vpos;
+wire [1:0] render_word;
+wire       tile_boundary;
+wire       line_descriptor;
+wire       scroll_flush;
 
 // Horizontal coordinate facade.
 //
@@ -172,11 +176,8 @@ reg  [3:0] code_buffer_0;
 reg  [3:0] code_buffer_1;
 reg  [3:0] line_origin_code;
 reg        line_origin_ready;
-reg        fetch_active;
-reg        fetch_cooldown;
 reg        fetch_bank;
 reg        next_fetch_bank;
-reg  [1:0] fetch_word;
 reg        row_ready;
 reg        row_ready_bank;
 reg  [4:0] row_ready_target_x;
@@ -221,19 +222,52 @@ assign serializer_data = !render_valid ? 16'hffff :
                          render_bank ? row_buffer_1[render_word] :
                                        row_buffer_0[render_word];
 
-assign rom_cs = fetch_active;
+wire       fetch_active;
+wire [1:0] fetch_word;
+wire       fetch_word_valid;
+wire [15:0] fetch_word_data;
+wire       fetch_done;
+wire       fetch_req_ready;
+
+// The PCB mask ROM is asynchronous.  Keep only the unavoidable JTFrame
+// acknowledged-ROM sequencing in the reusable transport leaf; coordinate
+// tags, transient row banks, deadlines and scroll invalidation remain here.
+wire fetch_launch = tile_start_rise && descriptor_pending && !scroll_flush &&
+                    fetch_req_ready && !row_ready;
+wire [17:0] fetch_base = {
+  tile_ram_data[11:0], 1'b0, descriptor_row, 1'b0
+};
+
+jtframe_rom_fetch4 #(
+  .AW(18),
+  .DW(16),
+  .CTX_W(1)
+) row_fetch_u (
+  .clk(clk),
+  .rst(rst),
+  .req_valid(fetch_launch),
+  .req_ready(fetch_req_ready),
+  .req_base(fetch_base),
+  .req_ctx(1'b0),
+  .rom_cs(rom_cs),
+  .rom_addr(rom_addr),
+  .rom_data(rom_data),
+  .rom_ok(rom_ok),
+  .word_valid(fetch_word_valid),
+  .word_index(fetch_word),
+  .word_data(fetch_word_data),
+  .word_ctx(),
+  .done(fetch_done),
+  .busy(fetch_active)
+);
 
 integer row_index;
 always @(posedge clk) begin
   tile_start_d <= tile_start;
 
   if (rst) begin
-    rom_addr        <= 18'h00000;
-    fetch_active    <= 1'b0;
-    fetch_cooldown  <= 1'b0;
     fetch_bank      <= 1'b0;
     next_fetch_bank <= 1'b0;
-    fetch_word      <= 2'b00;
     row_ready       <= 1'b0;
     row_ready_bank  <= 1'b0;
     row_ready_target_x <= 5'h00;
@@ -316,10 +350,7 @@ always @(posedge clk) begin
 
     // The synchronous tile descriptor has settled by tile_start_rise.  Hold
     // each external ROM word address until its acknowledgement arrives.
-    if (tile_start_rise && descriptor_pending && !scroll_flush &&
-        !fetch_active && !row_ready) begin
-      fetch_active    <= 1'b1;
-      fetch_cooldown  <= 1'b1;
+    if (fetch_launch) begin
       fetch_bank      <= next_fetch_bank;
       fetch_line      <= descriptor_line;
       fetch_line_origin <= descriptor_line && descriptor_line_origin;
@@ -328,10 +359,7 @@ always @(posedge clk) begin
       fetch_target_vpos <= descriptor_target_vpos;
       fetch_discard   <= 1'b0;
       next_fetch_bank <= ~next_fetch_bank;
-      fetch_word      <= 2'b00;
       descriptor_pending <= 1'b0;
-      rom_addr        <= {tile_ram_data[11:0], 1'b0,
-                          descriptor_row, 1'b0};
       if (descriptor_line && descriptor_line_origin)
         line_origin_code <= tile_ram_data[15:12];
       else if (next_fetch_bank)
@@ -340,20 +368,17 @@ always @(posedge clk) begin
         code_buffer_0 <= tile_ram_data[15:12];
     end
 
-    // JTFrame's OKLATCH can remain high for one clock after an address change.
-    // Suppress that stale interval before accepting each of the four words.
-    if (fetch_active && fetch_cooldown) begin
-      fetch_cooldown <= 1'b0;
-    end else if (fetch_active && rom_ok) begin
+    // jtframe_rom_fetch4 rejects the stale OK interval after each address
+    // change.  Stream only its accepted words into the caller-owned banks.
+    if (fetch_word_valid) begin
       if (fetch_line_origin)
-        line_origin_buffer[fetch_word] <= rom_data;
+        line_origin_buffer[fetch_word] <= fetch_word_data;
       else if (fetch_bank)
-        row_buffer_1[fetch_word] <= rom_data;
+        row_buffer_1[fetch_word] <= fetch_word_data;
       else
-        row_buffer_0[fetch_word] <= rom_data;
+        row_buffer_0[fetch_word] <= fetch_word_data;
 
-      if (fetch_word == 2'd3) begin
-        fetch_active <= 1'b0;
+      if (fetch_done) begin
         if (fetch_line_origin && !fetch_discard && !scroll_flush &&
             ((vpos == fetch_target_line) ||
              (next_raster_vpos == fetch_target_line))) begin
@@ -371,17 +396,6 @@ always @(posedge clk) begin
           row_ready_target_line <= fetch_target_line;
           row_ready_target_vpos <= fetch_target_vpos;
         end
-      end else begin
-        fetch_word     <= fetch_word + 2'd1;
-        fetch_cooldown <= 1'b1;
-        case (fetch_word)
-          2'd0: rom_addr <= {rom_addr[18:7], 1'b0,
-                             rom_addr[5:2], 1'b1};
-          2'd1: rom_addr <= {rom_addr[18:7], 1'b1,
-                             rom_addr[5:2], 1'b0};
-          default: rom_addr <= {rom_addr[18:7], 1'b1,
-                                rom_addr[5:2], 1'b1};
-        endcase
       end
     end
 

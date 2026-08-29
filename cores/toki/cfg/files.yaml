@@ -18,7 +18,6 @@ toki:
       - sg0140_sort48.v
       - sei80bu.v
       - sis6091.v
-      - sis6091B.v
       - 74LS74.v
       - 74LS138.v
       - 74LS139.v
@@ -48,16 +47,14 @@ toki:
       - linebuf.v
       # FPGA-only transport/facade helpers. These have no direct PCB IC.
       - toki_bk_sdram_adapter.v
-      - jtframe_rom_pair_cache.v
-      - fpga_level_timeout.v
       - fpga_async_set_clear.v
+      - jtframe_rom_fetch4.v
+      - jtframe_rom_cache4.v
+      - jtframe_rom_pair_cache.v
       - sis6091B_atomic.v
       - obj_load_aligned_reverse.v
-      - obj_rom_row_bridge.v
-      - obj_rom_row_cache.v
       - obj_dual_row_replay.v
       - obj_desc_pair_fifo.v
-      - obj_snapshot_valid_plane.v
       - obj_secondary_list_bridge.v
       - toki_obj_sdram_adapter.v
 jtframe:

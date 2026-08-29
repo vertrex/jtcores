@@ -1,5 +1,4 @@
 params:
-  - { name: CHAR_2_OFFSET,    value: "22'h8000"}
   - { name: OBJ_2_OFFSET,     value: "22'h40000"}
   - { name: GFX_3_OFFSET,     value:  "22'h80000" }
   - { name: GFX_4_OFFSET,     value:  "22'hc0000" }
@@ -11,13 +10,13 @@ params:
   # SDRAM address widths.
   - { name: Z80_BRAM_OFFSET, value: "{2'd3,{(SDRAMW-1){1'b0}}}|{{(SDRAMW-21){1'b0}},Z80_OFFSET}" }
   - { name: BANK_OFFSET,      value: "22'h41000" } # start after 8.m3 (2nd bank start at + BA1_START )
+  - { name: BANK_BRAM_OFFSET, value: "{2'd3,{(SDRAMW-1){1'b0}}}|{{(SDRAMW-21){1'b0}},BANK_OFFSET}" }
   - { name: OKI_OFFSET,       value: "22'h49000" } # start at 8.m3 + 7.m7 / 2
 
   #- { name: BANK_OFFSET,      value: "22'h1000" } # start after 8.m3 (2nd bank start at + BA1_START )
   #- { name: OKI_OFFSET,       value: "22'h9000" } # start at 8.m3 + 7.m7 / 2
   #- { name: PROM26_OFFSET,    value: "22'h19000" }     # 131072/2 0x10_000
   #- { name: PROM27_OFFSET,    value: "22'h19080" }     # 131072/2 0x10_000
-  #- { name: CHAR_2_OFFSET,    value: "22'h8000"}
 clocks:
   clk:
     - freq:  1000000
@@ -64,15 +63,14 @@ sdram:
           addr_width: 19
           data_width: 16
     - buses:
-        - name: char_rom_1
-          addr_width: 16
-          #data_width: 16
-          data_width: 8
-        - name: char_rom_2
-          addr_width: 16
-          data_width: 8
-          offset : CHAR_2_OFFSET
-          #cs: LVBL
+        # U92/U93 are two byte-wide ROMs on the PCB. The MRA interleaves them
+        # into one 16-bit JTFrame word so both physical lanes share one SDRAM
+        # acknowledgement; scrn4 still exposes the two schematic lanes.
+        - name: char_rom
+          # JTFrame counts byte-address bits here. A 128 KiB 16-bit region
+          # therefore needs 17 bits and exposes the PCB's 16 address pins.
+          addr_width: 17
+          data_width: 16
     - buses:
         # Background 1 has a fixed per-tile display deadline. Keep it ahead of
         # the bursty object-row fetches so dense sprites cannot starve the
@@ -100,11 +98,6 @@ sdram:
           addr_width: 19
           data_width: 16
 
-    # ..
-        - name: bank_rom
-          addr_width: 16
-          data_width: 8
-          offset: BANK_OFFSET
         - name: pcm_rom
           addr_width: 17
           data_width: 8
@@ -119,6 +112,13 @@ bram:
     data_width: 8
     rom:
       offset: Z80_BRAM_OFFSET
+  # PCB sheet 12 also uses a dedicated 64 KiB bank EPROM. Mirroring it into
+  # local BRAM removes the FPGA-only SDRAM WAIT path from MUSIC2.
+  - name: bank_rom
+    addr_width: 16
+    data_width: 8
+    rom:
+      offset: BANK_BRAM_OFFSET
   - name: prom_26
     addr_width: 8
     data_width: 8

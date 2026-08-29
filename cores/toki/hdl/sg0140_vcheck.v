@@ -10,12 +10,12 @@
 // by the FPGA validity epoch in obj_secondary_list_bridge.v. The sparse pulse
 // protocol below is not claimed as recovered SG0140 logic.
 //
-// The 48 MHz clk, edge detectors, registered-U141 phase compensation and
-// fpga_level_timeout recovery are FPGA infrastructure.  Pin 39 is selected by
-// the board's JP141 VCC/GND jumper, but its custom-IC function is unrecovered
-// and it is intentionally omitted from this interface.  Physical pin 7 fans
-// out through two U1413 buffer channels as both OIBDIR and OBUSDIR, so OBJDMA's
-// external OBUSDIR=OIBDIR connection matches the schematic.
+// The 48 MHz clk, edge detectors and registered-U141 phase compensation are
+// FPGA infrastructure. Pin 39 is selected by the board's JP141 VCC/GND jumper,
+// but its custom-IC function is unrecovered and it is intentionally omitted
+// from this interface. Physical pin 7 fans out through two U1413 buffer
+// channels as both OIBDIR and OBUSDIR, so OBJDMA's external OBUSDIR=OIBDIR
+// connection matches the schematic.
 
 module sg0140_vcheck(
   input             clk,      // FPGA 48 MHz common clock; not an SG0140 pin
@@ -88,22 +88,11 @@ module sg0140_vcheck(
     // -------------------------------------------------------------------------
     reg dma_pending;
 
-    // A normal 256-entry object transfer occupies about 8k master clocks.
-    // If either the bus request or its ownership survives for 131072 clocks
-    // (about 2.7 ms at 48 MHz), the grant/terminal-count handshake is stuck.
-    // Briefly release the 68000 bus so the next ODMARQ can start a clean
-    // arbitration cycle instead of freezing the object snapshot forever. This
-    // guard is FPGA recovery policy, not inferred SG0140 behavior.
-    wire bus_timeout;
-
-    fpga_level_timeout #(
-        .WIDTH(17)
-    ) u_bus_timeout (
-        .clk(clk),
-        .rst(rst),
-        .active(!OBUSRQ),
-        .expired(bus_timeout)
-    );
+    // The former FPGA recovery guard released a request after 131072 master
+    // clocks. The PCB has no corresponding timeout: once granted, ownership
+    // ends only at U147/U148's 256-entry terminal count. Follow that physical
+    // contract here and let an incomplete transfer remain observable instead
+    // of silently converting it into a partial object snapshot.
 
     always @(posedge clk) begin
         if (rst) begin
@@ -118,11 +107,7 @@ module sg0140_vcheck(
             if (!ODMARQ)
                 dma_pending <= 1'b1;
 
-            if (bus_timeout) begin
-                OIBDIR <= 1'b1;
-                OBUSRQ <= 1'b1;
-                dma_pending <= 1'b0;
-            end else if (!OVER256) begin
+            if (!OVER256) begin
                 // End DMA ownership and release the RAM bus. A new short
                 // ODMARQ can coincide with this idle/terminal interval, so
                 // preserve BR if either the live pulse or its pending latch is

@@ -142,16 +142,6 @@ sis6091 u_bk1_ram(
 wire [15:0] data;
 wire  [3:0] render_code;
 
-// Named aliases are retained for focused waveform comparison while the large
-// FPGA-only implementation now resides behind one explicit boundary.
-wire [8:0] render_line_vpos;
-wire [8:0] next_line_vpos;
-wire [8:0] next_raster_vpos;
-wire [1:0] render_word;
-wire       tile_boundary;
-wire       line_descriptor;
-wire       scroll_flush;
-
 toki_bk_sdram_adapter #(
   .FPGA_H_SOURCE_PHASE(FPGA_H_SOURCE_PHASE)
 ) u_sdram_adapter(
@@ -177,14 +167,7 @@ toki_bk_sdram_adapter #(
   .serializer_data(data),
   .serializer_load(serializer_load),
   .render_code(render_code),
-  .render_line_vpos(render_line_vpos),
-  .scrolled_hpos(scrolled_hpos),
-  .next_line_vpos(next_line_vpos),
-  .next_raster_vpos(next_raster_vpos),
-  .render_word(render_word),
-  .tile_boundary(tile_boundary),
-  .line_descriptor(line_descriptor),
-  .scroll_flush(scroll_flush)
+  .scrolled_hpos(scrolled_hpos)
 );
 
 wire [1:0] NC;

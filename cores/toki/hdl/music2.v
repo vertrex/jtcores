@@ -1,8 +1,9 @@
 // PCB provenance: sheet 12 (MUSIC2): Z80, PLD23, SEI80BU, program/bank ROM,
 // 2 KiB RAM, SEI0100BU and the two clock flip-flops. JTFrame downloads the
-// fixed 8 KiB program EPROM into local BRAM before reset is released, closely
-// reproducing the PCB's dedicated asynchronous device. Only the larger bank
-// ROM remains behind the FPGA SDRAM WAIT adaptation.
+// fixed 8 KiB program EPROM and 64 KiB bank EPROM into local BRAM before reset
+// is released, closely reproducing the PCB's two dedicated asynchronous
+// devices. Their synchronous FPGA read ports settle between Z80 clock-enable
+// pulses, so the physical board's permanently inactive WAIT path is retained.
 module music2
 (
     input           clk,
@@ -44,7 +45,6 @@ module music2
     output     [12:0] z80_rom_addr,
 
     input       [7:0] bank_rom_data,
-    input             bank_rom_ok, 
     output     [15:0] bank_rom_addr,
     output            bank_rom_cs_n
 );
@@ -71,7 +71,7 @@ jtframe_z80 u_z80(
     .cen(CLK_3_6),
     .rst_n(~rst),
 
-    .wait_n(wait_n),
+    .wait_n(1'b1),
     .int_n(Z80_INT), //DRIVE BY CONTROLER PIN 23  // sound interrupt
     .nmi_n(1'b1),
     .busrq_n(1'b1),
@@ -209,23 +209,5 @@ sei80bu u_sei80bu(
   .PRCLK1(PRCLK1),
   .CLK_3_6(CLK_3_6)
 );
-
-///////// Z80 WAIT ///////////////////////
-// 
-// FPGA-only: the physical bank EPROM needs no WAIT, but its JTFrame port can
-// be delayed by SDRAM arbitration. The 8 KiB program ROM is local BRAM and
-// never participates in WAIT generation.
-reg wait_n;
-
-always @(posedge clk) begin
-  if (rst)
-    wait_n <= 1'b1;
-  else begin
-    if (~bank_rom_cs_n & ~bank_rom_ok)
-      wait_n <= 1'b0;
-    else 
-      wait_n <= 1'b1;
-  end 
-end
 
 endmodule

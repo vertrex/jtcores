@@ -244,12 +244,9 @@ obj_dual_row_replay row_replay_u(
     .active_pair_bank(row_replay_active_bank),
     .replay_lane(row_replay_lane_out),
     .word_sel(render_word),
-    .pair_ready(),
-    .ready_map(),
     .replay_pd(row_replay_pd),
     .slot_done(row_replay_done),
-    .slot_done_ctx(row_replay_done_ctx),
-    .busy()
+    .slot_done_ctx(row_replay_done_ctx)
 );
 
 // Once a cached pair owns replay, the live list scanner may already be showing

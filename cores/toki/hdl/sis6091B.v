@@ -4,7 +4,9 @@
 * See schematic for pin layout.
 *
 * Provisional fixed behavior for the reduced pin facade formerly used by the
-* sheet-15 object lists and retained for custom-IC review/other Seibu boards.
+* sheet-15 object lists and retained in source for custom-IC review/other
+* Seibu boards. It is intentionally absent from Toki's production files.yaml
+* because no live instance uses this unrecovered model.
 * Toki production U151/U152 now use direct jtframe_ram instances because their
 * synchronous BRAM latency must be explicit outside this IC facade. Sheet-18
 * registered line storage, atomic FIND clearing and first-write admission are
