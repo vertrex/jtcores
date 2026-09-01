@@ -118,9 +118,56 @@ always @(posedge clk) begin
   end
 end
 
-wire scroll_selected = !SEL_SH || !SEL_SY;
-wire scroll_commit = scroll_selected &&
-                     (MAB[2:1] == 2'b10 || MAB[1]);
+// FPGA-only invalidation mirror.  The physical asynchronous ROM simply sees
+// the SEI0021 output; an idempotent register write changes neither its address
+// nor its data.  The acknowledged-ROM facade, however, must explicitly retire
+// work when that output really changes.  Mirror only the two decoded register
+// fields so a repeated low- or high-byte write does not discard a complete
+// row or retire its replacement fetch.  This is adapter metadata, not a claim
+// that SEI0021 contains a second set of these registers.
+reg [7:0] fpga_scroll_h_low;
+reg [7:0] fpga_scroll_v_low;
+reg       fpga_scroll_h_high;
+reg       fpga_scroll_v_high;
+
+wire [7:0] fpga_scroll_low_data = {
+  MDB_CPU_OUT[6:0], MDB_CPU_OUT[7]
+};
+wire fpga_h_low_write  = !SEL_SH && MAB[2] && !MAB[1];
+wire fpga_h_high_write = !SEL_SH && MAB[1];
+wire fpga_v_low_write  = !SEL_SY && MAB[2] && !MAB[1];
+wire fpga_v_high_write = !SEL_SY && MAB[1];
+
+wire scroll_commit =
+  (fpga_h_low_write  && fpga_scroll_h_low  != fpga_scroll_low_data) ||
+  (fpga_h_high_write && fpga_scroll_h_high != MDB_CPU_OUT[4]) ||
+  (fpga_v_low_write  && fpga_scroll_v_low  != fpga_scroll_low_data) ||
+  (fpga_v_high_write && fpga_scroll_v_high != MDB_CPU_OUT[4]);
+
+always @(posedge clk or negedge RST_SH) begin
+  if (!RST_SH) begin
+    fpga_scroll_h_low  <= 8'h00;
+    fpga_scroll_h_high <= 1'b0;
+  end else if (!SEL_SH) begin
+    if (MAB[2] && !MAB[1])
+      fpga_scroll_h_low <= fpga_scroll_low_data;
+    if (MAB[1])
+      fpga_scroll_h_high <= MDB_CPU_OUT[4];
+  end
+end
+
+always @(posedge clk or negedge RST_SY) begin
+  if (!RST_SY) begin
+    fpga_scroll_v_low  <= 8'h00;
+    fpga_scroll_v_high <= 1'b0;
+  end else if (!SEL_SY) begin
+    if (MAB[2] && !MAB[1])
+      fpga_scroll_v_low <= fpga_scroll_low_data;
+    if (MAB[1])
+      fpga_scroll_v_high <= MDB_CPU_OUT[4];
+  end
+end
+
 wire reverse_change = (HREV != hrev_d) || (VREV != vrev_d);
 wire scroll_change = !RST_SH || !RST_SY || scroll_commit || reverse_change;
 

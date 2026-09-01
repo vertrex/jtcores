@@ -83,8 +83,6 @@ PLD21 PLD21_u(
 //
 //
 wire MASKS;
-wire enable;
-reg [15:0] select; //wire ? 
 wire [4:0] nc; 
 
 // All this signal are active low !  

@@ -3,12 +3,17 @@
 // list write control.
 //
 // PCB captures prove that the selected physical list receives exactly 48 WR2
-// transfers per line: visible descriptors first, followed by invalid padding
-// until SORT48 reaches OVER48. This behavioral model instead emits one
-// active-low VFIND/WR2 pulse for each admitted descriptor. SORT48 still exposes
-// the recovered physical 16..63 address window; unwritten rows are suppressed
-// by the FPGA validity epoch in obj_secondary_list_bridge.v. The sparse pulse
-// protocol below is not claimed as recovered SG0140 logic.
+// transfers per line: visible descriptors first while OVER256 is high, then
+// invalid padding after OVER256 falls until SORT48 reaches OVER48.  VFIND is
+// active low throughout each RDCLK-qualified transfer; PLD24 consequently
+// generates MATCHV=0 for the valid prefix and MATCHV=1 for the padding tail,
+// which U151/U152 store with the descriptor tuple.
+//
+// The 48 MHz implementation asserts WR2 during the represented RDCLK-low
+// aperture and retires it on the following RDCLK rise.  This preserves the
+// measured package-pin ordering and holds SORT48's address stable through the
+// synchronous FPGA RAM write.  The precise internal SG0140 gate equations are
+// still opaque and are not claimed by this pin-visible protocol model.
 //
 // The 48 MHz clk, edge detectors and registered-U141 phase compensation are
 // FPGA infrastructure. Pin 39 is selected by the board's JP141 VCC/GND jumper,
@@ -41,7 +46,7 @@ module sg0140_vcheck(
   output reg        ODDWR2, // pin 24: active-low odd-list write control
   output reg        OIBDIR, // pin 7 via U1413: active-low object-bus ownership/direction
   output reg        OBUSRQ, // pin 6 via U1413: active-low CPU bus request
-  output reg        VFIND   // pin 5: physical active-low level; behavioral RTL uses a pulse
+  output reg        VFIND   // pin 5: physical active-low transfer level
 );
 
     // -------------------------------------------------------------------------
@@ -152,12 +157,14 @@ module sg0140_vcheck(
     wire [8:0] display_y = current_y + 9'd2;
     wire [8:0] diff_y = display_y - sprite_y_eff;
     
-    // VPD!=0 is a non-PCB compatibility heuristic: the FPGA epoch-valid gate
-    // rejects stale/unwritten U141 entries, but a freshly copied all-zero CPU
-    // slot can still assert OBJEN_3 in the current inferred enable model. MAD
-    // leaves such slots behind; admitting them fills the 48-entry list at Y=0
-    // and breaks stock/MAD frames. Keep this until the physical unused-slot or
-    // object-enable rule is recovered. It currently excludes legitimate Y=0.
+    // VPD!=0 is a non-PCB compatibility heuristic. The complete 256-entry
+    // refresh prevents stale U141 snapshot data, but a freshly copied all-zero
+    // CPU slot can still assert OBJEN_3 in the current inferred enable model.
+    // MAD leaves such slots behind; admitting them fills the 48-entry list at
+    // Y=0 and breaks stock/MAD frames. Physical MATCHV padding protects the
+    // downstream secondary list; it does not identify unused primary slots.
+    // Keep this until the physical unused-slot or object-enable rule is
+    // recovered. It currently excludes a legitimate enabled object at Y=0.
     wire visible = (diff_y < 9'd16) && (VPD != 8'h00);
    
     // Current inferred global/per-object vertical-reverse equation.  The pins
@@ -165,17 +172,26 @@ module sg0140_vcheck(
     // joint VPD/VMT/flip capture to be called recovered SG0140 behavior.
     wire screen_flip = VREV ^ VREVD_2;
 
-    // RDCLK edge detector for single-cycle strobes
+    // RDCLK edge detector for the physical transfer aperture. RDCLK is carried
+    // as a one-master-clock JTFrame enable, so its low interval is longer than
+    // the square-wave PCB pin. Only the ordering is significant here: assert
+    // during low, write once, then let SORT48 advance on the following rise.
     reg rdclk_d;
     reg over256_d;
+    reg padding_active;
+    wire rdclk_rise = (rdclk_d == 1'b0) && (RDCLK == 1'b1);
     wire rdclk_fall = (rdclk_d == 1'b1) && (RDCLK == 1'b0);
+    wire over256_rise = !over256_d && OVER256;
+    wire over256_fall = over256_d && !OVER256;
 
-    // Current sparse-admission build gate. It is not the physical WR2 padding
-    // protocol: PCB captures also show WR2 transfers in the terminal/padding
-    // interval. U141's registered FPGA read output trails the FDA/OVER256 chain
-    // by one system clock, so delay only this gate to suppress the priming tuple
-    // while retaining entry 255. The PCB RAM has no registered-output delay.
+    // This OVER256 input is OBJDMA's registered-U141 timing facade, not raw
+    // U148 /Q. OBJDMA keeps it high through descriptor 255's WR2-to-U151/U152
+    // capture, then retires it on an RDCLK rise. Keep one local history bit to
+    // suppress the priming tuple and detect that compensated boundary. The
+    // following RDCLK fall starts padding with PLD24 MATCHV=1, while a visible
+    // terminal descriptor was already stored with MATCHV=0.
     wire list_phase = ~SDTS & over256_d;
+    wire scan_phase = list_phase & OVER256;
 
     always @(posedge clk) begin
         rdclk_d <= RDCLK;
@@ -187,37 +203,70 @@ module sg0140_vcheck(
             EVNWR2 <= 1'b1;
             ODDWR2 <= 1'b1;
             VMT <= 4'h0;
+            padding_active <= 1'b0;
         end else begin
-            // Defaults (inactive)
-            VFIND  <= 1'b1;
-            EVNWR2 <= 1'b1;
-            ODDWR2 <= 1'b1;
+            // SDTS is outside the per-line discovery phase. A new live
+            // OVER256 window similarly closes any completed padding phase.
+            if (SDTS || over256_rise) begin
+                VFIND         <= 1'b1;
+                EVNWR2        <= 1'b1;
+                ODDWR2        <= 1'b1;
+                VMT           <= 4'h0;
+                padding_active <= 1'b0;
+            end else begin
+                // Release the active-low RAM strobe only after its RDCLK-low
+                // aperture. SORT48 observes the still-low VFIND on this same
+                // rise and advances the physical build address afterwards.
+                if (rdclk_rise) begin
+                    EVNWR2 <= 1'b1;
+                    ODDWR2 <= 1'b1;
+                    if (!padding_active)
+                        VFIND <= 1'b1;
+                end
 
-            // U141 is synchronous FPGA RAM.  Its pre-advance output is valid
-            // on the clock that detects RDCLK falling; U141 advances to the
-            // next entry through a nonblocking update on that same clock.
-            // Consume the current entry here before the new value is visible.
-            if (list_phase && rdclk_fall) begin
-                if (visible && OBJEN_3 && !OVER48) begin
-                    VFIND <= 1'b0;
-                    VMT   <= screen_flip ? ~diff_y[3:0] : diff_y[3:0];
+                // OVER256 falling changes PLD24 MATCHV to one. Hold VFIND low
+                // across the fill tail; WR2 still pulses once per RDCLK-low
+                // phase. OVER48 stops writes, but captures allow VFIND to stay
+                // low until the next scan window begins.
+                if (over256_fall && !OVER48) begin
+                    padding_active <= 1'b1;
+                    VFIND          <= 1'b0;
+                end
 
-                    // current_y is the next physical raster row being
-                    // assembled. Sheet 15 hard-wires EVNWR2 to U151/EA and
-                    // ODDWR2 to U152/OA; SORT48 puts its sequential build
-                    // address on EA for an even row and OA for an odd row.
-                    // The former opposite selection only worked with the
-                    // normalized-H/V compatibility phase: under literal V1B
-                    // it wrote through SORT48's display/read address and
-                    // collapsed many matches onto the same few RAM slots.
-                    if (current_y[0]) begin
-                        ODDWR2 <= 1'b0;
+                if (OVER48) begin
+                    EVNWR2 <= 1'b1;
+                    ODDWR2 <= 1'b1;
+                    VFIND  <= padding_active ? 1'b0 : 1'b1;
+                end else if (rdclk_fall) begin
+                    // U141 is synchronous FPGA RAM. Its pre-advance output is
+                    // valid on this edge; consume it before the nonblocking
+                    // U141 update becomes visible. Once scanning terminates,
+                    // the same cadence writes invalid padding instead.
+                    if (scan_phase && visible && OBJEN_3) begin
+                        VFIND <= 1'b0;
+                        VMT   <= screen_flip ? ~diff_y[3:0] : diff_y[3:0];
+
+                        // current_y is the next physical raster row being
+                        // assembled. Sheet 15 hard-wires EVNWR2 to U151/EA
+                        // and ODDWR2 to U152/OA; SORT48 selects which address
+                        // bus carries its sequential build slot.
+                        if (current_y[0])
+                            ODDWR2 <= 1'b0;
+                        else
+                            EVNWR2 <= 1'b0;
+                    end else if (padding_active || over256_fall) begin
+                        VFIND <= 1'b0;
+                        VMT   <= 4'h0;
+                        if (current_y[0])
+                            ODDWR2 <= 1'b0;
+                        else
+                            EVNWR2 <= 1'b0;
                     end else begin
-                        EVNWR2 <= 1'b0;
+                        VFIND  <= 1'b1;
+                        EVNWR2 <= 1'b1;
+                        ODDWR2 <= 1'b1;
+                        VMT    <= 4'h0;
                     end
-                end else begin
-                    VFIND <= 1'b1;
-                    VMT   <= 4'h0;
                 end
             end
         end

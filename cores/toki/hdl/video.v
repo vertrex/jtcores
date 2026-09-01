@@ -505,7 +505,7 @@ always @(posedge clk) begin
     if (S2CLLT) begin // COL_B_EN ?
       bk2_code_latch <= bk2_code[3:0];
     end
-    // Sheet 8: S2MASK drives the active-low output enable of U187.  The
+    // Sheet 8: S2MASK drives the active-low output enable of U87.  The
     // resistor network leaves a disabled SCRN2 at transparent F, and S2ON
     // must be low so the priority PROM cannot select it.
     s2on <= !S2MASK && (bk2_color[3:0] != 4'hf);
@@ -628,6 +628,23 @@ begin \
     $fclose(fd); \
 end
 
+// Reconstruct the current secondary-list occupancy from the physical MATCHV
+// bit stored in U151/U152. SORT48 uses only package addresses 16..63; MATCHV=0
+// marks a real descriptor and MATCHV=1 marks the padding tail.
+`define dump_list_matchv(FILE_NAME, MEM_PATH) \
+begin \
+    integer fd; \
+    integer i; \
+    reg slot_used; \
+    $display("Snapshot: Dumping %s (Size: %0d)", FILE_NAME, 64); \
+    fd = $fopen(FILE_NAME, "wb"); \
+    for (i = 0; i < 64; i = i + 1) begin \
+      slot_used = (i >= 16) && (MEM_PATH[i][12] == 1'b0); \
+      $fwrite(fd, "%c", slot_used); \
+    end \
+    $fclose(fd); \
+end
+
 parameter DUMP_START_FRAME = 38;
 
 integer  frame_counter = 0;
@@ -643,8 +660,8 @@ always @(posedge clk) begin
 
      `dump_ram16("scnddma_u151.bin", 64, obj_u.scnddma_u.u_151.mem)
      `dump_ram16("scnddma_u152.bin", 64, obj_u.scnddma_u.u_152.mem)
-     `dump_ram8("scnddma_u151_used.bin", 64, obj_u.scnddma_u.u_list_bridge.even_valid)
-     `dump_ram8("scnddma_u152_used.bin", 64, obj_u.scnddma_u.u_list_bridge.odd_valid)
+     `dump_list_matchv("scnddma_u151_used.bin", obj_u.scnddma_u.u_151.mem)
+     `dump_list_matchv("scnddma_u152_used.bin", obj_u.scnddma_u.u_152.mem)
      `dump_ram16_split("scnddma_u153.bin", 1024, obj_u.scnddma_u.u_153)
      `dump_ram16_split("objdma_u141.bin", 1024, obj_u.objdma_u.u_141);
      `dump_linebuf_ram("linebuf_u181.bin", obj_u.linebuf_u.u_181.mem)

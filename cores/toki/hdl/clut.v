@@ -79,14 +79,9 @@ sg0140_absel    sg0140_absel_u(
   .ON_B(S4ON)
 ); 
 
-// PROM 27 3J
-// XXX PRIOR_A IS WRONG AT TLEAST ON THE POCKET THAT MAKE STRANGE THINGS 
-// IT's some time 0 when it should be 1 (it's active low) 
-// it seems because of  MDB_IN on main.v that switch ram/cpu 
-// may be make two different bus  rather than one shared ? 
-// tryied to switch to cpu by default may be better
-
-// Sheet 10 U182/82S129 package wiring: A0=S1ON, A1=S4ON, A2=OBJON,
+// PROM 27 3J.  The four PRIOR inputs come from the sheet-3 U34 latch;
+// this address permutation is the literal sheet-10 package wiring.
+// Sheet 10 U102/82S129: A0=S1ON, A1=S4ON, A2=OBJON,
 // A3=S2ON, then PRIOR A..D on A4..A7.
 assign  prom_27_addr[7:0] = { PRIOR_D, PRIOR_C, PRIOR_B, PRIOR_A,
                              S2ON, OBJON, S4ON, S1ON };

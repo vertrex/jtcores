@@ -14,9 +14,12 @@
 // SIS6091's display port; serializer_data/render_code return one complete,
 // coordinate-matched row to the unchanged SEI0010 path.
 //
-// scroll_change is a caller-qualified event.  It must include SEI0021 reset or
-// scroll-register writes and HREV/VREV changes.  The extra scroll_realign
-// cycle below preserves the existing SEI0021 nonblocking-update relationship.
+// scroll_change is a caller-qualified event.  It must include SEI0021 reset,
+// effective scroll-register value changes and HREV/VREV changes.  An
+// idempotent bus write is deliberately not an event: it does not move the
+// address of the PCB's asynchronous ROM and must not retire useful FPGA work.
+// The extra scroll_realign cycle below preserves the existing SEI0021
+// nonblocking-update relationship.
 module toki_bk_sdram_adapter #(
   // The synchronous FPGA RAM/SDRAM path reaches the serializer later than
   // the asynchronous mask ROM on the PCB. Keep that measured source phase
@@ -177,7 +180,6 @@ reg  [3:0] code_buffer_1;
 reg  [3:0] line_origin_code;
 reg        line_origin_ready;
 reg        fetch_bank;
-reg        next_fetch_bank;
 reg        row_ready;
 reg        row_ready_bank;
 reg  [4:0] row_ready_target_x;
@@ -196,6 +198,7 @@ reg  [4:0] fetch_target_x;
 reg  [8:0] fetch_target_line;
 reg  [8:0] fetch_target_vpos;
 reg        fetch_discard;
+reg        fetch_revalidate;
 reg  [8:0] descriptor_target_line;
 reg  [8:0] descriptor_target_vpos;
 reg  [8:0] row_ready_target_line;
@@ -233,7 +236,7 @@ wire       fetch_req_ready;
 // acknowledged-ROM sequencing in the reusable transport leaf; coordinate
 // tags, transient row banks, deadlines and scroll invalidation remain here.
 wire fetch_launch = tile_start_rise && descriptor_pending && !scroll_flush &&
-                    fetch_req_ready && !row_ready;
+                    fetch_req_ready && !row_ready && !fetch_revalidate;
 wire [17:0] fetch_base = {
   tile_ram_data[11:0], 1'b0, descriptor_row, 1'b0
 };
@@ -267,7 +270,6 @@ always @(posedge clk) begin
 
   if (rst) begin
     fetch_bank      <= 1'b0;
-    next_fetch_bank <= 1'b0;
     row_ready       <= 1'b0;
     row_ready_bank  <= 1'b0;
     row_ready_target_x <= 5'h00;
@@ -290,6 +292,7 @@ always @(posedge clk) begin
     fetch_target_line <= 9'h000;
     fetch_target_vpos <= 9'h000;
     fetch_discard   <= 1'b0;
+    fetch_revalidate <= 1'b0;
     row_ready_target_line <= 9'h000;
     row_ready_target_vpos <= 9'h000;
     line_origin_target_line <= 9'h000;
@@ -337,10 +340,30 @@ always @(posedge clk) begin
 
     if (scroll_flush) begin
       descriptor_pending <= 1'b0;
-      row_ready           <= 1'b0;
+      // A completed ordinary row already carries immutable X, raster-line
+      // and scrolled-V tags.  Keep it until tile_render_start, where those
+      // tags are checked against the post-write SEI0021 coordinates before
+      // publication.  This is the FPGA equivalent of a completed read from
+      // the PCB's continuously asynchronous ROM: a genuine scroll change
+      // does not erase data which still names the requested tile.  A stale
+      // row is dropped at that same deadline and cannot block the following
+      // descriptor.  The separately buffered origin has no X tag and must
+      // still be invalidated here.
       line_origin_ready   <= 1'b0;
-      if (fetch_active)
-        fetch_discard <= 1'b1;
+      if (fetch_active) begin
+        // A normal current-line fetch owns the inactive row bank.  It can
+        // safely finish while SEI0021 realigns, then use its immutable tags
+        // to decide whether the returned row still names the next tile.  The
+        // separately buffered next-line/origin requests do not share this
+        // current-line publication contract and remain discard-only.
+        if (!fetch_line && !fetch_line_origin &&
+            fetch_bank != render_bank)
+          fetch_revalidate <= 1'b1;
+        else begin
+          fetch_discard    <= 1'b1;
+          fetch_revalidate <= 1'b0;
+        end
+      end
     end
 
     // A sequential post-prefetch descriptor belongs to the old 512-pixel map
@@ -351,26 +374,38 @@ always @(posedge clk) begin
     // The synchronous tile descriptor has settled by tile_start_rise.  Hold
     // each external ROM word address until its acknowledgement arrives.
     if (fetch_launch) begin
-      fetch_bank      <= next_fetch_bank;
+      // Ordinary rows always fill the inactive half of the two-bank
+      // serializer store.  line-origin rows have their own third buffer, so
+      // they do not disturb this ownership invariant.  fetch_bank latches the
+      // chosen bank across the complete four-word acknowledged transaction;
+      // line-origin writes ignore it.
+      fetch_bank      <= ~render_bank;
       fetch_line      <= descriptor_line;
       fetch_line_origin <= descriptor_line && descriptor_line_origin;
       fetch_target_x  <= descriptor_target_x;
       fetch_target_line <= descriptor_target_line;
       fetch_target_vpos <= descriptor_target_vpos;
       fetch_discard   <= 1'b0;
-      next_fetch_bank <= ~next_fetch_bank;
+      fetch_revalidate <= 1'b0;
       descriptor_pending <= 1'b0;
       if (descriptor_line && descriptor_line_origin)
         line_origin_code <= tile_ram_data[15:12];
-      else if (next_fetch_bank)
+      else if (~render_bank)
         code_buffer_1 <= tile_ram_data[15:12];
       else
         code_buffer_0 <= tile_ram_data[15:12];
     end
 
     // jtframe_rom_fetch4 rejects the stale OK interval after each address
-    // change.  Stream only its accepted words into the caller-owned banks.
-    if (fetch_word_valid) begin
+    // change.  A current-line request which still owns the inactive bank may
+    // continue across a coordinate change; its complete result is held for a
+    // post-realignment tag check below.  All other interrupted requests are
+    // consumed without modifying storage.  The explicit bank test also keeps
+    // the historical live-bank counterfactual safe.
+    if (fetch_word_valid && !fetch_discard &&
+        ((!scroll_flush && !fetch_revalidate) ||
+         (!fetch_line && !fetch_line_origin &&
+          fetch_bank != render_bank))) begin
       if (fetch_line_origin)
         line_origin_buffer[fetch_word] <= fetch_word_data;
       else if (fetch_bank)
@@ -385,7 +420,8 @@ always @(posedge clk) begin
           line_origin_ready <= 1'b1;
           line_origin_target_line <= fetch_target_line;
           line_origin_target_vpos <= fetch_target_vpos;
-        end else if (!fetch_line_origin && !fetch_discard && !scroll_flush &&
+        end else if (!fetch_line_origin && !fetch_discard &&
+                     !fetch_revalidate && !scroll_flush &&
                      ((!fetch_line && vpos == fetch_target_line) ||
                       (fetch_line &&
                        ((vpos == fetch_target_line) ||
@@ -396,6 +432,26 @@ always @(posedge clk) begin
           row_ready_target_line <= fetch_target_line;
           row_ready_target_vpos <= fetch_target_vpos;
         end
+      end
+    end
+
+    // An interrupted ordinary fetch may finish before SEI0021's new value is
+    // sampled.  Wait until both the held ROM transaction and realignment are
+    // complete, then admit it only if it is still the upcoming tile and its
+    // bank is still inactive.  Rejecting tile_render_start itself prevents a
+    // response which completed just after its publication edge from lingering
+    // until the following tile and blocking the replacement descriptor.
+    if (fetch_revalidate && !fetch_active && !scroll_flush) begin
+      fetch_revalidate <= 1'b0;
+      if (!tile_render_start && fetch_bank != render_bank &&
+          fetch_target_line == vpos &&
+          fetch_target_vpos == render_line_vpos &&
+          fetch_target_x == next_tile_x) begin
+        row_ready      <= 1'b1;
+        row_ready_bank <= fetch_bank;
+        row_ready_target_x <= fetch_target_x;
+        row_ready_target_line <= fetch_target_line;
+        row_ready_target_vpos <= fetch_target_vpos;
       end
     end
 

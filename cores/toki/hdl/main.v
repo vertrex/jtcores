@@ -120,6 +120,7 @@ wire cpu_uds_n;             // Upper byte strobe
 // CPU buses
 wire [15:0] cpu_din;
 wire [15:0] cpu_dout;
+wire RD_DISPW, RD_PLYER, RD_EXTIF;
 
 wire [23:0] cpu_a;    
 assign cpu_a[0] = 0;   // odd memory address should cause cpu exception
@@ -313,22 +314,16 @@ jtframe_68kdtack_cen  u_dtack(
 // 0x0c0004, 0x0c0005 : system port        (ro) 
 //
 //reg ram_cs, obj_cs, palette_cs, bk1_cs, bk2_cs, vram_cs, 
-//reg obj_cs;
-reg dsw_cs, inputs_cs, system_cs;
-
 //XXX  if <300000 or z ?
 assign cpu_rom_addr[18:1] = cpu_a[18:1];
 //always @(posedge clk)
     //cpu_rom_addr[18:1] <= cpu_a[18:1];
 //assign cpu_rom_cs = ~ROM0 | ~ROM1; //1'b1 ? doesnt work
 
-// XXX page3 rev_y & rev_x etc 
+// Shared SDRAM still needs an explicit installed-ROM range rather than the
+// PLD aliases, because an acknowledged miss cannot behave like local EPROM.
 always @(*) begin
-      cpu_rom_cs = ~cpu_as_n & (cpu_a[23:1] < 23'h30000);
-      //IO
-      dsw_cs     = ~cpu_as_n & (cpu_a[23:1] == 23'h60000); // && cpu_a[23:1] < 24'hc0001); //2 
-      inputs_cs  = ~cpu_as_n & (cpu_a[23:1] == 23'h60001); // && cpu_a[23:1] < 24'hc0003); //2 
-      system_cs  = ~cpu_as_n & (cpu_a[23:1] == 23'h60002); // && cpu_a[23:1] < 24'hc0005); //2 
+    cpu_rom_cs = ~cpu_as_n & (cpu_a[23:1] < 23'h30000);
 end
 
 
@@ -350,10 +345,10 @@ end
     //if (clk) begin
 assign      cpu_din = ~ROM0 | ~ROM1 ? cpu_rom_data[15:0] :  
                  ~RAM       ? ram_do[15:0] :  //& BUSOPN ??
-                 dsw_cs     ? dipsw[15:0] : 
-                 inputs_cs  ? {1'b1,1'b1,p2_button2,p2_button1,p2_right,p2_left,p2_down,p2_up,
+                 ~RD_DISPW  ? dipsw[15:0] :
+                 ~RD_PLYER  ? {1'b1,1'b1,p2_button2,p2_button1,p2_right,p2_left,p2_down,p2_up,
                                1'b1,1'b1,p1_button2,p1_button1,p1_right,p1_left,p1_down,p1_up} :
-                 system_cs  ? {1'b1,1'b1,1'b1,1'b1,1'b1,1'b1,1'b1,1'b1,
+                 ~RD_EXTIF  ? {1'b1,1'b1,1'b1,1'b1,1'b1,1'b1,1'b1,1'b1,
                                1'b1,1'b1,1'b1,p2_start,p1_start,service,1'b1,1'b1} :
                  //(~cpu_as_n & ~MUSIC)  ? {8'd0, SEI0100_MDB_IN} : 
                  ~MUSIC  ? {8'd0, SEI0100_MDB_IN} : 
@@ -403,7 +398,6 @@ PLD20 PLD20_u(
 wire  MEMDIR = cpu_wr_n;
 wire  ROM0, ROM1, RAM, MBUFEN, MBUFDR;
 wire  MDMARQ;
-wire  RD_DISPW, RD_PLYER, RD_EXTIF;
 //wire RESET_A = ~rst;
 
 ADRS ADRS_u(

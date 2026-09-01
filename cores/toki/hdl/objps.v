@@ -179,6 +179,10 @@ end else begin : gen_physical_rom_direction
 end
 endgenerate
 
+// Preserve the literal U163/U169 direction path. In particular, U168 shifts
+// the two PLD29 marker planes with this same pin; complementing the direction
+// here would move DLHD/ILD2 even if the four object colour planes looked
+// correct. The complete-row replay separately reverses word order for OPSREV.
 wire obj1_serializer_reverse = obj1_replay_reverse;
 wire obj2_serializer_reverse = obj2_replay_reverse;
 

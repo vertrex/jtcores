@@ -46,17 +46,27 @@ toki:
       - linecunt.v
       - linebuf.v
       # FPGA-only transport/facade helpers. These have no direct PCB IC.
+      # screen bk sdram adapter
       - toki_bk_sdram_adapter.v
+      # mdma & objdma async adapter
       - fpga_async_set_clear.v
+      # use in linecunt
+      - toki_obj_sdram_adapter.v
+      # used by toki_obj_sdram
+      - obj_dual_row_replay.v
+      # used by toki_obj_sdram & rom_cache
       - jtframe_rom_fetch4.v
+      # used by obj_dual_replay
       - jtframe_rom_cache4.v
+      # used in screen4
       - jtframe_rom_pair_cache.v
       - sis6091B_atomic.v
+      # used by objps
       - obj_load_aligned_reverse.v
-      - obj_dual_row_replay.v
+      # use by toki_obj_sdram
       - obj_desc_pair_fifo.v
+      # used by scnddma
       - obj_secondary_list_bridge.v
-      - toki_obj_sdram_adapter.v
 jtframe:
   - from: ram
     get:

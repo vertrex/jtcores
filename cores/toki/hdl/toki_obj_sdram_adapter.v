@@ -296,11 +296,12 @@ assign fh_cap         = hpos_cap;
 // The physical ROM may be read for an off-screen descriptor with no visible
 // consequence.  On FPGA those reads consume shared SDRAM/cache service time.
 // Reuse the established legacy admission rule at the settled HPOS response:
-// ordinary X=0x100..0x1f1 cannot reach the 256-pixel line RAM, while
-// 0x1f2..0x1ff can wrap its final pixels onto the left edge.  This is an
-// FPGA-only scheduling qualification; NOOBJ and all PCB list logic remain
-// unchanged.
-wire pair_cap_visible_h = !fh_cap[8] || (fh_cap > 9'h1f1);
+// ordinary X=0x100..0x1f0 cannot reach the 256-pixel line RAM, while
+// 0x1f1..0x1ff can wrap their final pixels onto the left edge. X=0x1f1 is
+// signed -15, so its sixteenth pixel lands exactly at visible address zero.
+// This is an FPGA-only scheduling qualification; NOOBJ and all PCB list logic
+// remain unchanged.
+wire pair_cap_visible_h = !fh_cap[8] || (fh_cap >= 9'h1f1);
 
 // PAIR_READY publishes only complete cached rows. pair_render_active is thus
 // both the render-bank ownership and replay-data validity state; the former

@@ -1,9 +1,10 @@
 // Sheet-15 secondary object-list RAMs (U151/U152) and attribute RAM U153.
-// FPGA FDA/tuple/write-phase compensation and retentive-list validity live in
-// obj_secondary_list_bridge; they are not claimed SIS6091 internals. The three
+// FPGA FDA/tuple/write-phase compensation lives in
+// obj_secondary_list_bridge; it is not claimed SIS6091 behavior. The three
 // sheet positions and their direct pin-level topology remain visible here;
 // U151/U152 storage is isolated behind an explicit synchronous FPGA backend.
-// Secondary DMA triggered by objdma when sprite match
+// OBJDMA/VCHECK writes matching descriptors first, then MATCHV padding until
+// SORT48 has completed the physical 48-transfer list.
 
 //Write sprite info to one line
 //or the other ,
@@ -43,14 +44,13 @@ wire [8:1] CTA;
 wire [15:0] q_even;
 wire [15:0] q_odd;
 wire [15:0] list_data;
-wire        slot_valid;
 wire        u153_wr_edge;
 wire        even_write_req;
 wire        odd_write_req;
 
-// Registered/retentive FPGA memories need tuple, epoch and write-phase
-// compensation which has no sheet-15 counterpart. Keep all of that policy in
-// one explicit helper; the physical U151/U152/U153 topology stays below.
+// Registered FPGA memories need tuple and write-phase compensation which has
+// no sheet-15 counterpart. Keep that timing adaptation in one explicit
+// helper; the physical U151/U152/U153 topology stays below.
 obj_secondary_list_bridge u_list_bridge (
     .clk(clk),
     .FDA(FDA[10:3]),
@@ -58,7 +58,6 @@ obj_secondary_list_bridge u_list_bridge (
     .ODH(ODH),
     .EVNWR2(EVNWR2),
     .DMA2_EA(DMA2_EA),
-    .D1V_2(D1V_2),
     .DMA2_OA(DMA2_OA),
     .ODDWR2(ODDWR2),
     .RAM2VLD(RAM2VLD),
@@ -69,7 +68,6 @@ obj_secondary_list_bridge u_list_bridge (
     .list_data(list_data),
     .even_write_req(even_write_req),
     .odd_write_req(odd_write_req),
-    .slot_valid(slot_valid),
     .u153_wr_edge(u153_wr_edge)
 );
 
@@ -78,14 +76,16 @@ obj_secondary_list_bridge u_list_bridge (
 // 16..63 write/read addresses. Do not reroute these buses based on raster
 // parity: V1B already exchanges their build and display roles inside SORT48.
 //
-// Physical U151/U152 are SIS6091B packages with a common address bus and no
-// externally visible FPGA-style read-latency register. Inferred block RAM adds
-// that register, so use a policy-free storage backend and keep tuple/valid
-// timing in the explicit bridge above. Each physical location remains named
-// U151/U152 here; jtframe_ram is the policy-free registered-storage backend,
+// Physical U151/U152 are SIS6091B packages with a common address bus; the
+// schematic exposes no separate FPGA-style output-register stage, while the
+// package's internal read timing remains opaque. Our inferred block RAM adds
+// a known registered q boundary, so use a policy-free storage backend and
+// keep tuple/write timing in the explicit bridge above. Each physical
+// location remains named U151/U152 here; jtframe_ram is the policy-free
+// registered-storage backend,
 // so a Toki-specific wrapper adds no separate behavior. XOBDIR is the
 // physical output-enable path; the internal FPGA consumer remains driven and
-// NOOBJ masks invalid q.
+// MATCHV in each stored word is the physical NOOBJ source.
 jtframe_ram #(
   .DW(16),
   .AW(6),
@@ -113,18 +113,13 @@ jtframe_ram #(
 );
 
 // D1V_2 is sheet-5 U5A Q: V1B sampled on the literal raw-H2 rising edge.
-// q_even/q_odd and slot_valid are all registered from the same live address
-// buses one clock earlier, so this mux cannot combine a new valid bit with an
-// old descriptor word.
+// q_even/q_odd are registered from the live address buses one clock earlier.
 wire [15:0] q_sel = D1V_2 ? q_even : q_odd;
 
 // Keep the sheet-15 output-word packing visible. The physical stored MATCHV
-// bit would drive NOOBJ, but its sparse-list behavior has not been recovered;
-// the FPGA validity epoch therefore overrides that bit for now. Valid slots
-// force NOOBJ low; invalid slots assert only NOOBJ and clear every other field.
-assign {SPR2_3, SPR1_3, ODHREV, NOOBJ, VA[3:0], CTA[8:1]} =
-    slot_valid ? {q_sel[15:13], 1'b0, q_sel[11:0]} :
-                 {3'b000,       1'b1, 12'b0};
+// bit drives NOOBJ directly. VCHECK writes a valid MATCHV=0 prefix, then
+// MATCHV=1 padding until SORT48 has overwritten all 48 physical locations.
+assign {SPR2_3, SPR1_3, ODHREV, NOOBJ, VA[3:0], CTA[8:1]} = q_sel;
 
 // U153 uses 512x16 of its address space: write by FDA[10:2], then retrieve the
 // selected descriptor as {CTA[8:1], H1}. The unused upper address pin is low.

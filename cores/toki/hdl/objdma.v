@@ -120,8 +120,44 @@ wire MSBLD;
 wire MSBET;
 wire ILD2;
 wire OVER256;
+reg  over256_u141_d1;
+reg  over256_u141;
 wire VFIND;
 wire INSCRN;
+
+// U141's inferred FPGA BRAM adds a registered read boundary to the recovered
+// descriptor schedule. The exact internal timing of the physical SIS6091 is
+// still opaque; this facade compensates only the extra latency in our FPGA
+// storage backend and is not a claim that the package RAM is asynchronous.
+// Around U147's 255->0 terminal edge, raw OVER256 otherwise falls before the
+// old U141 descriptor 255 has crossed the WR2-to-BRAM adapter. Delay that one
+// schematic net across the two 48 MHz boundaries introduced by the FPGA:
+//
+//   boundary 1: U141 presents descriptor 255 on RDCLK falling;
+//   boundary 2: U151/U152 capture the active-low WR2 edge one clock later.
+//
+// Hold its falling edge through the rest of RDCLK low and retire it on the
+// following RDCLK rise. This matters when descriptor 255 is not visible: if
+// OVER256 fell in the middle of RDCLK low, VCHECK's padding VFIND level could
+// reach SORT48 before the first padding WR2 and retire a phantom slot. Rising
+// OVER256 still crosses only the two added 48 MHz register boundaries.
+//
+// PLD24 and VCHECK observe the same compensated net and PLD24's literal
+// MATCHV equation is unchanged. U147/U144/U148 retain raw OVER256 internally.
+// This adds no raster delay; it restores the descriptor/list handoff inside
+// the existing represented RDCLK phase.
+always @(posedge clk) begin
+    if (rst) begin
+        over256_u141_d1 <= 1'b0;
+        over256_u141    <= 1'b0;
+    end else begin
+        over256_u141_d1 <= OVER256;
+        if (over256_u141_d1)
+            over256_u141 <= 1'b1;
+        else if (rdclk_word_rise)
+            over256_u141 <= 1'b0;
+    end
+end
 
 // Physical U146 / recovered PLD24.
 PLD24 u_pld24(
@@ -131,7 +167,7 @@ PLD24 u_pld24(
    // output product term; its omission from PLD24's established port is exact.
    .DLHD(DLHD),
    .OIBDIR(OIBDIR),
-   .OVER256(OVER256),
+   .OVER256(over256_u141),
    .INSCRN(INSCRN),
    .OBJEN_2(OBJEN_2),
    .VFIND(VFIND),
@@ -425,7 +461,7 @@ sg0140_vcheck u1411_sg0140_vcheck(
   .OBUSAK(OBUSAK),
   .SDTS(SDTS),
   .VORIGIN(VORIGIN),
-  .OVER256(OVER256),
+  .OVER256(over256_u141),
   .OVER48(OVER48),
   .VREVD_2(VREVD_2), // vertical-reverse descriptor bit
   .OBJEN_3(OBJEN_3), // active-high eligibility: ~INSCRN & ~OBJEN_2

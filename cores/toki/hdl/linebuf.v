@@ -143,21 +143,28 @@ sis6091B_atomic #(
 // Thus D1V_7P=0 enables the EVEN pair, while D1V_7P=1 makes ND1V_7P=0 and
 // enables the ODD pair. This also matches the captured SEI0060 beam routing
 // (V1B=0 -> EA is the beam, V1B=1 -> OA is the beam).
-always @(posedge clk) begin
+//
+// U181-U184 pins 42-49/51/53 drive the shared OOD/PRIOR bus directly; sheet
+// 18 has no latch after those outputs. The FPGA SIS facades already register
+// their Q and FIND results together, so a second register here made OOD lag
+// PLD29's OBJON by one 48 MHz clock. That missed each first opaque pixel at
+// MiSTer's centre-pixel sample. Keep only the physical combinational bank and
+// first-lane priority selection at this boundary.
+always @* begin
   if (!D1V_7P) begin
     if (E1FIND)
-      { PRIOR_D, PRIOR_C, OOD[7:0] } <= Q_EVN1;
+      { PRIOR_D, PRIOR_C, OOD[7:0] } = Q_EVN1;
     else if (E2FIND)
-      { PRIOR_D, PRIOR_C, OOD[7:0] } <= Q_EVN2;
+      { PRIOR_D, PRIOR_C, OOD[7:0] } = Q_EVN2;
     else
-      { PRIOR_D, PRIOR_C, OOD[7:0] } <= 10'b11_1111_1111;
+      { PRIOR_D, PRIOR_C, OOD[7:0] } = 10'b11_1111_1111;
   end else begin
     if (O1FIND)
-      { PRIOR_D, PRIOR_C, OOD[7:0] } <= Q_ODD1;
+      { PRIOR_D, PRIOR_C, OOD[7:0] } = Q_ODD1;
     else if (O2FIND)
-      { PRIOR_D, PRIOR_C, OOD[7:0] } <= Q_ODD2;
+      { PRIOR_D, PRIOR_C, OOD[7:0] } = Q_ODD2;
     else
-      { PRIOR_D, PRIOR_C, OOD[7:0] } <= 10'b11_1111_1111;
+      { PRIOR_D, PRIOR_C, OOD[7:0] } = 10'b11_1111_1111;
   end
 end
 
