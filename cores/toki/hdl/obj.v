@@ -67,7 +67,6 @@ module obj(
   output        OBJ_HREV
 );
 
-//obj_cs     = ~cpu_as_n & (cpu_a[23:1] >= 23'h36c00 && cpu_a[23:1] < 23'h37000); //2048
 wire        XOBDIR, OBUSAK;
 wire        HREVD_1, VREVD_1, SPR1_1, SPR2_1, OBJEN_1;
 wire [15:0] OBJ_DB;
@@ -83,7 +82,7 @@ wire        RD_VPOS;
 // and send that data to the objdma module  
 HVPOS hvpos_u(
     .clk(clk),
-    .MDB(MDB_RAM_OUT[15:0]), // we got output of RAM during DMA ! not cpu 
+    .MDB(MDB_RAM_OUT[15:0]),
     .FDA(FDA[2:1]),
     .RDCLK(RDCLK),
     .OIBDIR(OIBDIR),
@@ -91,31 +90,27 @@ HVPOS hvpos_u(
     .OBUSRQ(OBUSRQ),
     .XOBDIR(XOBDIR),
     //output 
-    .ND2(ND2[8:0]), //{OBJ POS + OFFSET,  ??} 
+    .ND2(ND2[8:0]),
     .OBUSAK(OBUSAK),
-    .OBJ_DB(OBJ_DB[15:0]), //OBJ_DB = MDB_OUT it's just a driver 
-    .HREVD_1(HREVD_1),  //sprite flip x 
-    .VREVD_1(VREVD_1),  // ? 
-    .SPR1_1(SPR1_1),   //? SPR1[0] or [1] ? 
-    .SPR2_1(SPR2_1),   //?  
-    .OBJEN_1(OBJEN_1), //skip or enable sprite  
-    .ND1(ND1[3:0]), // ? 
+    .OBJ_DB(OBJ_DB[15:0]), 
+    .HREVD_1(HREVD_1),
+    .VREVD_1(VREVD_1),
+    .SPR1_1(SPR1_1),
+    .SPR2_1(SPR2_1),
+    .OBJEN_1(OBJEN_1), 
+    .ND1(ND1[3:0]),
     .RD_VPOS(RD_VPOS)
 ); 
 
 wire MATCHV;
 wire OBNE, ODH, SPR1_2;
 wire RAM2VLD;
-//wire DMARD;
 wire [3:0] VMT;
 wire EVNWR2, ODDWR2;
 wire [5:0] DMA2_EA;
 wire [5:0] DMA2_OA;
 wire SPR2_2; 
 wire DLHD;
-//////////////////////////////////////
-
-
 
 /////////// SPRITE DMA & VISBILITY CHECK ////////// 
 //  At start (STARTV/ODMARQ), take control of memory bus 
@@ -211,7 +206,7 @@ wire [9:0]  OBJ2;
 wire        OSP1; 
 wire        OSP2;
 
-///// Object Pixel Serializer /////
+///// Object Pixel Serializer
 // Retrieve data from the graphical ROM, deserialize data, 
 // applies horizontal/vertical flipping (HREV/VREV) and applies color palette
 // index
@@ -226,7 +221,6 @@ wire OBJ1_Z, OBJ2_Z;
 // A dual OBJPS/PLD29/LINEBUF seam bench proves the former blank-held FPGA
 // facade and this direct PCB wire are identical at every consumer sample, so
 // no extra line-bank register remains in the live path.
-
 OBJPS #(
     // The PCB ROM is asynchronous. Toki's FPGA port is acknowledged SDRAM,
     // so bind each cached row's direction to its serializer load.
@@ -243,12 +237,12 @@ OBJPS #(
     .SECND_LD(SECND_LD),
     .OPSREV(OPSREV),
     .FPGA_REPLAY_REV(FPGA_REPLAY_REV),
-    .OBJCOL(OBJCOL[3:0]), //from linecunt
+    .OBJCOL(OBJCOL[3:0]),
     .OSP1(OSP1),
     .OSP2(OSP2),
     .NOOBJ_CT2(NOOBJ_CT2), 
-    .HREV(HREV),    // horizontal reverse, reverse screen from dipswitch
-    .HD(HD),        // SEI0050 pin 27
+    .HREV(HREV),
+    .HD(HD), // SEI0050 pin 27
     .E1FIND(E1FIND),
     .E2FIND(E2FIND),
     .O1FIND(O1FIND),
@@ -330,37 +324,32 @@ LINECUNT linecunt_u(
 // using the X-position counters (SEI0060BU) 
 // Read phase : Simultaneously, the Front Buffer is read in sync with video
 // signal to display the sprite on the creen 
-
 LINEBUF linebuf_u(
     .clk(clk),
-    .EVNWREN(EVNWREN),//Even write en 
+    .EVNWREN(EVNWREN), // Even write en 
     .ODDWREN(ODDWREN),
     .OBJ_N6M(OBJ_N6M),
-    .OBJ1(OBJ1[9:0]),//Obj 1 
-    .OBJ2(OBJ2[9:0]),//Obj 2 
-    .E1A(E1A[8:0]),  //Even 1 Addr 
-    .EVNCLR(EVNCLR), //Even clr  
+    .OBJ1(OBJ1[9:0]), // Obj 1 
+    .OBJ2(OBJ2[9:0]), // Obj 2 
+    .E1A(E1A[8:0]),   // Even 1 Addr 
+    .EVNCLR(EVNCLR),  // Even clr  
     .D1V_7P(D1V_7P),
     .OBJ_P6M(OBJ_P6M),
-    .E2A(E2A[8:0]),  //Even 2 addr 
-    .O1A(O1A[8:0]),  //Odd 1 addr 
-    .ODDCLR(ODDCLR), //Odd clr 
+    .E2A(E2A[8:0]),   // Even 2 addr 
+    .O1A(O1A[8:0]),   // Odd 1 addr 
+    .ODDCLR(ODDCLR),  // Odd clr 
     .ND1V_7P(ND1V_7P),
-    .O2A(O2A[8:0]),  //Odd 2 addr 
+    .O2A(O2A[8:0]),   // Odd 2 addr 
     //output 
-    .E1FIND(E1FIND),  //Even 1 find 
-    .E2FIND(E2FIND),  //Even 2 find 
-    .O1FIND(O1FIND),  //Odd 1 find 
-    .O2FIND(O2FIND),  //Odd 2 find 
-    .OOD(OOD),   //object out data
+    .E1FIND(E1FIND),  // Even 1 find 
+    .E2FIND(E2FIND),  // Even 2 find 
+    .O1FIND(O1FIND),  // Odd 1 find 
+    .O2FIND(O2FIND),  // Odd 2 find 
+    .OOD(OOD),        //object out data
     .PRIOR_C(PRIOR_C),//prior c
-    .PRIOR_D(PRIOR_D), //prior d
+    .PRIOR_D(PRIOR_D),//prior d
     .OBJ1_Z(OBJ1_Z),
     .OBJ2_Z(OBJ2_Z)
 );
-
-`ifdef SIMULATION
-initial $display("OBJ: PCB sheets 13-18 renderer selected");
-`endif
 
 endmodule 

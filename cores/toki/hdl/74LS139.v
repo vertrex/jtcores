@@ -1,6 +1,5 @@
 //  74LS139
 //  dual 2-to-4 line decoder/demultiplexer with active-low outputs
-//
 module LS139(
     // First decoder inputs
     input        E1,

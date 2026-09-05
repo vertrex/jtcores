@@ -1,10 +1,7 @@
-// Exact pin-level Boolean transcription of Toki-PLD29V.C18.jed.
-// Sheet 16 U167: object-bank presence, lane masking and HREV/HD marker logic.
-// Keep the product terms below in JEDEC form even where Boolean simplification
-// is possible, so the programmed PLD remains directly auditable.
+// Toki-PLD29V.C18.jed
 module PLD29 (
-    input  HREV,                // pin 1
-    input  HD,                  // pin 2
+    input  HREV,               // pin 1
+    input  HD,                 // pin 2
     input  D1V_7P,             // pin 3; physical sheet-16 net name
     input  E1FIND,             // pin 4, U181 FIND
     input  E2FIND,             // pin 5, U182 FIND
@@ -15,9 +12,6 @@ module PLD29 (
     input  NOOBJ_CT2_LATCH2,   // pin 11, U169 Q7
     output HREV_HD,            // pin 12, /o12 physical pin level
     output NHREV_HD,           // pin 13, /o13 physical pin level
-    // Physical pin-level result. The decoded /o15 macrocell polarity is
-    // already represented by the complemented sum-of-products below, which
-    // evaluates high for a FIND in the bank selected by this parity input.
     output OBJON,              // pin 15, /o15
     output o16_n,              // pin 16, /o16; unused on sheet 16
     output MASK_NOOBJ_2,       // pin 18, /o18; U164B enable term
@@ -27,12 +21,6 @@ module PLD29 (
     assign HREV_HD = ~(~HREV & ~HD);
     assign NHREV_HD = ~( HREV & ~HD );
    
-    // With the current active-high FIND contract, the exact /o15 equation
-    // simplifies to:
-    //   D1V_7P=0 -> OBJON = O1FIND | O2FIND
-    //   D1V_7P=1 -> OBJON = E1FIND | E2FIND
-    // /o16 selects the opposite bank. The explicit terms remain the recovered
-    // JEDEC equations rather than substituting those simplified expressions.
     wire term15_1 = (~D1V_7P & ~E1FIND &  E2FIND & ~O1FIND & ~O2FIND);
     wire term15_2 = (~D1V_7P &  E1FIND & ~O1FIND & ~O2FIND);
     wire term15_3 = ( D1V_7P & ~E1FIND & ~E2FIND &  O1FIND);

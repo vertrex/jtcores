@@ -1,8 +1,4 @@
-// Behavioral model of the SEI0010BU used on sheets 7-9 and 16.
-// Reproduction evidence identifies a six-plane 24-bit serializer; the exact
-// internal gate array and the purpose of pins 34/35 are not recovered.
-// The FPGA reset is an implementation aid, not a claimed PCB pin function.
-// 24-bit shift register
+// 24-bit serializer 
 module sei0010bu(
   //p2 always set to 1 
   input  clk,
@@ -12,9 +8,7 @@ module sei0010bu(
   input  load, //p40
   input  rev,  //p38
 
-  //p34 , p35 only used on 2 sei10bu on objps, is an enable ? it's 1'b0 on all
-  //others
-  input  [23:0] rom_data, //p5-20  seems to be 24 bit on doc XXX
+  input  [23:0] rom_data, //p5-20
 
 output reg [5:0]  color //p22-25 
 );
@@ -64,9 +58,6 @@ always @(posedge clk, posedge rst) begin
 end
 
 always @(*) begin
-    // The reverse path shifts toward bit 3, so its serial output is the MSB.
-    // Reading bit 0 for both directions turns every reversed nibble into zero
-    // after its first shift and produces the vertical-stripe flip artifact.
     color = rev ? {pixel_5[3], pixel_4[3], pixel_3[3], pixel_2[3], pixel_1[3], pixel_0[3]} :
                   {pixel_5[0], pixel_4[0], pixel_3[0], pixel_2[0], pixel_1[0], pixel_0[0]};
 end

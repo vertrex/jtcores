@@ -1,6 +1,5 @@
 //  74LS138
 //  3-to-8 line decoder/demultiplexer with active-low outputs
-
 module LS138 (
     input  wire S0,
     input  wire S1,

@@ -86,7 +86,6 @@ module SEI0060BU(
     end
 
 
-
     // -----------------------------------------------------------
     // Beam counter (normalized to visible X=0 at the HBLB rising edge).
     //

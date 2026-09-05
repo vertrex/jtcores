@@ -1,4 +1,4 @@
-// Exact Boolean transcription of Toki-PLD20V.M22.jed (schematic sheet 1).
+// Toki-PLD20V.M22.jed (schematic sheet 1).
 module PLD20 (
     input  AS_n,
     input  UDS_n,

@@ -34,7 +34,6 @@ jtframe_cen48 u_cen(
     .cen8(),
     .cen6(P6M),
     .cen6b(N6M),
-    //.cen6b(),
     .cen3(),
     .cen1p5()
 );
@@ -71,7 +70,6 @@ wire HREV;
 wire VREV;
 wire [12:1] KDA;
 wire [17:1] MAB;
-//wire [15:0] MDB_OUT;
 wire [15:0] MDB_RAM_OUT;
 wire [15:0] MDB_CPU_OUT;
 wire MWRLB, MRDLB; 
@@ -93,32 +91,6 @@ wire m68k_sound_cs_2, m68k_sound_cs_4, m68k_sound_cs_6;
 wire [15:0] m68k_sound_latch_0, m68k_sound_latch_1;
 wire [15:0] z80_sound_latch_0, z80_sound_latch_1, z80_sound_latch_2;
 
-// PCB sheet 9 has two byte-wide character mask ROMs sharing one address bus.
-// JTFrame stores that physical pair as one interleaved 16-bit ROM word. Keep
-// the schematic-facing byte lanes at the video boundary; this integration
-// facade adds no state and both lanes retain the proven SCR4 deadline cache.
-wire  [7:0] char_rom_1_data = char_rom_data[7:0];
-wire  [7:0] char_rom_2_data = char_rom_data[15:8];
-wire        char_rom_1_ok   = char_rom_ok;
-wire        char_rom_2_ok   = char_rom_ok;
-wire [15:0] char_rom_1_addr;
-wire [15:0] char_rom_2_addr;
-wire        char_rom_1_cs;
-wire        char_rom_2_cs;
-
-assign char_rom_addr = char_rom_1_addr;
-assign char_rom_cs   = char_rom_1_cs | char_rom_2_cs;
-
-`ifdef SIMULATION
-always @(posedge clk) begin
-  if (!rst && (char_rom_1_addr !== char_rom_2_addr))
-    $error("SCR4 physical ROM lanes requested different addresses");
-  if (!rst && (char_rom_1_cs !== char_rom_2_cs))
-    $error("SCR4 packed ROM lanes requested different cycles");
-end
-`endif
-
-
 //////// MAIN ////////////
 //
 //
@@ -137,7 +109,6 @@ toki_main  u_main(
   .N6M(N6M),
 
   // Video 
-  //.LVBL(prom_26_data[6]), //CPU VBLANK IS TRIGGERED BY 82S135 pin 11
   .LVBL(LVBL), //CPU VBLANK IS TRIGGERED BY 82S135 pin 11
   .HBLB(HBLB),
   .INT_T(INT_T),
@@ -174,7 +145,6 @@ toki_main  u_main(
 
   .KDA(KDA),
   .MAB(MAB),
-  //.MDB_OUT(MDB_OUT),
   .MDB_RAM_OUT(MDB_RAM_OUT),
   .MDB_CPU_OUT(MDB_CPU_OUT),
   .SEI0100_MDB_IN(SEI0100_MDB_IN),
@@ -203,6 +173,20 @@ toki_main  u_main(
   .OIBDIR(OIBDIR),
   .FDA(FDA)
 );
+
+// PCB has two 8bits mask ROM
+// XXX merge in scrn4.v direclty
+wire  [7:0] char_rom_1_data = char_rom_data[7:0];
+wire  [7:0] char_rom_2_data = char_rom_data[15:8];
+wire        char_rom_1_ok   = char_rom_ok;
+wire        char_rom_2_ok   = char_rom_ok;
+wire [15:0] char_rom_1_addr;
+wire [15:0] char_rom_2_addr;
+wire        char_rom_1_cs;
+wire        char_rom_2_cs;
+
+assign char_rom_addr = char_rom_1_addr;
+assign char_rom_cs   = char_rom_1_cs | char_rom_2_cs;
 
 //////// VIDEO ////////////
 //
@@ -281,7 +265,6 @@ toki_video u_video(
 
   .KDA(KDA),
   .MAB(MAB),
-  //.MDB(MDB_OUT),
   .MDB_RAM_OUT(MDB_RAM_OUT),
   .MDB_CPU_OUT(MDB_CPU_OUT),
 
@@ -317,10 +300,6 @@ toki_video u_video(
 // - oki6295 / pcm 
 // - ym3812 / fm 
 // - coin input 
-
-//music2 output 
-//XXX all to music 1 ? 
-
 wire SRDB, SWRB;
 wire SEL6295;
 wire COUNTER1;
@@ -328,18 +307,15 @@ wire COUNTER2;
 wire CS3812;
 wire CLK_3_6;
 wire PRCLK1;
-wire SA_0; //should be on SA bus 
+wire SA_0; 
 wire [7:0] SD_OUT;
-// OLD 
-//wire [7:0] oki_dout;
+
 wire [7:0] z80_dout;
 wire ym_cs_0;
 wire ym_cs_1; 
 wire [7:0] MUSIC1_SD_IN;
 
-//wire  RESET_A;  //from where not driven ?
 wire  IRQ3812;
-
 
 music1 u_music1(
   .clk(clk),
@@ -355,7 +331,6 @@ music1 u_music1(
   .SWRB(SWRB),
   .SEL6295(SEL6295),
   //// 
-
   .snd(snd),
   .fxlevel(dip_fxlevel),
 
@@ -365,17 +340,13 @@ music1 u_music1(
   .pcm_rom_cs(pcm_rom_cs)
 );
 
-// PLD23 still produces the physical bank-ROM chip select inside MUSIC2. The
-// FPGA bank ROM is a boot-loaded local BRAM, so no external request/OK port is
-// needed at this integration boundary.
-wire bank_rom_cs_n;
 
+wire bank_rom_cs_n;
 wire [7:0] SEI0100_MDB_IN;
 
 music2 u_music2(
   .clk(clk),
   .rst(rst),
-  //.SYS_RESET(rst),
 
   .SRDB(SRDB),
   .SWRB(SWRB), 
@@ -395,8 +366,8 @@ music2 u_music2(
   .COIN1(coin[0]), 
   .COIN2(coin[1]),
 
-  .COUNTER1(COUNTER1), //to jamma ->  mister ? 
-  .COUNTER2(COUNTER2), //to jamma -> mister 
+  .COUNTER1(COUNTER1), 
+  .COUNTER2(COUNTER2), 
   .CS3812(CS3812),
 
   .CLK_3_6(CLK_3_6),
@@ -414,6 +385,5 @@ music2 u_music2(
   .bank_rom_addr(bank_rom_addr),
   .bank_rom_cs_n(bank_rom_cs_n)
 );
-
 
 endmodule

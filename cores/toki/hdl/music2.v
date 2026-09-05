@@ -1,9 +1,3 @@
-// PCB provenance: sheet 12 (MUSIC2): Z80, PLD23, SEI80BU, program/bank ROM,
-// 2 KiB RAM, SEI0100BU and the two clock flip-flops. JTFrame downloads the
-// fixed 8 KiB program EPROM and 64 KiB bank EPROM into local BRAM before reset
-// is released, closely reproducing the PCB's two dedicated asynchronous
-// devices. Their synchronous FPGA read ports settle between Z80 clock-enable
-// pulses, so the physical board's permanently inactive WAIT path is retained.
 module music2
 (
     input           clk,
@@ -16,16 +10,15 @@ module music2
     output          SEL6295, 
 
     // SEI080BU 
-    // input 14.13Mhz ?
     input           N1H,
     input           N6M, 
 
     input           MUSIC, 
-    input           MWRLB, // MAIN WRITE R? L? BUS
-    input           MRDLB, // MAIN READ  D? L? BUS
-    input   [3:1]   MAB, // MAIN ADDRESS BUS 
-    input   [7:0]   MDB_CPU_OUT, // MAIN DATA BUS
-    output  [7:0]   MDB_IN, // MAIN DATA BUS
+    input           MWRLB,
+    input           MRDLB,
+    input   [3:1]   MAB,
+    input   [7:0]   MDB_CPU_OUT,
+    output  [7:0]   MDB_IN,
     input           IRQ3812,
     input           COIN1,
     input           COIN2, 
@@ -124,8 +117,6 @@ pld23 pld23_u(
 //
 wire [7:0] RAM_SD_OUT;
 
-// Reads run at the 48 MHz master clock, approximating the asynchronous PCB
-// SRAM. CLK_3_6 gates writes only.
 jtframe_ram #(.AW(11)) u_z80_cpu_ram(
     .clk(clk),
     .cen(CLK_3_6),
@@ -139,7 +130,6 @@ jtframe_ram #(.AW(11)) u_z80_cpu_ram(
 //
 // 2151/5205 controller 
 // YM3931 (SDIP64)
-
 wire [7:0] SEI0100_SD_IN;
 
 wire BANK_SELECTED;
@@ -161,7 +151,7 @@ sei0100bu sei0100bu_u(
   .SEI0100_CS_N(SEI0100_CS_N),
   .SWRB(SWRB),
   .SEI0100_Z80_DATA_OE_N(SEI0100_Z80_DATA_OE_N),
-  .SA(SA[4:0]), //32 + sei0100_cs => z80_cs selection 
+  .SA(SA[4:0]),
    // output 
   .COUNTER1(COUNTER1),
   .COUNTER2(COUNTER2),
@@ -172,11 +162,7 @@ sei0100bu sei0100bu_u(
   .BANK_SELECTED(BANK_SELECTED)
 ); 
 
-// Synthesizable replacement for the PCB's shared tri-state SD bus. The
-// REVIEW: SD here means the Z80 sound-data bus labelled SD0-SD7 on sheet 12.
-// YM3812 and MSM6295 read sources must precede the broad SEI0100 select:
-// addresses 0x4008/9 select both the controller range and the YM3812
-// subdecode, while the physical controller releases the bus.
+// tri-state SD bus on original PCB 
 assign SD_IN =  
                  ~CS3812 & ~SRDB                       ? MUSIC1_SD_IN :   
                  ~SEL6295 & ~SRDB                      ? MUSIC1_SD_IN :

@@ -6,7 +6,6 @@ module LS273(
     output reg  [7:0]  Q       // Data outputs
 );
 
-    // Behavior identical to 74LS273, but only latches data when CEN = 1
     always @(posedge CLK or negedge CLRn) begin
         if (!CLRn)
             Q <= 8'b00000000;  // Asynchronous clear

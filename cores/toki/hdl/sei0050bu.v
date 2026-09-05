@@ -38,7 +38,7 @@ module SEI0050BU(
   output     VSYNC,// pin 28, active-high composite sync
   output     VCLK, // pins 29/30, one pulse per line
 
-  // JTFrame-only outputs; these are not additional SEI0050 pins.
+  // jtframe out  
   output reg HS,
   output reg VS
 );
@@ -69,18 +69,11 @@ localparam [8:0] RAW_V_NORM_ZERO = 9'h100;
 // H/V are the only free-running raster state.  During raw H=0x080..0x101,
 // raw V has already advanced but the normalized framework line has not; the
 // inverse adapter therefore subtracts one vertical count in that interval.
-wire [8:0] raw_v_normalized = V >= RAW_V_NORM_ZERO
-                            ? V - RAW_V_NORM_ZERO
-                            : V + 9'd6;
+wire [8:0] raw_v_normalized = V >= RAW_V_NORM_ZERO ? V - RAW_V_NORM_ZERO : V + 9'd6;
 
-assign hpos = H >= RAW_H_NORM_ZERO
-            ? H - RAW_H_NORM_ZERO
-            : H + 9'd126;
-assign vpos = H >= RAW_H_NORM_ZERO
-            ? raw_v_normalized
-            : (raw_v_normalized == 9'd0 ? 9'd261
-                                         : raw_v_normalized - 9'd1);
-
+assign hpos = H >= RAW_H_NORM_ZERO ? H - RAW_H_NORM_ZERO : H + 9'd126;
+assign vpos = H >= RAW_H_NORM_ZERO ? raw_v_normalized    : (raw_v_normalized == 9'd0 ? 9'd261
+                                                                                     : raw_v_normalized - 9'd1);
 // Historical external monitor notes; these are observations, not the RTL
 // timing contract below.
 // Retro tink :
@@ -97,7 +90,6 @@ assign vpos = H >= RAW_H_NORM_ZERO
 // VSync - 59.6094Hz (agrees with the long PCB vertical capture)
 // HSync - 15.31996kHz (stale/inconsistent; it implies only ~257 lines)
 
-// CALC ON SEI0050BU
 // Long PCB captures average 59.609220 Hz vertically and 15.6175..15.6177 kHz
 // horizontally. With the recovered 384x262 totals this is a ~5.99716 MHz
 // pixel cadence; the exact-48-MHz FPGA runs nominally at 59.637405 Hz.
@@ -109,83 +101,19 @@ assign vpos = H >= RAW_H_NORM_ZERO
 // Pin 23 is captured by sheet-5 U518 on T8H. U511D combines that
 // registered HBLB with pin 24 to produce the final video MASK.
 
-// Historical phase experiments retained for review; they do not describe the
-// trace-backed contract implemented below.
-//parameter HBLANK_START  = 265; //high [265, 137]     | 265  
-//parameter HBLANK_START  = 266; //high [265, 137]     | 265   //WORK FOR CHAR BUT NOT BK ...
-//parameter HBLANK_END 	  = 9; //10 tick so stop at 9  | 9  we shift 3 to align but there's maybe a latch somewhere
-//parameter HBLANK_END 	  = 10; //10 tick so stop at 9  | 9  we shift 3 to align but there's maybe a latch somewhere
-// JTFrame HS/VS components are decoded from the canonical physical counters.
 // These raw constants are exactly the former normalized hpos 304/336 and the
 // six-line vpos 256..261 interval; using them avoids feeding the coordinate
 // adapter back into SEI0050's internal timing state.
 localparam [8:0] RAW_HSYNC_START = 9'h0b2;
 localparam [8:0] RAW_HSYNC_END   = 9'h0d2;
 
-parameter H_TOTAL			  = 384; //384 ??
-//512-268
-//244
-
-//40-128
-//12
-
 // Vertical blank is decoded by PROM26 and returned to SEI0050 on pin 33;
 // it is not decoded from V internally by this behavioral model.
-//244 + 12 lines = 256 lines 
-//parameter LVBLANK_START  = 240; //rom blank  | 239   
-//parameter LVBLANK_END		= 16; //15 ??? if 224 , only 223 line ? | 16
 // Pin 28's vertical component rises at v=256 and falls at v=0 at the same
 // horizontal phase. The interval crosses the 261->0 seam and is exactly six
 // complete line periods, as measured on the PCB.
 localparam [8:0] RAW_VSYNC_START = 9'h0fb;
 localparam [8:0] RAW_VSYNC_END   = 9'h101;
-parameter V_TOTAL			  = 262;
-
-// Additional commented snippets below are retained only as analysis history;
-// none describes the active trace-backed implementation.
-//assign LHBL = HBL;
-// it look like what we got before so can be ok 
-// the are not really @hpos1 it's betwee nedge ....
-// half 11 half 00 @negedge ? 
-
-//parameter HBLANK_START  = 265; 
-//parameter HBLANK_END 	  = 9; 
-
-// MEASURED ON BOARD ! 
-//Working but there is a shift of 3 pixel  (work for bk not for char)
-//always @(posedge P6M) begin
-  //if (hpos[1:0] == 2'b11)
-    //T3F <= 1'b1;
-  //if (hpos[1:0] == 2'b00)
-    //T3F <= 1'b0;
-//end 
-
-//assign T4H = (hpos[2:0] == 3'b100);
-//assign T8H = (hpos[2:0] == 3'b000); //ichar cen check on board 
-
-//on other measure it look like that ... but it's the merged one 
-//assign T3F = (hpos[1:0] == 2'b01);
-//assign T4H = (hpos[2:0] == 3'b101);
-//assign T8H = (hpos[2:0] == 3'b001);
-
-// CHAR + BK is aligned but it create graphic glitches 
-//parameter HBLANK_START  = 262; 
-//parameter HBLANK_END 	  = 6; 
-//assign T3F = (hpos[1:0] == 2'b00); // || hcnt == HBLANK_END ?  hpos[1:0] == 2'b00);
-//assign T4H = (hpos[2:0] == 3'b01);
-//assign T8H = (hpos[2:0] == 3'b110);
-
-// old char rom cen 
-// -> se0010bu -> load  (load char rom_data before serializing it !) 
-    // -> must be stable (eg rom_cs must be 1 )?
-//assign T3F = (hpos[1:0] == 2'b00); // || hcnt == HBLANK_END ?  hpos[1:0] == 2'b00);
-//CLOCK ENABLE for ram out 
-//ram get vpos and return the tile to ram_out that is used for address 
-//(must be before T3F at leaest one cycle)
-//assign T4H = (hpos[2:0] == 3'b01);
-// vpos_latch for ram addr every 4 pix? 
-// sync HBLB
-// S4CLLT  -> sg0140 COL_B_EN  -> LATCH COL_B (PALETTE) 
 
 // Direct simultaneous pin-22/23/24 capture establishes the sub-pixel
 // ordering. The FPGA quantizes the measured 50-100 ns pin-23 lead onto P6M:
@@ -264,16 +192,6 @@ always @(posedge clk) begin
       end else begin
         H <= H + 9'd1;
       end
-
-      //if (hpos[1:0] + 1'd1 == 2'b11 || hcnt == HBLANK_END)
-        //char_rom_cen <= 1'b1;
-      //else 
-        //char_rom_cen <= 1'b0;
-   
-      //if (hpos[2:0] + 1'd1 == 3'b000 || hcnt == HBLANK_END) //we nneed 0 too but 384 + 1 is not 0
-        //T8H <= 1'b1; 
-       //else 
-        //T8H <= 1'b0;
 
       if (H == RAW_HSYNC_START) begin
         HS <= 1'b1;

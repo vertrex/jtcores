@@ -81,8 +81,6 @@ always @(posedge clk) begin
       //bank_rom_addr[15:0] <= SA[15:0];
 end
 
-
-
 //assign CS3812 = ~ym_wr; //XXX ONLY 8 ??  on in one out ? one wqrite one read ?
 //up if read or write -> cs 
 //if cs + SWRB it's write 

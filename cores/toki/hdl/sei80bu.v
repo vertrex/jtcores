@@ -4,14 +4,6 @@
 // address is used as key to decrypt for rom data
 // decrypt rom opcode if m1 high or data if m1 low
 //
-// PCB provenance: opaque custom U124 on sheet 12.  The schematics expose only
-// its pins, so this is a behavioral compatibility model of the known Seibu
-// address/opcode-dependent decryption, not a recovered internal netlist.
-// The 3.579545 MHz and 1 MHz outputs are generated as clock enables in the
-// FPGA; PRCLK1 is supplied by JTFRAME's configured 1 MHz enable.  Physical
-// N1H/N6M remain at the module boundary but are not used by this behavioral
-// replacement; their exact clock-divider relationship has not been traced.
-//
 module sei80bu(
   input             clk, //original clock is 14.13mhz 
   input             N1H, // 3Mhz 
@@ -20,11 +12,11 @@ module sei80bu(
   input       [7:0] z80_rom_data,
   input             z80_m1,
 
-  input             z80_rom_cs_n, //rom_cs_n 
+  input             z80_rom_cs_n,
 
   output reg  [7:0] decrypt_rom_data,
-  //output reg      decrypt_rom_ok, // XXXX ? 
-  input             oki_cen, // XXX 
+  //output reg      decrypt_rom_ok, 
+  input             oki_cen,
   output            PRCLK1,
   output            CLK_3_6
 );
@@ -39,9 +31,7 @@ jtframe_cen3p57 u_fmcen(
     .cen_1p78()
 );
 
-//divive clk by 48 for PRCKL1 ? 
 assign PRCLK1 = oki_cen;
-  // --- Logique combinatoire du décryptage ---
   reg [7:0] decrypted_next;
 
   always @* begin
@@ -76,11 +66,7 @@ assign PRCLK1 = oki_cen;
         (~z80_rom_addr[11] & z80_rom_addr[9] & z80_rom_addr[2]) ? z80_rom_data[0] ^ 1'b1 : z80_rom_data[0];
   end
 
-  // --- Latch synchrone (comme un 74LS373 ou 273) ---
   always @(posedge clk) begin
-    //if (CLK_3_6) begin
-      // The PCB EPROM has no ready/OK pin. JTFrame finishes loading the local
-      // BRAM before reset release, so ROM chip-select is the only qualifier.
       if (!z80_rom_cs_n) begin
         decrypt_rom_data <= decrypted_next;
     end

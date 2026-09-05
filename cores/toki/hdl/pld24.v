@@ -1,6 +1,4 @@
-// Exact Boolean transcription of Toki-PLD24V.H13.jed (schematic sheet 14).
-// Physical pin 4/RDCLK has no term in any decoded output equation, so omitting
-// it from this established interface is intentional rather than a guessed fix.
+// Toki-PLD24V.H13.jed (schematic sheet 14)
 module PLD24(
     //counter start at XOBDIR  (clr)
     //@RDCLKR  
@@ -36,22 +34,16 @@ module PLD24(
                    (~FDA[2] &  SDTS   & ~OIBDIR) |
                    (~FDA[2] & ~SDTS   &  DLHD);
 
-    //assign LSBLD = (~FDA[1] | ~FDA[2]) & MSBLD;
-
     assign XOBDIR = ~OIBDIR;
 
     assign RAM2VLD = ~(( FDA[1] & ~FDA[2] &  SDTS) |
                        (~FDA[1] &  FDA[2] &  SDTS));
-    //assign RAM2VLD = ~SDTS | ~(FDA[1] ^  FDA[2]);
 
-    // start dma counter ?
     assign MSBLD  = ( SDTS & ~OIBDIR) |
                     (~SDTS &  DLHD);
 
     assign MSBET = SDTS &  (~FDA[1] &  FDA[2] & SDTS) |
                            (~FDA[2] &  SDTS);
-    //assign MSBET = SDTS & (~FDA[1] | ~FDA[2]); 
 
     assign ILD2 = ~SDTS & DLHD;
-
 endmodule

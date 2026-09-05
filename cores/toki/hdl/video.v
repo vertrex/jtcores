@@ -4,11 +4,6 @@
 // - char, bk1, bk2, obj drawing
 // - char, bk1, bk2, obj mixing & output
 //
-// PCB provenance: structural integration of sheet 5 timing, sheets 7-9
-// tile/character paths, sheet 10 palette mixer, and sheets 13-18 objects.
-// This wrapper is not itself a PCB IC. Registered PROM access and external
-// ROM *_ok handshakes are FPGA memory-interface adaptations.
-//
 module toki_video(
   input             rst,
 
@@ -34,15 +29,11 @@ module toki_video(
   output [3:0]      b,
 
   // ROM data
-  //input      [15:0] gfx1_rom_data,
-  //input             gfx1_rom_ok,
-  //output     [16:1] gfx1_rom_addr,
-  //output            gfx1_rom_cs,
-
-  //input      [15:0] char_rom_data,
-  //input             char_rom_ok,
-  //output     [16:1] char_rom_addr,
-  //output            char_rom_cs,
+  // XXX reuse one rom and split later
+  // input      [15:0] char_rom_data,
+  // input             char_rom_ok,
+  // output     [16:1] char_rom_addr,
+  // output            char_rom_cs,
 
   input       [7:0] char_rom_1_data,
   input             char_rom_1_ok,
@@ -77,7 +68,7 @@ module toki_video(
   input      [7:0]  prom_26_data,
   output     [7:0]  prom_26_addr,
 
-  input      [7:0]  prom_27_data, // XXX 4 bit wide !
+  input      [7:0]  prom_27_data,
   output     [7:0]  prom_27_addr,
 
 
@@ -124,7 +115,7 @@ module toki_video(
 wire HBL;
 wire L3;
 wire HD;
-wire VSYNC; // SEI0050 pin 28 composite-sync level (sheet 5)
+wire VSYNC; // SEI0050 pin 28 c-sync (sheet 5)
 wire [8:0] H;
 wire [8:0] V;
 
@@ -137,7 +128,6 @@ wire [7:0] PCB_EXV = V[7:0] ^ {8{VREV}};
 //
 //PROM26
 //
-
 wire OBJT1, OBJT2, STARTV, VORIGIN, VBL_ROM;
 
 // Sheet 5 connects SEI0050 V<1:128> directly to PROM26 A<0:7>. The FPGA PROM
@@ -181,8 +171,6 @@ SEI0050BU sei0050bu_u(
   .HS(HS),
   .VS(VS)
 );
-
-
 
 // PROM26 changes its physical VBL output at the H/V counter seam, eight
 // pixels before HBLB falls.  That phase is correct for the PCB mixer and must
@@ -262,7 +250,7 @@ scrn4 scrn4_u(
   .WRN6M(WRN6M),
   .T4H(T4H),
   .T8H(T8H), // retained sheet-9 interface; SCRN4 does not consume it
-  .T3F(T3F), //char rom cen T3F
+  .T3F(T3F), // char rom cen T3F
 
   .KDA(KDA[10:1]),
   .DMSL_S4(DMSL_S4),
@@ -364,7 +352,7 @@ scrn_bk #(.FPGA_H_SOURCE_PHASE(9'd4)) bk2_u(
   .VREV(VREV),
 
   .rom_data(bk2_rom_data),
-  .rom_ok(bk2_rom_ok), //glitch if at same time than sound because not enoughtrouput XXX !
+  .rom_ok(bk2_rom_ok),
   .rom_addr(bk2_rom_addr),
   .rom_cs(bk2_rom_cs),
 
@@ -382,6 +370,7 @@ reg   [8:0] obj_line_buffer_addr;
 
 wire FIRST_LD, SECND_LD, CTLT1, CTLT2, EVN_LD, ODD_LD, NV256;
 
+// XXX use real H pos ?  
 // Sheet 5 connects PLD22 directly to the literal SEI0050 H/V counter pins.
 // No normalized-coordinate mapper remains in this schematic-facing object
 // timing boundary.
@@ -402,7 +391,6 @@ PLD22 pld22_u(
     .EVN_LD(EVN_LD),
     .ODD_LD(ODD_LD),
     .NV256(NV256)
-    //.VCLK(VCLK) //this is just driven
 );
 
 wire OBJON;
@@ -444,7 +432,7 @@ obj obj_u(
   .HBLB(HBLB),
   .T3F(T3F),
   .T8H(T8H),
-  .RESETA(rst), //RST or ~RST ?
+  .RESETA(rst),
   .FIRST_LD(FIRST_LD),
   .SECND_LD(SECND_LD),
   .CTLT1(CTLT1),
@@ -470,7 +458,6 @@ obj obj_u(
   .obj_rom_1_ok(obj_rom_1_ok),
   .obj_rom_2_data(obj_rom_2_data),
   .obj_rom_2_ok(obj_rom_2_ok),
-
   //output
   .obj_rom_1_cs(obj_rom_1_cs),
   .obj_rom_1_addr(obj_rom_1_addr),
@@ -554,12 +541,10 @@ CLUT CLUT_u(
 
 
 
-/////////// SIMULATION CODE HELPER //////////////////////////////
 /////// RAM DUMP ////////
 //
 //
 //
-
 `ifdef SIMULATION
 
 `define dump_ram16_split(FILE_NAME, SIZE, MEM_PATH) \

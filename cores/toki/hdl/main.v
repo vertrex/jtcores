@@ -6,16 +6,8 @@
 //  - palette / video / bk1 / bk2 / obj ram
 //  - scrolling & sound latch
 //
-// PCB provenance: sheets 1-4 and 6.  PLD20/PLD21, the address decoders and
-// the memory-DMA selects remain separate schematic-mapped blocks below.
 // FPGA-only adaptations are deliberately kept at this integration level:
-//   * fx68k replaces the physical 68000;
 //   * priority muxes replace internal tri-state address/data buses;
-//   * jtframe_68kdtack_cen waits for shared-SDRAM ROM data and defensively
-//     holds DTACK after BUSOPN reports DMA ownership; BR/BG is the primary bus
-//     arbitration. The PCB grounds /DTACK because its program ROM is local and
-//     asynchronous; grounding it here would let cache misses return stale data.
-// The local 64 KiB work RAM remains BRAM-backed and does not use that ROM wait.
 //
 module toki_main(
   input             rst,
@@ -59,10 +51,11 @@ module toki_main(
 
   output     [12:1] KDA,
   output     [17:1] MAB,
-  //output     [15:0] MDB_OUT,
   output     [15:0] MDB_CPU_OUT,
   output     [15:0] MDB_RAM_OUT,
+
   input       [7:0] SEI0100_MDB_IN,
+
   output            MWRLB,
   output            MRDLB,
   output            DMSL_S1,
@@ -141,7 +134,7 @@ fx68k fx68k (
 
     .extReset(rst),
     .pwrUp(rst),
-    .HALTn(dip_pause), //rst
+    .HALTn(dip_pause),
 
     //SYSTEM CONTROL 
     .BERRn(1'b1),
@@ -149,36 +142,35 @@ fx68k fx68k (
     .oHALTEDn(), 
 
     //ADDRESS BUS 
-    .eab(cpu_a[23:1]), //output A23-A0 : 24bits address bus
-
-    //DATA BUS (originally one INOUT bus) 
-    .iEdb(cpu_din),    // input D15-D0 : 16 bits cpu bus data in
-    .oEdb(cpu_dout),   // input D15-D0 : 16 bits cpu bus data out 
+    .eab(cpu_a[23:1]),
+    //DATA BUS (one INOUT bus on PCB) 
+    .iEdb(cpu_din),
+    .oEdb(cpu_dout),
     
     //ASYNCHRONOUS BUS CONTROL 
-    .ASn(cpu_as_n),    // output : address strobe, tell the memory device that the address inputs are valid. Upon receiving this signal the selected memory device starts the memory access (read/write) indicated by its other inputs.
-    .eRWn(cpu_wr_n),     // ouput  : write=0, read =1 
-    .UDSn(cpu_uds_n),  // ouput  : upper byte strobe
-    .LDSn(cpu_lds_n),  // output : lower byte strobe
-    .DTACKn(dtack_n),  // input  : data transfer ack
-    //.DTACKn(1'b0),  // input  : data transfer ack // DTACK GROUNDED XXX
+    .ASn(cpu_as_n),
+    .eRWn(cpu_wr_n),
+    .UDSn(cpu_uds_n),
+    .LDSn(cpu_lds_n),
+    // DTACK is grounded on original PCB, use jtframe_68kdtack_cen to wait for
+    // SDRAM ROM data 
+    //.DTACKn(1'b0),
+    .DTACKn(dtack_n),
 
     //BUS ARBITRATION CONTROL
-    //.BRn(1'b1),           // When a DMA transfer is initiated, the DMA controller sends a Bus Request (BR) signal to the CPU.
-    .BRn(br_n),        // input  : bus request
-    .BGn(bg_n),        // output : bus grant   An output signal from the CPU indicating that it has granted control of the bus to another device. 
-    .BGACKn(bgack_n),  // input  : Bus grant ack //didn't work 
-    //.BGACKn(1'b1),  // input  : Bus grant ack  An input signal to the CPU indicating that the requesting device has taken control of the bus. 
+    .BRn(br_n),
+    .BGn(bg_n),
+    .BGACKn(bgack_n),
 
     // PERIPHERAL CONTROL
-    .E(),              // output : cpu enable 
-    .VMAn(),           // output : valid pheripheral memory address
-    .VPAn(vpa_n),     // output :valid peripheral address detected  
+    .E(), 
+    .VMAn(),
+    .VPAn(vpa_n),
 
     /// PROCESSOR STATUS 
-    .FC0(cpu_fc[0]),   // output 
-    .FC1(cpu_fc[1]),   // output 
-    .FC2(cpu_fc[2]),   // output 
+    .FC0(cpu_fc[0]),
+    .FC1(cpu_fc[1]),
+    .FC2(cpu_fc[2]),
 
     //INTERUPT CONTROL 
     .IPL0n(ipl0_n),      //int @vblank
@@ -187,27 +179,15 @@ fx68k fx68k (
 );
 
 // 74LS244P 17K,17P, 22K
-//assign MAB[17:1] = { cpu_a[17], (BUSOPN == 1'b0) ? cpu_a[16:1] : 16'bz };
-//// XXX XXX XXX MAKE VMT HAVE SOME DATA ? BETTER FOR OBJ ? 
-//OR JUST MORE GLITCH ? 
-assign MAB[17:1] = !BUSOPN  ? cpu_a[17:1] :  //better like that? busopn should work
+// priority mux instead of tri-state
+assign MAB[17:1] = !BUSOPN  ? cpu_a[17:1] :
                    !MBUSDIR ? {2'b0, 3'b111, KDA[12:1]} :
-                   !OIBDIR  ? {1'b0, 6'b011011, FDA[10:1]} : //DMARD =0 p14
+                   !OIBDIR  ? {1'b0, 6'b011011, FDA[10:1]} : //DMARD =0 p. 14
                    17'b0;
-                   //cpu_a[17:1];
-//                  { cpu_a[17], 16'b0 };
 
 // 74LS246
 // bidrectional bus
-
-                   //cpu_dout[7:0] ;  //& BUSOPN ??
-//                  8'hZ;  // Z ? don't work well on real or sim 
-//memory -> CPU // B-> A
-//assign MDB_OUT[15:8] = (!cpu_uds_n & MEMDIR) ? ram_do[15:8] :
-                   //cpu_dout[15:8];
-//                  8'hZ;  // Z ? //don't work well on real or sim
-//cpu -> Memory
-
+// cpu -> Memory
 assign MDB_CPU_OUT[15:0] = cpu_dout[15:0];
 assign MDB_RAM_OUT[15:0] = ram_do[15:0];
 
@@ -224,8 +204,8 @@ wire int_a, int_n;
 
 LS74 u_21R_1(
   .CLK(clk),
-  .CEN(HBLB), //HBLB ? 
-  .D(INT_T),  //INT_T VBLANK BEFORE IS THAT EQUAL ?
+  .CEN(HBLB),
+  .D(INT_T),
   .PRE(1'b1),
   .CLR(1'b1),
   .Q(int_clk),
@@ -254,45 +234,34 @@ assign ipl0_n = (int_a | int_n);
 // cpu clock 48*5/24 => 10mhz 
 localparam [3:0] cen_num =  4'd5;
 localparam [4:0] cen_den = 5'd24;
-/*
-cnt_nx[CW] ? {CW{1'b1}} : cencnt_nx[CW-1:0];
-    if( rst ) cencnt <= 0;
-    if( over || rst || halt ) begin
-        cpu_cen  <= risefall;
-        cpu_cenb <= ~risefall;
-        risefall <= ~risefall;n_den = 5'd24;*/
 
-// XXX USE PLD  INSTEAD
 wire bus_cs  = cpu_rom_cs;
 // On the PCB /DTACK is grounded because program ROM access is asynchronous.
 // The FPGA program ROM is shared SDRAM, so only ROM misses and DMA ownership
 // may extend a cycle. BUSOPN becomes active only
-//  after a DMA controller owns the bus. Gating on BR itself prevents the
-//  68000 from finishing its current cycle and issuing BG.
+// after a DMA controller owns the bus. Gating on BR itself prevents the
+// 68000 from finishing its current cycle and issuing BG.
 wire bus_busy = (cpu_rom_cs & ~cpu_rom_ok) | BUSOPN;
 
 jtframe_68kdtack_cen  u_dtack(
-    .rst        (rst),     //INPUT 
-    .clk        (clk),     //INPUT 
-    .cpu_cen    (cen10),   //INPUT 
-    .cpu_cenb   (cen10b),  //INPUT 
-    .bus_cs     (bus_cs),  //INPUT 
-    .bus_busy   (bus_busy), //INPUT 
-    .bus_legit  (1'b0),    //INPUT 
-    .ASn        (cpu_as_n),//INPUT 
-    .DSn        ({cpu_uds_n, cpu_lds_n}), //INPUT 
-    .num        (cen_num),  //INPUT 
-    .den        (cen_den),  //INPUT 
-    .DTACKn     (dtack_n),  //OUTPUT 
-    .bus_ack    ( 1'b0      ), //XXX NEW IN JTCORES UPDATE i've ovewriten
-    //otherwise it stop working 
-    //the file with old version temporarly 
+    .rst        (rst), 
+    .clk        (clk),
+    .cpu_cen    (cen10),
+    .cpu_cenb   (cen10b),
+    .bus_cs     (bus_cs), 
+    .bus_busy   (bus_busy),
+    .bus_legit  (1'b0),
+    .ASn        (cpu_as_n),
+    .DSn        ({cpu_uds_n, cpu_lds_n}),
+    .num        (cen_num),
+    .den        (cen_den),
+    .DTACKn     (dtack_n),
+    .bus_ack    (1'b0),
     .wait2      (1'b0),
     .wait3      (1'b0),
     // unused
     .fave       (),
     .fworst     ()
-    //.frst(1'b0) //XXX added in jtcores at some point, sound doesn't work 
 );
 
 ///////// 68k bus mapping  ////////////////////
@@ -314,70 +283,36 @@ jtframe_68kdtack_cen  u_dtack(
 // 0x0c0004, 0x0c0005 : system port        (ro) 
 //
 //reg ram_cs, obj_cs, palette_cs, bk1_cs, bk2_cs, vram_cs, 
-//XXX  if <300000 or z ?
 assign cpu_rom_addr[18:1] = cpu_a[18:1];
-//always @(posedge clk)
-    //cpu_rom_addr[18:1] <= cpu_a[18:1];
-//assign cpu_rom_cs = ~ROM0 | ~ROM1; //1'b1 ? doesnt work
 
-// Shared SDRAM still needs an explicit installed-ROM range rather than the
-// PLD aliases, because an acknowledged miss cannot behave like local EPROM.
 always @(*) begin
     cpu_rom_cs = ~cpu_as_n & (cpu_a[23:1] < 23'h30000);
 end
 
 
 ////// 68K databus input   /////////////////////// 
-//
-// this iS MDB ?  XXX 
-// on the original board is done by assignement 
-// and tristate 'z 
-// try with tristate or assign here 
-
-//assign cpu_din = (!cpu_uds_n && MEMDIR) ? ram_do[15:0] : 16'bz;
-
-//always @(*) begin
-//always @(posedge clk, posedge rst) begin
-  //if(rst) begin 
-    //cpu_din <= 16'h0000;
-    //end
-  //else begin
-    //if (clk) begin
 assign      cpu_din = ~ROM0 | ~ROM1 ? cpu_rom_data[15:0] :  
-                 ~RAM       ? ram_do[15:0] :  //& BUSOPN ??
-                 ~RD_DISPW  ? dipsw[15:0] :
+                 ~RAM       ? ram_do[15:0] :
+                 ~RD_DISPW  ? dipsw[15:0]  :
                  ~RD_PLYER  ? {1'b1,1'b1,p2_button2,p2_button1,p2_right,p2_left,p2_down,p2_up,
                                1'b1,1'b1,p1_button2,p1_button1,p1_right,p1_left,p1_down,p1_up} :
                  ~RD_EXTIF  ? {1'b1,1'b1,1'b1,1'b1,1'b1,1'b1,1'b1,1'b1,
                                1'b1,1'b1,1'b1,p2_start,p1_start,service,1'b1,1'b1} :
-                 //(~cpu_as_n & ~MUSIC)  ? {8'd0, SEI0100_MDB_IN} : 
-                 ~MUSIC  ? {8'd0, SEI0100_MDB_IN} : 
+                 ~MUSIC     ? {8'd0, SEI0100_MDB_IN} : 
                  16'd0;
-             //end
-           //end
-//end 
-
 ///////
 // 74LS08 19R page 1
-//wire OBUSRQ = 1'b0;
-//BR is set to 0 to make a cpu BUS request and grant (bg bus grant will be set when cpu is ready for dma) 
-
-// ACTIVE LOW , 0  if DMA is run and obj and CPU must be stopped 
-// XXX ? 
-//wire OBUSDIR = 1'b1; //OBJ bus direction page 14 -> make change masks -> make change PRIOR_A & PRIOR_B ! 
-// pld21 need it high or nothing will be output as everything check MBUSDIR  & OBUSDIR ?
-
 wire MBUSDIR;
-//PLD 20, 22M
 // BUSOPN : active low if bus is not use by Memory or Object DMA
 wire BUSOPN, MWRMB, MRDMB, bgack_n, vpa_n;
 
+// PLD 20, 22M
 PLD20 PLD20_u(
   .AS_n(cpu_as_n),
   .UDS_n(cpu_uds_n),
   .LDS_n(cpu_lds_n),
   .RW(cpu_wr_n),
-  .BG_n(bg_n),  //get reply that the cpu is ready for dma 
+  .BG_n(bg_n),  // get reply that the cpu is ready for dma 
   .MBUSDIR(MBUSDIR),
   .OBUSDIR(OBUSDIR),
   .FC0(cpu_fc[0]),
@@ -390,7 +325,7 @@ PLD20 PLD20_u(
   .MRDLB(MRDLB),
   .MRDMB(MRDMB),
   .BUSAK(BUSAK),
-  .BGACK_n(bgack_n), //tell the CPU that device as receive the CPU grant access (bg) , it tell that DMA as starrted in some way
+  .BGACK_n(bgack_n), // tell the CPU that device as receive the CPU grant access (bg)
   .VPA_n(vpa_n)
 );
 
@@ -398,7 +333,6 @@ PLD20 PLD20_u(
 wire  MEMDIR = cpu_wr_n;
 wire  ROM0, ROM1, RAM, MBUFEN, MBUFDR;
 wire  MDMARQ;
-//wire RESET_A = ~rst;
 
 ADRS ADRS_u(
   .clk(clk),
@@ -411,8 +345,6 @@ ADRS ADRS_u(
   .MAB(MAB[6:1]),
   .MWRLB(MWRLB),
   .MRDLB(MRDLB),
-  //.RESET_A(RESET_A),
-  //.MDB(MDB_OUT[15:0]),
   .MDB(MDB_CPU_OUT[15:0]),
 
   .ROM0(ROM0),
@@ -452,19 +384,16 @@ ADRS ADRS_u(
 
 //MDMARQ : Memory DMA Request
 //ODMARQ : Object DMA Request 
-
-wire EXH_4_n, MBUSRQ, DMARD; //MBUSDIR
-//XXX where is used DMARD ? it's unused  
-//MAB is zz state work in simu not in pocket
+wire EXH_4_n, MBUSRQ, DMARD;
 
 MDMA mdma_u(
   .clk(clk),
   .rst(rst),
   .P6M(P6M),
   .N6M(N6M),
-  //.SYS_RESET(rst),
   .MDMARQ(MDMARQ), // Request DMA, start DMA 
   .BUSAK(BUSAK),
+  // XXX fix that ! or remove comment
   // Compatibility-only input: MDMA currently only inverts it to EXH_4_n,
   // and that output has no consumer.  This normalized bit is therefore not
   // claimed as sheet-6 physical EXH4; the live raw/XORed EXH bus stays in
@@ -480,15 +409,10 @@ MDMA mdma_u(
   .DMSL_S2(DMSL_S2),
   .DMSL_S4(DMSL_S4),
   .KDA(KDA[12:1]),
-  //.MAB(MAB[15:1]),
   .DMARD(DMARD)
 );
 
-//assign br_n = ~(MBUSRQ ^ OBUSRQ);  //??  
-assign br_n = (MBUSRQ & OBUSRQ);  //??  
-//                  '0b101  000'
-//                  scrollram[40]&  0x8000 -> bit 16 up ! 
-//flip_screen_set((m_scrollram[0x28]&0x8000)==0); 
+assign br_n = (MBUSRQ & OBUSRQ);
 
 //////// RAM //////////////////////////
 //
@@ -499,51 +423,10 @@ wire [15:0] ram_do;
 
 jtframe_ram16 #(.AW(15)) u_cpu_ram(
     .clk(clk),
-    .addr(MAB[15:1]),  //ENABLE VIA DMARD ? 
-    .data(cpu_dout[15:0]), //MDB_OUT  // 
+    .addr(MAB[15:1]),
+    .data(cpu_dout[15:0]),
     .we({~RAM & ~MWRMB, ~RAM & ~ MWRLB}),
-    .q(ram_do[15:0])  //MDB_in ? //remove from data bus input if set here 
+    .q(ram_do[15:0]) 
 );
-
-// XXX SPRITE SEEMS TO USE 8 6091 on board ! 
-///////// SPRITE RAM //////////
-//
-// obj ram (2048)
-// obj ram is read by the cpu 
-// if cpu can't read obj ram content 
-// there will be no scrolling during the 'cave screen'
-//
-/*wire [15:0] obj_do;
-
-jtframe_dual_ram16 #(.AW(10)) u_obj_ram(
-  //.clk0(N6M),
-  .clk0(clk), //must be fast here because we use one chips to scan everything 
-  //on the real board there is multiple chipset ....
-  .data0(cpu_dout[15:0]),
-  .addr0(cpu_a[10:1]),
-  .we0({obj_cs && !cpu_wr_n && !cpu_uds_n, obj_cs && !cpu_wr_n && !cpu_lds_n}),
-  .q0(obj_do),
-
-  .clk1(clk), 
-  .data1(),
-  .addr1(obj_addr[10:1]),
-  .we1(),
-  .q1(obj_out)
-);
-*/
-
-/*wire [15:0] sprite_do;
-
-ram_dma #(.W(10)) u_sprite_ram(
-  .clk(clk),
-  .trigger_n(INT_T),
-  .we({obj_cs && !cpu_wr_n && !cpu_uds_n, obj_cs && !cpu_wr_n && !cpu_lds_n}),
-  .addr_in(cpu_a[10:1]), 
-  .data(cpu_dout[15:0]),
-  .q_in(sprite_do),
-
-  .addr_out(obj_addr[10:1]),
-  .q(obj_out)
-);*/
 
 endmodule

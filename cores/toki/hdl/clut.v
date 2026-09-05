@@ -79,43 +79,15 @@ sg0140_absel    sg0140_absel_u(
   .ON_B(S4ON)
 ); 
 
-// PROM 27 3J.  The four PRIOR inputs come from the sheet-3 U34 latch;
-// this address permutation is the literal sheet-10 package wiring.
+// PROM 27 3J. 
+// U34 latch;
 // Sheet 10 U102/82S129: A0=S1ON, A1=S4ON, A2=OBJON,
 // A3=S2ON, then PRIOR A..D on A4..A7.
-assign  prom_27_addr[7:0] = { PRIOR_D, PRIOR_C, PRIOR_B, PRIOR_A,
-                             S2ON, OBJON, S4ON, S1ON };
-//assign  prom_27_addr[7:0] = { 1'b0, 1'b0, PRIOR_B, PRIOR_A, S2ON, 1'b0, S4ON, S1ON };
+assign  prom_27_addr[7:0] = { PRIOR_D, PRIOR_C, PRIOR_B, PRIOR_A, S2ON, OBJON, S4ON, S1ON };
 // 74LS257 2H, 3H 
 // 74LS258 
 // 74LS246 1C 
 // SIS6091 5H
-  //palette_addr[10:1] <=  //OBJON ? { prom_27_data[3:2], OOD[7:0] } :
-
-  /* 
-always @(posedge clk) begin
-   //N6M ? 
-   if (prom_27_data[0]) begin 
-     if (prom_27_data[1] == 1'b0)  
-       palette_addr <= { prom_27_data[3:2], s1_s4_out[7:0] }; 
-     else 
-       palette_addr <= { prom_27_data[3:2], SCRN2[7:0] };
-   end 
- end
- */
-
-//* 
-//always @(posedge clk) begin
-   //N6M ? 
-   //if (prom_27_data[0]) begin 
-     //if (prom_27_data[1] == 1'b0)  
-       //palette_addr <= { prom_27_data[3:2], s1_s4_out[7:0] }; 
-     //else 
-       //palette_addr <= { prom_27_data[3:2], SCRN2[7:0] };
-   //end 
- //end
- //*/
-
 
 wire [10:1] palette_addr;
 wire [15:0] palette_out;
@@ -135,7 +107,7 @@ sis6091 u_palette_ram(
   .wr_data(MDB[15:0]),
   .wr_addr(KDA[10:1]),
 
-  .rd_cen(~P6M), //use N6M sa we inverse clock ? 
+  .rd_cen(~P6M), //use N6M ? 
   .rd_addr(palette_addr[10:1]),
   .rd_data(palette_out[15:0])
 );
