@@ -103,9 +103,11 @@ sei0021bu #(.PIN39_IS_MSB(1'b0)) sei21bu_bk1_v(
 // an unproven decode.
 assign sg_sync = scrolled_hpos[1];
 
-// The asynchronous PCB follows scroll/reverse changes immediately.  Only the
-// FPGA row adapter needs invalidation while its registered coordinate and any
-// in-flight SDRAM response realign.
+// The asynchronous PCB ROM follows the raster-facing SEI0021 output
+// immediately. Owner-observed original-PCB video shows that CPU scroll writes
+// become visible only after the active line, never partway across a scanline.
+// Only the FPGA row adapter needs invalidation while that published coordinate
+// and any in-flight SDRAM response realign.
 reg hrev_d;
 reg vrev_d;
 always @(posedge clk) begin
@@ -119,16 +121,18 @@ always @(posedge clk) begin
 end
 
 // FPGA-only invalidation mirror.  The physical asynchronous ROM simply sees
-// the SEI0021 output; an idempotent register write changes neither its address
-// nor its data.  The acknowledged-ROM facade, however, must explicitly retire
-// work when that output really changes.  Mirror only the two decoded register
-// fields so a repeated low- or high-byte write does not discard a complete
-// row or retire its replacement fetch.  This is adapter metadata, not a claim
-// that SEI0021 contains a second set of these registers.
+// the line-published SEI0021 output; an idempotent register write changes
+// neither its address nor its data.  The acknowledged-ROM facade, however,
+// must explicitly retire work when that output really changes.  Mirror both
+// the pending horizontal fields and their line-latched value so repeated
+// writes do not discard a complete row or retire its replacement fetch.
+// These are adapter metadata, not additional schematic-facing SEI0021
+// storage. Vertical writes retain their previous immediate behavior.
 reg [7:0] fpga_scroll_h_low;
 reg [7:0] fpga_scroll_v_low;
 reg       fpga_scroll_h_high;
 reg       fpga_scroll_v_high;
+reg [8:0] fpga_scroll_h_l;
 
 wire [7:0] fpga_scroll_low_data = {
   MDB_CPU_OUT[6:0], MDB_CPU_OUT[7]
@@ -138,21 +142,41 @@ wire fpga_h_high_write = !SEL_SH && MAB[1];
 wire fpga_v_low_write  = !SEL_SY && MAB[2] && !MAB[1];
 wire fpga_v_high_write = !SEL_SY && MAB[1];
 
-wire scroll_commit =
-  (fpga_h_low_write  && fpga_scroll_h_low  != fpga_scroll_low_data) ||
-  (fpga_h_high_write && fpga_scroll_h_high != MDB_CPU_OUT[4]) ||
+wire [7:0] nx_fpga_scroll_h_low = fpga_h_low_write ?
+                                         fpga_scroll_low_data :
+                                         fpga_scroll_h_low;
+wire       nx_fpga_scroll_h_high = fpga_h_high_write ?
+                                         MDB_CPU_OUT[4] :
+                                         fpga_scroll_h_high;
+wire [8:0] nx_fpga_scroll_h = {
+  nx_fpga_scroll_h_high, nx_fpga_scroll_h_low
+};
+
+// Reconstruct literal raw H before the sheet-5 reverse XOR.  This N6M edge
+// advances raw H=0x087 to 0x088 / normalized hpos=262, immediately after the
+// last HBLB-active pixel and before the following-line prefetch window.
+wire [8:0] fpga_raw_h = {
+  H256, H128, EXH[6:0] ^ {7{HREV}}
+};
+wire fpga_scanline_commit = N6M && (fpga_raw_h == 9'h087);
+
+wire horizontal_scroll_commit = fpga_scanline_commit &&
+                                  (fpga_scroll_h_l != nx_fpga_scroll_h);
+wire vertical_scroll_commit =
   (fpga_v_low_write  && fpga_scroll_v_low  != fpga_scroll_low_data) ||
   (fpga_v_high_write && fpga_scroll_v_high != MDB_CPU_OUT[4]);
+wire scroll_commit = horizontal_scroll_commit || vertical_scroll_commit;
 
 always @(posedge clk or negedge RST_SH) begin
   if (!RST_SH) begin
     fpga_scroll_h_low  <= 8'h00;
     fpga_scroll_h_high <= 1'b0;
-  end else if (!SEL_SH) begin
-    if (MAB[2] && !MAB[1])
-      fpga_scroll_h_low <= fpga_scroll_low_data;
-    if (MAB[1])
-      fpga_scroll_h_high <= MDB_CPU_OUT[4];
+    fpga_scroll_h_l    <= 9'h000;
+  end else begin
+    fpga_scroll_h_low  <= nx_fpga_scroll_h_low;
+    fpga_scroll_h_high <= nx_fpga_scroll_h_high;
+    if (fpga_scanline_commit)
+      fpga_scroll_h_l <= nx_fpga_scroll_h;
   end
 end
 
