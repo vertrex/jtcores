@@ -6,7 +6,7 @@ module music2
     output          SRDB,
     output          SWRB, 
 
-    //PLD238 
+    // PLD238 
     output          SEL6295, 
 
     // SEI080BU 
@@ -65,7 +65,7 @@ jtframe_z80 u_z80(
     .rst_n(~rst),
 
     .wait_n(1'b1),
-    .int_n(Z80_INT), //DRIVE BY CONTROLER PIN 23  // sound interrupt
+    .int_n(Z80_INT), // controller pin 23, sound interrupt
     .nmi_n(1'b1),
     .busrq_n(1'b1),
 

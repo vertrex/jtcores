@@ -94,9 +94,8 @@ assign vpos = H >= RAW_H_NORM_ZERO ? raw_v_normalized    : (raw_v_normalized == 
 // horizontally. With the recovered 384x262 totals this is a ~5.99716 MHz
 // pixel cadence; the exact-48-MHz FPGA runs nominally at 59.637405 Hz.
 // vertical-sync pulse width: 6 horizontal periods
-// vblank : 37 cycle de hsync ! 
+// vblank : 37 cycle de hsync !
 // vblank generated via PROM, 82S135 @ 59.61 hz 
-// PROM generate different 59.61hz 
 
 // Pin 23 is captured by sheet-5 U518 on T8H. U511D combines that
 // registered HBLB with pin 24 to produce the final video MASK.

@@ -182,7 +182,6 @@ assign OFST[3:0] = (RD_VPOS == 1'b0) ? offset_y[3:0] :
 /// DECODE SPRITE WORDS 1 : RD_CHAR  (tile coder + tile low bits) 
 /// DECODE SPRITE WORDS 2 : RD_HPOS (LT_HPOS if ~ORIGIN in CTRL LT) 
 /// DECODE SPRITE WORDS 3 : RD_VPOS (LT_VPOS if <ORIGIN in CTRL LT) 
-// LT latch data of vpos to be combined with offset ?  
 
 ///
 /// DEMUX DATA 

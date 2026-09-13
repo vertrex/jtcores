@@ -92,10 +92,9 @@ assign  prom_27_addr[7:0] = { PRIOR_D, PRIOR_C, PRIOR_B, PRIOR_A, S2ON, OBJON, S
 wire [10:1] palette_addr;
 wire [15:0] palette_out;
 
-assign palette_addr[10:1] =  
-                             prom_27_data[0] == 1'b1 ?  { prom_27_data[3:2], OOD[7:0] } : 
-                             prom_27_data[1] == 1'b0 ?  { prom_27_data[3:2], s1_s4_out[7:0] } :
-                                                        { prom_27_data[3:2], SCRN2[7:0] };
+assign palette_addr[10:1] = prom_27_data[0] == 1'b1 ?  { prom_27_data[3:2], OOD[7:0] } : 
+                            prom_27_data[1] == 1'b0 ?  { prom_27_data[3:2], s1_s4_out[7:0] } :
+                                                       { prom_27_data[3:2], SCRN2[7:0] };
 
 ///////// PALETTE RAM //////////
 // palette RAM: 1024 x 16 bits

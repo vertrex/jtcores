@@ -19,8 +19,7 @@
 // pin-15 coupling network is below 2 Hz.  They are deliberately omitted:
 // signed FPGA sources already lack analogue bias, and the remaining response
 // difference is confined to deep bass (about -0.1 dB at 100 Hz, -2 dB at
-// 20 Hz).  The volume control, LA4460 power amplifier and speaker are also
-// outside this line-level model.
+// 20 Hz).
 module hb41 #(
     parameter FRACW = 9,
     parameter FRACN = 1,
@@ -105,8 +104,7 @@ hb41_biquad u_fx_biquad(
     .sout   ( fx_filtered   )
 );
 
-// fxlevel is a JTFrame user adjustment rather than an HB-41 pin.  Keep the
-// established Toki choices: 50%, 75%, 100% and 200%.
+// fxlevel is a JTFrame user adjustment
 reg signed [16:0] fx_scaled;
 wire signed [16:0] fx_for_gain =
     {fx_filtered[15], fx_filtered};

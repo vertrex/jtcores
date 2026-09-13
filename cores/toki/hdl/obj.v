@@ -345,9 +345,9 @@ LINEBUF linebuf_u(
     .E2FIND(E2FIND),  // Even 2 find 
     .O1FIND(O1FIND),  // Odd 1 find 
     .O2FIND(O2FIND),  // Odd 2 find 
-    .OOD(OOD),        //object out data
-    .PRIOR_C(PRIOR_C),//prior c
-    .PRIOR_D(PRIOR_D),//prior d
+    .OOD(OOD),        // Object out data
+    .PRIOR_C(PRIOR_C),// Prior c
+    .PRIOR_D(PRIOR_D),// Prior d
     .OBJ1_Z(OBJ1_Z),
     .OBJ2_Z(OBJ2_Z)
 );

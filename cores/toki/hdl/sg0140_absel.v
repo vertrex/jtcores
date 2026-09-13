@@ -88,11 +88,9 @@ always @(posedge clk) begin
     ON_A <= A_OPAQUE;
     ON_B <= B_OPAQUE;
 
-    Q[7:0] <= B_OPAQUE ?
-                 {COL_B_PIXEL[3:0], PIC_B[3:0]} :
-               A_OPAQUE ?
-                 {COL_A_LATCH[3:0], PIC_A[3:0]} :
-                 8'hff;
+    Q[7:0] <= B_OPAQUE ? {COL_B_PIXEL[3:0], PIC_B[3:0]} :
+              A_OPAQUE ? {COL_A_LATCH[3:0], PIC_A[3:0]} :
+                         8'hff;
   end
 end
 
